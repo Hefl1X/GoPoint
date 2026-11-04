@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Точка вне Новосибирска</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #e4f1ee; font-family: 'Nunito', system-ui, sans-serif; color: #17332e">
+<svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
+<rect width="390" height="844" fill="#e4f1ee"/>
+<path d="M0 250 Q150 270 390 225" stroke="#ffffff" stroke-width="16" fill="none"/>
+<path d="M110 190 Q140 300 130 440" stroke="#ffffff" stroke-width="12" fill="none"/>
+<path d="M0 420 Q150 380 390 420" stroke="#b9d9e6" stroke-width="26" fill="none"/>
+<path d="M-10 170 C80 150 200 190 260 150 C320 120 370 160 400 150 L400 430 L-10 430 Z" fill="#ffffff" fill-opacity="0.35" stroke="#0f6b5c" stroke-width="3" stroke-dasharray="10 8"/>
+<polygon points="53,120 79,120 66,148" fill="#c2410c" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="66" cy="112" r="16" fill="#c2410c" stroke="#ffffff" stroke-width="3"/>
+<text x="66" y="118" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">Б</text>
+<circle cx="200" cy="320" r="16" fill="#0f6b5c" stroke="#ffffff" stroke-width="3"/>
+<text x="200" y="326" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">А</text>
+</svg>
+<div aria-hidden="true" style="position: absolute; left: 12px; right: 12px; top: 22px; height: 0"></div>
+
+<section style="position: absolute; left: 0; right: 0; bottom: 0; height: 330px; background: #f7fbfa; border-radius: 30px 30px 0 0; box-shadow: 0 -6px 24px rgba(23,51,46,0.16); box-sizing: border-box; padding: 12px 18px 12px; display: flex; flex-direction: column; gap: 10px">
+<div aria-hidden="true" style="width: 44px; height: 5px; border-radius: 3px; background: #b7cbc6; align-self: center"></div>
+<div role="alert" style="display: flex; flex-direction: column; gap: 6px">
+<div aria-hidden="true" style="width: 44px; height: 44px; border-radius: 22px; background: #ffe3d4; color: #8a2d06; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center">!</div>
+<div style="font-size: 24px; font-weight: 800">Точка Б вне Новосибирска</div>
+<div style="font-size: 15px; line-height: 1.4; color: #2f4a44">Маршруты строятся только внутри города. Граница показана зелёным пунктиром. Выберите точку внутри неё.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px">
+<button type="button" style="min-height: 48px; border-radius: 24px; border: 0; background: #0f6b5c; color: #ffffff; font-size: 16px; font-weight: 800; font-family: inherit; cursor: pointer">Выбрать другую точку</button>
+</div>
+<p style="margin: auto 0 0; font-size: 11px; color: #4a625c">© OpenStreetMap contributors</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

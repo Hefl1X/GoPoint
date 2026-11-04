@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>О приложении</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #f7fbfa; font-family: 'Nunito', system-ui, sans-serif; color: #17332e">
+<header style="display: flex; align-items: center; gap: 10px; padding: 14px 12px 8px">
+<button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #e4f1ee; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+</button>
+<h1 style="margin: 0; font-size: 26px; font-weight: 800">О приложении</h1>
+</header>
+
+<div style="padding: 4px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="background: #ffffff; border-radius: 18px; padding: 12px 14px">
+<div style="font-size: 13px; font-weight: 600; color: #3d5650">Приложение</div>
+<div style="font-size: 15px; font-weight: 600; line-height: 1.4">GoPoint · Версия [номер версии]</div>
+</div>
+<div style="background: #ffffff; border-radius: 18px; padding: 12px 14px">
+<div style="font-size: 13px; font-weight: 600; color: #3d5650">Что значит «время ориентировочное»</div>
+<div style="font-size: 15px; font-weight: 600; line-height: 1.4">Время считается по движению транспорта сейчас. Пробки впереди учитываются только после того, как транспорт замедлился. Состояние тротуаров не гарантируется: маршрут пешком построен по данным карты.</div>
+</div>
+<div style="background: #ffffff; border-radius: 18px; padding: 12px 14px">
+<div style="font-size: 13px; font-weight: 600; color: #3d5650">Источники</div>
+<div style="font-size: 15px; font-weight: 600; line-height: 1.4">Данные о транспорте: ЦУГАЭТ. Карта и поиск адресов: © OpenStreetMap contributors.</div>
+</div>
+<div style="background: #ffffff; border-radius: 18px; padding: 12px 14px">
+<div style="font-size: 13px; font-weight: 600; color: #3d5650">Ваше местоположение</div>
+<div style="font-size: 15px; font-weight: 600; line-height: 1.4">Определяется только по кнопке и нигде не сохраняется.</div>
+</div>
+</div>
+
+<nav aria-label="Разделы приложения" style="position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: #ffffff; box-shadow: 0 -2px 12px rgba(23,51,46,0.14); display: flex; z-index: 10"><button type="button" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #4a625c"><span style="width: 56px; height: 30px; border-radius: 15px; background: transparent; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a625c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg></span><span style="font-size: 12px; font-weight: 800">Карта</span></button><button type="button" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #4a625c"><span style="width: 56px; height: 30px; border-radius: 15px; background: transparent; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a625c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r="0.6"/><circle cx="16" cy="14" r="0.6"/></svg></span><span style="font-size: 12px; font-weight: 800">Транспорт</span></button><button type="button" aria-current="page" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #0f4a40"><span style="width: 56px; height: 30px; border-radius: 15px; background: #d7efe0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg></span><span style="font-size: 12px; font-weight: 800">Настройки</span></button></nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

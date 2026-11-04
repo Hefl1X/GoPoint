@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Вид на компьютере</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; background: #e4f1ee; font-family: 'Nunito', system-ui, sans-serif; color: #17332e; display: flex">
+<aside style="width: 420px; flex: none; height: 800px; box-sizing: border-box; background: #f7fbfa; box-shadow: 4px 0 24px rgba(23,51,46,0.14); padding: 20px 18px; display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 2; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg role="img" aria-label="Иконка приложения" width="40" height="40" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="112" fill="#0f6b5c"/>
+<polygon points="162,262 350,262 256,432" fill="#ffffff"/>
+<circle cx="256" cy="214" r="106" fill="#ffffff"/>
+<circle cx="260" cy="166" r="14" fill="#0f6b5c"/>
+<path d="M260 188V226H298L316 262M238 206A40 40 0 1 0 292 270" fill="none" stroke="#0f6b5c" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span style="font-size: 22px; font-weight: 800">GoPoint</span>
+<span style="margin-left: auto; font-size: 13px; color: #3d5650">Транспорт · Настройки</span>
+</div>
+
+<form style="background: #ffffff; border-radius: 26px; box-shadow: 0 4px 16px rgba(23,51,46,0.12); padding: 10px 10px 10px 12px; display: flex; align-items: center; gap: 8px; margin: 0">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<label style="display: flex; align-items: center; gap: 8px">
+<span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 12px; background: #0f6b5c; color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">А</span>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Откуда</span>
+<input type="text" value="НГУ, ул. Пирогова" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; border: 0; background: #f0f6f4; border-radius: 23px; padding: 0 16px; font-size: 16px; font-family: inherit; color: #17332e">
+</label>
+<label style="display: flex; align-items: center; gap: 8px">
+<span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 7px; background: #c2410c; color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">Б</span>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Куда</span>
+<input type="text" value="Вокзал Новосибирск-Главный" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; border: 0; background: #f0f6f4; border-radius: 23px; padding: 0 16px; font-size: 16px; font-family: inherit; color: #17332e">
+</label>
+</div>
+<button type="button" aria-label="Поменять точки А и Б местами" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #e4f1ee; flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v16M4 16l4 4 4-4M16 20V4M12 8l4-4 4 4"/></svg>
+</button>
+</form>
+
+<div style="background: #0f6b5c; color: #ffffff; border-radius: 22px; padding: 12px 16px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-size: 14px; font-weight: 600">Выехать сейчас · 13:10</span>
+</div>
+<div style="font-size: 32px; font-weight: 800; line-height: 1.1">Автобус 8 · 4 мин</div>
+<div style="font-size: 14px; margin-top: 2px">Приедете в 13:51 · 41 минута в пути · 1 пересадка</div>
+<div style="margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; background: #d7efe0; color: #0f3d34; font-size: 13px; font-weight: 800; border-radius: 14px; padding: 4px 10px">
+Построен только по низкопольным рейсам
+</div>
+</div>
+
+<div role="img" aria-label="Шкала времени: пешком 6 минут, ожидание 4, автобус 12, ожидание пересадки 4, трамвай 11, пешком 4" style="display: flex; height: 20px; gap: 2px">
+<div style="flex: 6; background: #17332e; border-radius: 8px 3px 3px 8px"></div>
+<div style="flex: 4; background: repeating-linear-gradient(45deg, #8aa09a 0 4px, #ffffff 4px 8px); border: 1px solid #5f7a73; box-sizing: border-box; border-radius: 3px"></div>
+<div style="flex: 12; background: #1d4ed8; border-radius: 3px"></div>
+<div style="flex: 4; background: repeating-linear-gradient(45deg, #8aa09a 0 4px, #ffffff 4px 8px); border: 1px solid #5f7a73; box-sizing: border-box; border-radius: 3px"></div>
+<div style="flex: 11; background: #b4236b; border-radius: 3px"></div>
+<div style="flex: 4; background: #17332e; border-radius: 3px 8px 8px 3px"></div>
+</div>
+
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+<li style="display: flex; align-items: center; gap: 12px; background: #ffffff; border-radius: 18px; padding: 6px 12px; min-height: 44px">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex: none">пеш.</span>
+<span style="flex: 1; font-size: 15px; font-weight: 600">Пешком до остановки «Университет»</span>
+<span style="font-size: 15px; font-weight: 800">6 мин</span>
+</li>
+<li style="display: flex; align-items: center; gap: 12px; background: #ffffff; border-radius: 18px; padding: 6px 12px; min-height: 44px">
+<span aria-hidden="true" style="min-width: 40px; height: 34px; border-radius: 17px; background: #1d4ed8; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex: none">8</span>
+<span style="flex: 1; font-size: 15px; font-weight: 600">Автобус, 7 остановок<br><span style="font-size: 13px; font-weight: 400; color: #3d5650">подъезжает, ≈ 4 мин</span></span>
+<span style="font-size: 15px; font-weight: 800">16 мин</span>
+</li>
+<li style="display: flex; align-items: center; gap: 12px; background: #ffffff; border-radius: 18px; padding: 6px 12px; min-height: 44px">
+<span aria-hidden="true" style="min-width: 40px; height: 34px; border-radius: 17px; background: #b4236b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex: none">2</span>
+<span style="flex: 1; font-size: 15px; font-weight: 600">Трамвай, 5 остановок<br><span style="font-size: 13px; font-weight: 400; color: #3d5650">пересадка с запасом 4 мин</span></span>
+<span style="font-size: 15px; font-weight: 800">15 мин</span>
+</li>
+<li style="display: flex; align-items: center; gap: 12px; background: #ffffff; border-radius: 18px; padding: 6px 12px; min-height: 44px">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex: none">пеш.</span>
+<span style="flex: 1; font-size: 15px; font-weight: 600">Пешком до вокзала</span>
+<span style="font-size: 15px; font-weight: 800">4 мин</span>
+</li>
+</ol>
+<p style="margin: 0; font-size: 12px; line-height: 1.4; color: #3d5650">Время ориентировочное, без учёта пробок впереди. Маршрут построен по данным карты, состояние тротуаров не гарантируется.</p>
+<p style="margin: auto 0 0; font-size: 11px; color: #4a625c">© OpenStreetMap contributors</p>
+</aside>
+
+<div style="position: relative; flex: 1; height: 800px">
+<svg aria-hidden="true" width="860" height="800" viewBox="0 0 860 800" style="position: absolute; left: 0; top: 0">
+<rect width="860" height="800" fill="#e4f1ee"/>
+<ellipse cx="700" cy="300" rx="140" ry="80" fill="#c9e4c5"/>
+<path d="M0 300 Q300 340 860 260" stroke="#ffffff" stroke-width="20" fill="none"/>
+<path d="M0 500 Q400 470 860 520" stroke="#ffffff" stroke-width="14" fill="none"/>
+<path d="M200 0 Q250 300 230 800" stroke="#ffffff" stroke-width="16" fill="none"/>
+<path d="M560 0 Q600 300 570 800" stroke="#ffffff" stroke-width="12" fill="none"/>
+<path d="M0 650 Q300 600 860 660" stroke="#b9d9e6" stroke-width="34" fill="none"/>
+<path d="M140 470 Q260 480 290 340 Q420 320 640 280" fill="none" stroke="#0f6b5c" stroke-width="8" stroke-linecap="round"/>
+<circle cx="140" cy="470" r="18" fill="#0f6b5c" stroke="#ffffff" stroke-width="3"/>
+<text x="140" y="477" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">А</text>
+<polygon points="625,262 655,262 640,294" fill="#c2410c" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="640" cy="252" r="18" fill="#c2410c" stroke="#ffffff" stroke-width="3"/>
+<text x="640" y="259" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">Б</text>
+<g><rect x="212" y="440" width="36" height="24" rx="12" fill="#1d4ed8" stroke="#ffffff" stroke-width="2.5"/><text x="230" y="457" text-anchor="middle" font-size="13" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">8</text></g><g><rect x="452" y="300" width="36" height="24" rx="12" fill="#b4236b" stroke="#ffffff" stroke-width="2.5"/><text x="470" y="317" text-anchor="middle" font-size="13" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">2</text></g><g><rect x="312" y="224" width="36" height="24" rx="12" fill="#6b7f79" stroke="#ffffff" stroke-width="2.5"/><text x="330" y="241" text-anchor="middle" font-size="13" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">13</text></g><g><rect x="512" y="548" width="36" height="24" rx="12" fill="#6b7f79" stroke="#ffffff" stroke-width="2.5"/><text x="530" y="565" text-anchor="middle" font-size="13" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">4</text></g></svg>
+<button type="button" aria-label="Показать моё местоположение" style="position: absolute; right: 16px; top: 16px; width: 48px; height: 48px; border-radius: 24px; border: 0; background: #ffffff; box-shadow: 0 4px 14px rgba(23,51,46,0.18); display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

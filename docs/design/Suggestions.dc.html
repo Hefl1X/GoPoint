@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Подсказки адреса</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #f7fbfa; font-family: 'Nunito', system-ui, sans-serif; color: #17332e">
+<form style="position: absolute; left: 12px; right: 12px; top: 22px; background: #ffffff; border-radius: 26px; box-shadow: 0 6px 20px rgba(23,51,46,0.15); padding: 10px 10px 10px 12px; display: flex; align-items: center; gap: 8px; margin: 0">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<label style="display: flex; align-items: center; gap: 8px">
+<span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 12px; background: #0f6b5c; color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">А</span>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Откуда</span>
+<input type="text" value="НГУ, ул. Пирогова" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; border: 0; background: #f0f6f4; border-radius: 23px; padding: 0 16px; font-size: 16px; font-family: inherit; color: #17332e">
+</label>
+<label style="display: flex; align-items: center; gap: 8px">
+<span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 7px; background: #c2410c; color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">Б</span>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Куда</span>
+<input type="text" value="Вокзал" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; border: 2px solid #0f6b5c; background: #ffffff; border-radius: 23px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #17332e">
+</label>
+</div>
+<button type="button" aria-label="Закрыть поиск" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #e4f1ee; flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+</button>
+</form>
+
+<div role="listbox" aria-label="Подсказки" style="position: absolute; left: 12px; right: 12px; top: 148px; display: flex; flex-direction: column; gap: 6px">
+<button type="button" style="display: flex; align-items: center; gap: 12px; min-height: 54px; border: 0; background: #ffffff; border-radius: 18px; padding: 6px 14px; font-family: inherit; text-align: left; cursor: pointer; color: #17332e">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f6b5c" stroke-width="2.2" stroke-linecap="round" style="flex: none"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+<span style="font-size: 15px; font-weight: 800">Моё местоположение</span>
+</button>
+<button type="button" style="display: flex; align-items: center; gap: 12px; min-height: 54px; border: 0; background: #ffffff; border-radius: 18px; padding: 6px 14px; font-family: inherit; text-align: left; cursor: pointer; color: #17332e">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f6b5c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></svg>
+<span style="font-size: 15px; font-weight: 800">Выбрать на карте</span>
+</button>
+<div style="height: 6px"></div>
+<button type="button" role="option" style="display: flex; align-items: center; gap: 12px; min-height: 58px; border: 0; background: #ffffff; border-radius: 18px; padding: 6px 14px; font-family: inherit; text-align: left; cursor: pointer; color: #17332e">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; flex: none; font-size: 11px; font-weight: 800">адрес</span>
+<span style="flex: 1"><span style="font-size: 15px; font-weight: 800"><b style="color: #0f6b5c">Вокзал</b> Новосибирск-Главный</span><br><span style="font-size: 13px; color: #3d5650">Новосибирск, Привокзальная площадь</span></span>
+</button>
+<button type="button" role="option" style="display: flex; align-items: center; gap: 12px; min-height: 58px; border: 0; background: #ffffff; border-radius: 18px; padding: 6px 14px; font-family: inherit; text-align: left; cursor: pointer; color: #17332e">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; flex: none; font-size: 11px; font-weight: 800">ост.</span>
+<span style="flex: 1"><span style="font-size: 15px; font-weight: 800">Остановка «<b style="color: #0f6b5c">Вокзал</b>»</span><br><span style="font-size: 13px; color: #3d5650">Новосибирск, остановка транспорта</span></span>
+</button>
+<button type="button" role="option" style="display: flex; align-items: center; gap: 12px; min-height: 58px; border: 0; background: #ffffff; border-radius: 18px; padding: 6px 14px; font-family: inherit; text-align: left; cursor: pointer; color: #17332e">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; flex: none; font-size: 11px; font-weight: 800">адрес</span>
+<span style="flex: 1"><span style="font-size: 15px; font-weight: 800">Привокзальная площадь, 1а</span><br><span style="font-size: 13px; color: #3d5650">Новосибирск</span></span>
+</button>
+</div>
+<p style="position: absolute; left: 18px; bottom: 16px; margin: 0; font-size: 11px; color: #4a625c">Поиск адресов: © OpenStreetMap contributors</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

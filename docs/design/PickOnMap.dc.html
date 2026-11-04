@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Выбор точки на карте</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #e4f1ee; font-family: 'Nunito', system-ui, sans-serif; color: #17332e">
+<svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
+<rect width="390" height="844" fill="#e4f1ee"/>
+<ellipse cx="320" cy="560" rx="90" ry="60" fill="#c9e4c5"/>
+<path d="M0 300 Q150 320 390 275" stroke="#ffffff" stroke-width="18" fill="none"/>
+<path d="M0 460 Q200 440 390 455" stroke="#ffffff" stroke-width="12" fill="none"/>
+<path d="M110 120 Q140 400 130 700" stroke="#ffffff" stroke-width="14" fill="none"/>
+<path d="M280 120 Q300 400 270 700" stroke="#ffffff" stroke-width="10" fill="none"/>
+<path d="M0 620 Q150 580 390 620" stroke="#b9d9e6" stroke-width="28" fill="none"/>
+<ellipse cx="195" cy="398" rx="22" ry="7" fill="#17332e" fill-opacity="0.25"/>
+<polygon points="182,370 208,370 195,398" fill="#c2410c" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="195" cy="362" r="18" fill="#c2410c" stroke="#ffffff" stroke-width="3"/>
+<text x="195" y="369" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">Б</text>
+</svg>
+
+<div style="position: absolute; left: 12px; right: 12px; top: 22px; display: flex; align-items: center; gap: 10px; background: #ffffff; border-radius: 26px; box-shadow: 0 6px 20px rgba(23,51,46,0.15); padding: 8px 18px 8px 8px">
+<button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #e4f1ee; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+</button>
+<div>
+<div style="font-size: 17px; font-weight: 800">Выберите точку Б</div>
+<div style="font-size: 13px; color: #3d5650">Двигайте карту, булавка остаётся на месте</div>
+</div>
+</div>
+
+<button type="button" aria-label="Показать моё местоположение" style="position: absolute; right: 12px; bottom: 214px; width: 48px; height: 48px; border-radius: 24px; border: 0; background: #ffffff; box-shadow: 0 4px 14px rgba(23,51,46,0.18); display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+</button>
+
+<section style="position: absolute; left: 0; right: 0; bottom: 0; height: 190px; background: #f7fbfa; border-radius: 30px 30px 0 0; box-shadow: 0 -6px 24px rgba(23,51,46,0.16); box-sizing: border-box; padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 10px">
+<div role="status">
+<div style="font-size: 13px; font-weight: 600; color: #3d5650">Адрес точки Б</div>
+<div style="font-size: 18px; font-weight: 800">Привокзальная площадь, 1а</div>
+</div>
+<button type="button" style="min-height: 48px; border-radius: 24px; border: 0; background: #0f6b5c; color: #ffffff; font-size: 16px; font-weight: 800; font-family: inherit; cursor: pointer">Выбрать эту точку</button>
+<p style="margin: auto 0 0; font-size: 11px; color: #4a625c">© OpenStreetMap contributors</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

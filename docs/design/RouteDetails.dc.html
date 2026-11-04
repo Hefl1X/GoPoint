@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Шаги маршрута</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #e4f1ee; font-family: 'Nunito', system-ui, sans-serif; color: #17332e">
+<svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
+<rect width="390" height="844" fill="#e4f1ee"/>
+<path d="M0 120 Q150 140 390 95" stroke="#ffffff" stroke-width="14" fill="none"/>
+<path d="M60 150 Q130 150 150 90 Q220 80 300 70" fill="none" stroke="#0f6b5c" stroke-width="7" stroke-linecap="round"/>
+</svg>
+
+<section style="position: absolute; left: 0; right: 0; bottom: 0; height: 760px; background: #f7fbfa; border-radius: 30px 30px 0 0; box-shadow: 0 -6px 24px rgba(23,51,46,0.16); box-sizing: border-box; padding: 12px 14px 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+<div aria-hidden="true" style="width: 44px; height: 5px; border-radius: 3px; background: #b7cbc6; align-self: center"></div>
+
+<div style="display: flex; align-items: center; gap: 10px">
+<button type="button" aria-label="Свернуть" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #e4f1ee; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+</button>
+<div>
+<div style="font-size: 24px; font-weight: 800">Автобус 8 · 4 мин</div>
+<div style="font-size: 13px; color: #3d5650">Приедете в 13:51 · 41 мин в пути · 1 пересадка</div>
+</div>
+</div>
+
+<div style="display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; background: #d7efe0; color: #0f3d34; font-size: 13px; font-weight: 800; border-radius: 14px; padding: 4px 10px">
+Построен только по низкопольным рейсам
+</div>
+
+<div role="img" aria-label="Шкала времени: пешком 6 минут, ожидание 4, автобус 12, ожидание пересадки 4, трамвай 11, пешком 4" style="display: flex; height: 18px; gap: 2px">
+<div style="flex: 6; background: #17332e; border-radius: 8px 3px 3px 8px"></div>
+<div style="flex: 4; background: repeating-linear-gradient(45deg, #8aa09a 0 4px, #ffffff 4px 8px); border: 1px solid #5f7a73; box-sizing: border-box; border-radius: 3px"></div>
+<div style="flex: 12; background: #1d4ed8; border-radius: 3px"></div>
+<div style="flex: 4; background: repeating-linear-gradient(45deg, #8aa09a 0 4px, #ffffff 4px 8px); border: 1px solid #5f7a73; box-sizing: border-box; border-radius: 3px"></div>
+<div style="flex: 11; background: #b4236b; border-radius: 3px"></div>
+<div style="flex: 4; background: #17332e; border-radius: 3px 8px 8px 3px"></div>
+</div>
+
+<ol style="list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+<li style="display: flex; gap: 12px; background: #ffffff; border-radius: 18px; padding: 10px 12px">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex: none">пеш.</span>
+<div style="flex: 1">
+<div style="font-size: 15px; font-weight: 800">Пешком до остановки «Университет»</div>
+<div style="font-size: 13px; color: #3d5650">≈ 450 м · 6 мин</div>
+</div>
+</li>
+<li style="display: flex; gap: 12px; background: #ffffff; border-radius: 18px; padding: 10px 12px">
+<span aria-hidden="true" style="min-width: 40px; height: 34px; border-radius: 17px; background: #1d4ed8; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex: none">8</span>
+<div style="flex: 1">
+<div style="font-size: 15px; font-weight: 800">Автобус 8, в сторону [конечная]</div>
+<div style="font-size: 13px; color: #2f4a44; line-height: 1.4">Посадка на «Университет» ≈ в 13:20, низкий пол<br>Выйти на «Площадь Маркса», 7 остановок · 12 мин</div>
+<div style="margin-top: 4px; display: inline-block; background: #eef2f6; border: 1px solid #aebbc7; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: 800">автобус в 2 остановках от вас</div>
+</div>
+</li>
+<li style="display: flex; gap: 12px; background: #ffffff; border-radius: 18px; padding: 10px 12px">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex: none">пеш.</span>
+<div style="flex: 1">
+<div style="font-size: 15px; font-weight: 800">Пересадка: пройти к остановке трамвая</div>
+<div style="font-size: 13px; color: #3d5650">≈ 120 м · запас на пересадку 4 мин</div>
+</div>
+</li>
+<li style="display: flex; gap: 12px; background: #ffffff; border-radius: 18px; padding: 10px 12px">
+<span aria-hidden="true" style="min-width: 40px; height: 34px; border-radius: 17px; background: #b4236b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex: none">2</span>
+<div style="flex: 1">
+<div style="font-size: 15px; font-weight: 800">Трамвай 2, в сторону [конечная]</div>
+<div style="font-size: 13px; color: #2f4a44; line-height: 1.4">Посадка ≈ в 13:36, низкий пол<br>Выйти на «Вокзал», 5 остановок · 11 мин</div>
+<div style="margin-top: 4px; display: inline-block; background: #eef2f6; border: 1px solid #aebbc7; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: 800">трамвай в 5 остановках от вас</div>
+</div>
+</li>
+<li style="display: flex; gap: 12px; background: #ffffff; border-radius: 18px; padding: 10px 12px">
+<span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 17px; background: #e4f1ee; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex: none">пеш.</span>
+<div style="flex: 1">
+<div style="font-size: 15px; font-weight: 800">Пешком до вокзала</div>
+<div style="font-size: 13px; color: #3d5650">≈ 280 м · 4 мин · прибытие в 13:51</div>
+</div>
+</li>
+</ol>
+
+<p style="margin: 0; font-size: 12px; line-height: 1.4; color: #3d5650">Время ориентировочное, без учёта пробок впереди. Маршрут построен по данным карты, состояние тротуаров не гарантируется.</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

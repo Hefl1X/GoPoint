@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Настройки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #f7fbfa; font-family: 'Nunito', system-ui, sans-serif; color: #17332e">
+<header style="display: flex; align-items: center; gap: 10px; padding: 14px 12px 8px">
+<button type="button" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #e4f1ee; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+</button>
+<h1 style="margin: 0; font-size: 26px; font-weight: 800">Настройки</h1>
+</header>
+
+<div style="padding: 4px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="background: #ffffff; border-radius: 18px; padding: 12px 14px; display: flex; align-items: center; gap: 12px">
+<div style="flex: 1">
+<div style="font-size: 15px; font-weight: 800">Низкопольный транспорт</div>
+<div style="font-size: 13px; color: #3d5650">Включено: маршруты и карта только по низкопольным машинам. Выключено: любой транспорт, с пометкой у каждой машины.</div>
+</div>
+<button type="button" role="switch" aria-checked="true" aria-label="Низкопольный транспорт" style="width: 56px; min-height: 48px; border: 0; background: transparent; padding: 0; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center"><span aria-hidden="true" style="position: relative; width: 52px; height: 30px; border-radius: 15px; background: #0f6b5c; display: block"><span style="position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 12px; background: #ffffff"></span></span></button>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 12px 14px; background: #ffffff; border-radius: 18px">
+<legend style="position: absolute; width: 1px; height: 1px; overflow: hidden">Скорость движения</legend>
+<div style="font-size: 15px; font-weight: 800">Скорость движения пешком</div>
+<div style="font-size: 13px; color: #3d5650; margin: 2px 0 8px">От неё зависит время на пеших участках</div>
+<div style="display: flex; gap: 6px">
+<button type="button" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer">Медленно</button>
+<button type="button" aria-pressed="true" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #0f6b5c; color: #ffffff; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer">Обычно</button>
+<button type="button" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer">Быстро</button>
+</div>
+<div style="font-size: 12px; color: #3d5650; margin-top: 6px">Обычно: [N] км/ч (значение подтверждает владелец проекта)</div>
+</fieldset>
+
+<div style="background: #ffffff; border-radius: 18px; padding: 12px 14px; display: flex; align-items: center; gap: 10px">
+<div style="flex: 1">
+<div style="font-size: 15px; font-weight: 800">Запас на пересадку</div>
+<div style="font-size: 13px; color: #3d5650">Время на выход и посадку по аппарели</div>
+</div>
+<div style="display: flex; align-items: center; gap: 6px">
+<button type="button" aria-label="Меньше" style="width: 44px; height: 44px; border-radius: 22px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 22px; font-weight: 800; font-family: inherit; cursor: pointer">−</button>
+<span style="min-width: 54px; text-align: center; font-size: 16px; font-weight: 800">[N] мин</span>
+<button type="button" aria-label="Больше" style="width: 44px; height: 44px; border-radius: 22px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 22px; font-weight: 800; font-family: inherit; cursor: pointer">+</button>
+</div>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 12px 14px; background: #ffffff; border-radius: 18px">
+<legend style="position: absolute; width: 1px; height: 1px; overflow: hidden">Размер текста</legend>
+<div style="font-size: 15px; font-weight: 800; margin-bottom: 8px">Размер текста</div>
+<div style="display: flex; gap: 6px">
+<button type="button" aria-pressed="true" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #0f6b5c; color: #ffffff; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer">Обычный</button>
+<button type="button" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 17px; font-weight: 800; font-family: inherit; cursor: pointer">Крупный</button>
+</div>
+</fieldset>
+
+<fieldset style="border: 0; margin: 0; padding: 12px 14px; background: #ffffff; border-radius: 18px">
+<legend style="position: absolute; width: 1px; height: 1px; overflow: hidden">Тема</legend>
+<div style="font-size: 15px; font-weight: 800; margin-bottom: 8px">Тема</div>
+<div style="display: flex; gap: 6px">
+<button type="button" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer">Светлая</button>
+<button type="button" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer">Тёмная</button>
+<button type="button" aria-pressed="true" style="flex: 1; min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #0f6b5c; color: #ffffff; font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer">Как в системе</button>
+</div>
+</fieldset>
+</div>
+
+<div style="position: absolute; left: 14px; right: 14px; bottom: 80px; display: flex; flex-direction: column; gap: 8px">
+<button type="button" style="min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 16px; font-weight: 800; font-family: inherit; cursor: pointer">Вернуть значения по умолчанию</button>
+</div>
+<nav aria-label="Разделы приложения" style="position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: #ffffff; box-shadow: 0 -2px 12px rgba(23,51,46,0.14); display: flex; z-index: 10"><button type="button" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #4a625c"><span style="width: 56px; height: 30px; border-radius: 15px; background: transparent; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a625c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg></span><span style="font-size: 12px; font-weight: 800">Карта</span></button><button type="button" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #4a625c"><span style="width: 56px; height: 30px; border-radius: 15px; background: transparent; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a625c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r="0.6"/><circle cx="16" cy="14" r="0.6"/></svg></span><span style="font-size: 12px; font-weight: 800">Транспорт</span></button><button type="button" aria-current="page" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #0f4a40"><span style="width: 56px; height: 30px; border-radius: 15px; background: #d7efe0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg></span><span style="font-size: 12px; font-weight: 800">Настройки</span></button></nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+{
+ "routes": [
+  {
+   "id_marsh": "39",
+   "title": "23",
+   "marsh": "23",
+   "typetr": "2",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "39",
+     "time": 0
+    },
+    {
+     "id": "39",
+     "time": 4
+    },
+    {
+     "id": "39",
+     "time": 7
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "293",
+   "title": "34",
+   "marsh": "34",
+   "typetr": "1",
+   "direction": "B",
+   "markers": [
+    {
+     "id": "293",
+     "time": 0
+    },
+    {
+     "id": "293",
+     "time": 28
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "444",
+   "title": "75",
+   "marsh": "75",
+   "typetr": "1",
+   "direction": "B",
+   "markers": [
+    {
+     "id": "444",
+     "time": 8
+    },
+    {
+     "id": "444",
+     "time": 14
+    },
+    {
+     "id": "444",
+     "time": 32
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "290",
+   "title": "3",
+   "marsh": "3",
+   "typetr": "1",
+   "direction": "B",
+   "markers": [
+    {
+     "id": "290",
+     "time": 0
+    },
+    {
+     "id": "290",
+     "time": 20
+    },
+    {
+     "id": "290",
+     "time": 33
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "37",
+   "title": "2",
+   "marsh": "2",
+   "typetr": "2",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "37",
+     "time": 0
+    },
+    {
+     "id": "37",
+     "time": 17
+    },
+    {
+     "id": "37",
+     "time": 25
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "32",
+   "title": "10",
+   "marsh": "10",
+   "typetr": "2",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "32",
+     "time": 0
+    },
+    {
+     "id": "32",
+     "time": 19
+    },
+    {
+     "id": "32",
+     "time": 44
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "8",
+   "title": "21",
+   "marsh": "021",
+   "typetr": "1",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "8",
+     "time": 14
+    },
+    {
+     "id": "8",
+     "time": 34
+    },
+    {
+     "id": "8",
+     "time": 47
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "394",
+   "title": "8",
+   "marsh": "8",
+   "typetr": "1",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "394",
+     "time": 85
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "43",
+   "title": "36",
+   "marsh": "36",
+   "typetr": "2",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "43",
+     "time": 9
+    },
+    {
+     "id": "43",
+     "time": 40
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "406",
+   "title": "54",
+   "marsh": "054",
+   "typetr": "1",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "406",
+     "time": 13
+    },
+    {
+     "id": "406",
+     "time": 41
+    },
+    {
+     "id": "406",
+     "time": 57
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  },
+  {
+   "id_marsh": "363",
+   "title": "19",
+   "marsh": "19",
+   "typetr": "1",
+   "direction": "A",
+   "markers": [
+    {
+     "id": "363",
+     "time": 25
+    }
+   ],
+   "stop_end": "Вокзал \"Новосибирск-Главный\""
+  }
+ ]
+}

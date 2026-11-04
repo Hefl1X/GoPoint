@@ -1,0 +1,37 @@
+# Секреты
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+web/dist/
+web/dev-dist/
+web/playwright-report/
+web/test-results/
+web/coverage/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.import_linter_cache/
+
+# Данные для OpenTripPlanner (большие, скачиваются скриптом)
+data/osm/*
+!data/osm/README.md
+!data/osm/*.sh
+
+# Caddy
+caddy_data/
+caddy_config/
+
+# Личные настройки Claude Code
+.claude/settings.local.json

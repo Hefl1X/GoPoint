@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Маршрут не найден</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #e4f1ee; font-family: 'Nunito', system-ui, sans-serif; color: #17332e">
+<svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
+<rect width="390" height="844" fill="#e4f1ee"/>
+<ellipse cx="320" cy="300" rx="90" ry="50" fill="#c9e4c5"/>
+<path d="M0 250 Q150 270 390 225" stroke="#ffffff" stroke-width="16" fill="none"/>
+<path d="M0 350 Q200 330 390 345" stroke="#ffffff" stroke-width="11" fill="none"/>
+<path d="M110 190 Q140 300 130 440" stroke="#ffffff" stroke-width="12" fill="none"/>
+<path d="M0 420 Q150 380 390 420" stroke="#b9d9e6" stroke-width="26" fill="none"/>
+<circle cx="60" cy="340" r="16" fill="#0f6b5c" stroke="#ffffff" stroke-width="3"/>
+<text x="60" y="346" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">А</text>
+<polygon points="287,208 313,208 300,236" fill="#c2410c" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="300" cy="200" r="16" fill="#c2410c" stroke="#ffffff" stroke-width="3"/>
+<text x="300" y="206" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" font-family="Nunito, sans-serif">Б</text>
+</svg>
+
+<form style="position: absolute; left: 12px; right: 12px; top: 22px; background: #ffffff; border-radius: 26px; box-shadow: 0 6px 20px rgba(23,51,46,0.15); padding: 10px 10px 10px 12px; display: flex; align-items: center; gap: 8px; margin: 0">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<label style="display: flex; align-items: center; gap: 8px">
+<span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 12px; background: #0f6b5c; color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">А</span>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Откуда</span>
+<input type="text" value="НГУ, ул. Пирогова" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; border: 0; background: #f0f6f4; border-radius: 23px; padding: 0 16px; font-size: 16px; font-family: inherit; color: #17332e">
+</label>
+<label style="display: flex; align-items: center; gap: 8px">
+<span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 7px; background: #c2410c; color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">Б</span>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Куда</span>
+<input type="text" value="Вокзал Новосибирск-Главный" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; border: 0; background: #f0f6f4; border-radius: 23px; padding: 0 16px; font-size: 16px; font-family: inherit; color: #17332e">
+</label>
+</div>
+<button type="button" aria-label="Поменять точки А и Б местами" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #e4f1ee; flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v16M4 16l4 4 4-4M16 20V4M12 8l4-4 4 4"/></svg>
+</button>
+</form>
+
+<button type="button" aria-label="Показать моё местоположение" style="position: absolute; right: 12px; top: 152px; width: 48px; height: 48px; border-radius: 24px; border: 0; background: #ffffff; box-shadow: 0 4px 14px rgba(23,51,46,0.18); display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+</button>
+
+<section style="position: absolute; left: 0; right: 0; bottom: 64px; height: 440px; background: #f7fbfa; border-radius: 30px 30px 0 0; box-shadow: 0 -6px 24px rgba(23,51,46,0.16); box-sizing: border-box; padding: 12px 18px 12px; display: flex; flex-direction: column; gap: 10px">
+<div aria-hidden="true" style="width: 44px; height: 5px; border-radius: 3px; background: #b7cbc6; align-self: center"></div>
+<div style="background: #d5dedb; color: #3d5650; border-radius: 22px; padding: 12px 16px"><div style="font-size: 26px; font-weight: 800; line-height: 1.1">Транспорта сейчас нет</div><div style="font-size: 14px; margin-top: 2px">Низкопольных машин на этом пути не видно</div></div>
+
+<div role="status" style="display: flex; flex-direction: column; gap: 6px">
+<div aria-hidden="true" style="width: 44px; height: 44px; border-radius: 22px; background: #e1e8e6; color: #3d5650; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center">?</div>
+<div style="font-size: 24px; font-weight: 800">Маршрут не найден</div>
+<div style="font-size: 15px; line-height: 1.4; color: #2f4a44">Сейчас на линии нет низкопольного транспорта между этими точками. Мы не строим маршрут, если не уверены в нём. Попробуйте позже или выберите другие точки.</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px">
+<button type="button" style="min-height: 48px; border-radius: 24px; border: 0; background: #0f6b5c; color: #ffffff; font-size: 16px; font-weight: 800; font-family: inherit; cursor: pointer">Обновить</button>
+<button type="button" style="min-height: 48px; border-radius: 24px; border: 2px solid #0f6b5c; background: #ffffff; color: #0f4a40; font-size: 16px; font-weight: 800; font-family: inherit; cursor: pointer">Выбрать другие точки</button>
+</div>
+
+<p style="margin: auto 0 0; font-size: 12px; line-height: 1.4; color: #3d5650">Демо: данные введены вручную и могут быть неполными.</p>
+<p style="margin: 0; font-size: 11px; color: #4a625c">© OpenStreetMap contributors</p>
+</section>
+<nav aria-label="Разделы приложения" style="position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: #ffffff; box-shadow: 0 -2px 12px rgba(23,51,46,0.14); display: flex; z-index: 10"><button type="button" aria-current="page" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #0f4a40"><span style="width: 56px; height: 30px; border-radius: 15px; background: #d7efe0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f4a40" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg></span><span style="font-size: 12px; font-weight: 800">Карта</span></button><button type="button" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #4a625c"><span style="width: 56px; height: 30px; border-radius: 15px; background: transparent; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a625c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-4M16 21v-4"/><circle cx="8" cy="14" r="0.6"/><circle cx="16" cy="14" r="0.6"/></svg></span><span style="font-size: 12px; font-weight: 800">Транспорт</span></button><button type="button" style="flex: 1; border: 0; background: transparent; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: #4a625c"><span style="width: 56px; height: 30px; border-radius: 15px; background: transparent; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a625c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg></span><span style="font-size: 12px; font-weight: 800">Настройки</span></button></nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
