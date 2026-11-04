@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     walk_cache_ttl_s: int = Field(default=86_400, ge=60)
 
     # Расчёт маршрута «сейчас». Значения по умолчанию и источники: docs/DECISIONS.md.
-    # Пороги и запасы решает владелец.
+    # Подтверждены владельцем 04.11.2026; менять только с его решения.
     # Скорость машины для расчёта прихода: текущая, но не ниже и не выше этих, км/ч.
     vehicle_min_speed_kmh: float = Field(default=15.0, gt=0)
     vehicle_max_speed_kmh: float = Field(default=40.0, gt=0)
