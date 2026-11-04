@@ -19,7 +19,7 @@
 | Пакет | Лицензия | Зачем |
 |---|---|---|
 | FastAPI, pydantic, pydantic-settings, httpx, uvicorn | MIT / BSD-3 | сервер |
-| pytest, ruff, mypy, import-linter | MIT / BSD-2 | проверки сервера |
+| pytest, pytest-asyncio, ruff, mypy, import-linter | MIT / Apache-2.0 / BSD-2 | проверки сервера |
 | React, react-dom | MIT | интерфейс |
 | @tanstack/react-query | MIT | запросы к серверу, обновление раз в 30 с |
 | zod | MIT | проверка ответов сервера |

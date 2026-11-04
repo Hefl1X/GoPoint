@@ -83,6 +83,13 @@ class Line(DomainModel):
     title: str
 
 
+class Direction(StrEnum):
+    """Направление маршрута: A прямое, B обратное."""
+
+    A = "A"
+    B = "B"
+
+
 class Vehicle(DomainModel):
     """Машина на линии сейчас."""
 
@@ -90,7 +97,7 @@ class Vehicle(DomainModel):
     line_id: str
     type: TransportType
     number: str
-    direction: str
+    direction: Direction
     point: LatLon
     azimuth: int | None = Field(default=None, ge=0, le=360)
     speed_kmh: float | None = Field(default=None, ge=0)
@@ -98,6 +105,51 @@ class Vehicle(DomainModel):
     position_observed_at: datetime = Field(
         description="Служебное: когда машина отметилась (UTC). Интерфейс не показывает."
     )
+
+
+class RouteStop(DomainModel):
+    """Остановка на линии маршрута в порядке движения."""
+
+    order: int = Field(ge=0)
+    stop: Stop
+    point_index: int = Field(ge=0, description="Номер точки линии, где стоит остановка")
+
+
+class LinePath(DomainModel):
+    """Линия маршрута в одном направлении: точки по порядку и остановки на ней."""
+
+    line_id: str
+    direction: Direction
+    points: list[LatLon]
+    stops: list[RouteStop]
+
+
+class VehicleState(StrEnum):
+    """Служебное: что делает машина по данным источника."""
+
+    ON_ROUTE = "on_route"
+    NO_PLAN = "no_plan"
+    PARKED = "parked"
+    LUNCH = "lunch"
+
+
+class PlannedStop(DomainModel):
+    """Служебное: время прохода контрольной остановки по плану машины (UTC)."""
+
+    stop_name: str
+    at: datetime
+
+
+class LiveVehicle(DomainModel):
+    """Машина вместе со служебными сведениями для расчётов (наружу не отдаётся целиком)."""
+
+    vehicle: Vehicle
+    state: VehicleState
+    on_line: bool = Field(description="Показал бы её сайт источника (не отстой, не обед)")
+    stops_passed: int | None = Field(
+        default=None, ge=0, description="Сколько остановок направления уже проехала (±1)"
+    )
+    plan: list[PlannedStop] = Field(default_factory=list)
 
 
 class EtaMethod(StrEnum):

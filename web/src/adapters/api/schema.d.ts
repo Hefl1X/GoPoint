@@ -201,6 +201,12 @@ export interface components {
             southWest: components["schemas"]["LatLon"];
         };
         /**
+         * Direction
+         * @description Направление маршрута: A прямое, B обратное.
+         * @enum {string}
+         */
+        Direction: "A" | "B";
+        /**
          * Eta
          * @description Когда машина придёт на остановку.
          */
@@ -289,15 +295,23 @@ export interface components {
         };
         /** LineDetails */
         LineDetails: {
+            diagnostics: components["schemas"]["SnapshotDiagnostics"];
             /** Directions */
             directions: components["schemas"]["LineDirection"][];
             line: components["schemas"]["Line"];
         };
         /** LineDirection */
         LineDirection: {
-            /** Direction */
-            direction: string;
-            /** Stops */
+            direction: components["schemas"]["Direction"];
+            /**
+             * Path
+             * @description Линия маршрута по порядку движения
+             */
+            path: components["schemas"]["LatLon"][];
+            /**
+             * Stops
+             * @description Остановки по порядку движения
+             */
             stops: components["schemas"]["Stop"][];
             /** Vehicles */
             vehicles: components["schemas"]["Vehicle"][];
@@ -310,6 +324,7 @@ export interface components {
         };
         /** LinesResponse */
         LinesResponse: {
+            diagnostics: components["schemas"]["SnapshotDiagnostics"];
             /** Lines */
             lines: components["schemas"]["LineSummary"][];
         };
@@ -361,6 +376,22 @@ export interface components {
         SearchResponse: {
             /** Places */
             places: components["schemas"]["Place"][];
+        };
+        /**
+         * SnapshotDiagnostics
+         * @description Служебное: когда получен снимок машин. Интерфейс не показывает.
+         */
+        SnapshotDiagnostics: {
+            /**
+             * Complete
+             * @description Источник ответил по всем маршрутам в последний раз
+             */
+            complete: boolean;
+            /**
+             * Fetchedat
+             * Format: date-time
+             */
+            fetchedAt: string;
         };
         /** Stop */
         Stop: {
@@ -415,8 +446,7 @@ export interface components {
         Vehicle: {
             /** Azimuth */
             azimuth?: number | null;
-            /** Direction */
-            direction: string;
+            direction: components["schemas"]["Direction"];
             /** Id */
             id: string;
             /** Lineid */
@@ -443,6 +473,7 @@ export interface components {
         };
         /** VehiclesResponse */
         VehiclesResponse: {
+            diagnostics: components["schemas"]["SnapshotDiagnostics"];
             /** Vehicles */
             vehicles: components["schemas"]["Vehicle"][];
         };

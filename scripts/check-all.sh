@@ -14,8 +14,8 @@ cd "$root/server"
 uv sync --locked --quiet
 
 step "Сервер: стиль (ruff)"
-uv run ruff check app tests
-uv run ruff format --check app tests
+uv run ruff check app tests tools
+uv run ruff format --check app tests tools
 
 step "Сервер: типы (mypy strict)"
 uv run mypy

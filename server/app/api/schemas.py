@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import Field
 
 from app.domain.models import (
     Bounds,
+    Direction,
     DomainModel,
     Eta,
     Journey,
@@ -44,8 +47,16 @@ class RouteResponse(DomainModel):
     journeys: list[Journey] = Field(max_length=3)
 
 
+class SnapshotDiagnostics(DomainModel):
+    """Служебное: когда получен снимок машин. Интерфейс не показывает."""
+
+    fetched_at: datetime
+    complete: bool = Field(description="Источник ответил по всем маршрутам в последний раз")
+
+
 class VehiclesResponse(DomainModel):
     vehicles: list[Vehicle]
+    diagnostics: SnapshotDiagnostics
 
 
 class LineSummary(DomainModel):
@@ -55,17 +66,20 @@ class LineSummary(DomainModel):
 
 class LinesResponse(DomainModel):
     lines: list[LineSummary]
+    diagnostics: SnapshotDiagnostics
 
 
 class LineDirection(DomainModel):
-    direction: str
-    stops: list[Stop]
+    direction: Direction
+    stops: list[Stop] = Field(description="Остановки по порядку движения")
+    path: list[LatLon] = Field(description="Линия маршрута по порядку движения")
     vehicles: list[Vehicle]
 
 
 class LineDetails(DomainModel):
     line: Line
     directions: list[LineDirection]
+    diagnostics: SnapshotDiagnostics
 
 
 class Arrival(DomainModel):

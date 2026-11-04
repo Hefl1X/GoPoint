@@ -1,8 +1,13 @@
 from fastapi.testclient import TestClient
 
+from app.config import Settings
 from app.main import create_app
+from tests.conftest import ManualClock
 
-client = TestClient(create_app())
+# Сервер на сохранённых образцах ЦУГАЭТ, часы стоят на моменте снятия образцов.
+client = TestClient(
+    create_app(Settings(transit_feed="fake"), clock=ManualClock(), start_poller=False)
+)
 
 
 def test_health() -> None:
@@ -40,7 +45,7 @@ def test_validation_error_does_not_echo_input() -> None:
 
 
 def test_not_ready_endpoints_say_so_in_russian() -> None:
-    response = client.get("/api/v1/live/vehicles", params={"lowFloorOnly": "false"})
+    response = client.get("/api/v1/live/vehicles/bus-3-1")
     assert response.status_code == 501
     assert response.json()["code"] == "NOT_IMPLEMENTED"
 

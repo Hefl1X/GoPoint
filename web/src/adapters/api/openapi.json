@@ -99,6 +99,15 @@
         "title": "Bounds",
         "type": "object"
       },
+      "Direction": {
+        "description": "Направление маршрута: A прямое, B обратное.",
+        "enum": [
+          "A",
+          "B"
+        ],
+        "title": "Direction",
+        "type": "string"
+      },
       "Eta": {
         "additionalProperties": false,
         "description": "Когда машина придёт на остановку.",
@@ -282,6 +291,9 @@
       "LineDetails": {
         "additionalProperties": false,
         "properties": {
+          "diagnostics": {
+            "$ref": "#/components/schemas/SnapshotDiagnostics"
+          },
           "directions": {
             "items": {
               "$ref": "#/components/schemas/LineDirection"
@@ -295,7 +307,8 @@
         },
         "required": [
           "line",
-          "directions"
+          "directions",
+          "diagnostics"
         ],
         "title": "LineDetails",
         "type": "object"
@@ -304,10 +317,18 @@
         "additionalProperties": false,
         "properties": {
           "direction": {
-            "title": "Direction",
-            "type": "string"
+            "$ref": "#/components/schemas/Direction"
+          },
+          "path": {
+            "description": "Линия маршрута по порядку движения",
+            "items": {
+              "$ref": "#/components/schemas/LatLon"
+            },
+            "title": "Path",
+            "type": "array"
           },
           "stops": {
+            "description": "Остановки по порядку движения",
             "items": {
               "$ref": "#/components/schemas/Stop"
             },
@@ -325,6 +346,7 @@
         "required": [
           "direction",
           "stops",
+          "path",
           "vehicles"
         ],
         "title": "LineDirection",
@@ -352,6 +374,9 @@
       "LinesResponse": {
         "additionalProperties": false,
         "properties": {
+          "diagnostics": {
+            "$ref": "#/components/schemas/SnapshotDiagnostics"
+          },
           "lines": {
             "items": {
               "$ref": "#/components/schemas/LineSummary"
@@ -361,7 +386,8 @@
           }
         },
         "required": [
-          "lines"
+          "lines",
+          "diagnostics"
         ],
         "title": "LinesResponse",
         "type": "object"
@@ -487,6 +513,28 @@
         "title": "SearchResponse",
         "type": "object"
       },
+      "SnapshotDiagnostics": {
+        "additionalProperties": false,
+        "description": "Служебное: когда получен снимок машин. Интерфейс не показывает.",
+        "properties": {
+          "complete": {
+            "description": "Источник ответил по всем маршрутам в последний раз",
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "title": "Fetchedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fetchedAt",
+          "complete"
+        ],
+        "title": "SnapshotDiagnostics",
+        "type": "object"
+      },
       "Stop": {
         "additionalProperties": false,
         "properties": {
@@ -598,8 +646,7 @@
             "title": "Azimuth"
           },
           "direction": {
-            "title": "Direction",
-            "type": "string"
+            "$ref": "#/components/schemas/Direction"
           },
           "id": {
             "title": "Id",
@@ -678,6 +725,9 @@
       "VehiclesResponse": {
         "additionalProperties": false,
         "properties": {
+          "diagnostics": {
+            "$ref": "#/components/schemas/SnapshotDiagnostics"
+          },
           "vehicles": {
             "items": {
               "$ref": "#/components/schemas/Vehicle"
@@ -687,7 +737,8 @@
           }
         },
         "required": [
-          "vehicles"
+          "vehicles",
+          "diagnostics"
         ],
         "title": "VehiclesResponse",
         "type": "object"
