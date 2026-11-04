@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     active_window_s: int = Field(default=120, ge=30)
     # Список маршрутов и линии хранятся сутки.
     lines_ttl_s: int = Field(default=86_400, ge=3_600)
-    # Какие виды транспорта берём (маршрутки решает владелец), через запятую.
-    transport_types: str = "bus,trolleybus,tram"
+    # Какие виды транспорта берём, через запятую (маршрутки включены решением владельца 04.11.2026).
+    transport_types: str = "bus,trolleybus,tram,minibus"
 
     # Границы Новосибирска (примерно, уточнить по границе из OpenStreetMap).
     city_south: float = 54.80

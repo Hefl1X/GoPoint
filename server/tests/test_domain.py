@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from app.config import Settings
 from app.domain.models import (
     Accessibility,
     Bounds,
@@ -84,3 +85,8 @@ def test_json_uses_camel_case() -> None:
     dumped = walk.model_dump(by_alias=True)
     assert "distanceM" in dumped
     assert "durationS" in dumped
+
+
+def test_all_four_transport_types_polled_by_default() -> None:
+    # Маршрутки включены решением владельца 4 ноября 2026.
+    assert Settings().transport_type_set == frozenset(TransportType)
