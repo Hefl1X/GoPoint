@@ -1,0 +1,7 @@
+dist
+dev-dist
+coverage
+playwright-report
+test-results
+src/adapters/api/openapi.json
+src/adapters/api/schema.d.ts

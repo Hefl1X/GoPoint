@@ -1,0 +1,37 @@
+# Caddy: раздаёт сайт и передаёт /api на сервер. Наружу открыт только он.
+# Адрес сайта задаётся в .env (GOPOINT_SITE_ADDRESS):
+#   на Mac   :80            (обычный HTTP в домашней сети)
+#   на VPS   gopoint.example (Caddy сам получит HTTPS-сертификат)
+{
+	admin off
+}
+
+{$GOPOINT_SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# Не пишем в журнал адреса запросов: в них могут быть координаты пользователей.
+	log {
+		output discard
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy server:8000
+	}
+
+	handle /health {
+		reverse_proxy server:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,0 +1,72 @@
+[project]
+name = "gopoint-server"
+version = "0.1.0"
+description = "Сервер GoPoint: транспорт Новосибирска на линии и маршруты"
+requires-python = "==3.12.*"
+dependencies = [
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.2",
+    "pydantic-settings>=2.16.2",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "A", "S", "SIM", "RUF", "PL", "BLE"]
+ignore = [
+  "RUF001", "RUF002", "RUF003", # кириллица в строках и комментариях допустима
+  "PLR2004",                     # числа в тестах
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+"app/api/errors.py" = ["S101"]
+"app/api/v1.py" = ["ARG001"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -m 'not network'"
+markers = ["network: тесты с настоящей сетью, запускаются вручную"]
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "domain не знает про адаптеры, сервисы, API и сеть"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = ["app.adapters", "app.services", "app.api", "app.ports", "app.config", "fastapi", "httpx"]
+
+[[tool.importlinter.contracts]]
+name = "сеть и сторонние сервисы только в adapters"
+type = "forbidden"
+source_modules = ["app.domain", "app.ports", "app.services", "app.api", "app.config"]
+forbidden_modules = ["httpx"]
+
+[[tool.importlinter.contracts]]
+name = "порты и сервисы не зависят от адаптеров"
+type = "forbidden"
+source_modules = ["app.ports", "app.services", "app.domain"]
+forbidden_modules = ["app.adapters"]

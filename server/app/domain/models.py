@@ -1,0 +1,170 @@
+"""Модели предметной области GoPoint.
+
+Здесь нет сети, адаптеров и FastAPI: только данные и правила.
+Координаты всегда объект LatLon {lat, lon}, не массив.
+Имена полей в JSON пишутся в camelCase (lowFloor, arriveAt), в Python в snake_case.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from enum import StrEnum
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
+
+
+class DomainModel(BaseModel):
+    """Общая база: camelCase в JSON, неизменяемые объекты, лишние поля запрещены."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        frozen=True,
+        extra="forbid",
+    )
+
+
+class LatLon(DomainModel):
+    """Точка на карте. Широта и долгота в градусах WGS 84."""
+
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+
+
+class Bounds(DomainModel):
+    """Прямоугольник на карте: юго-западный и северо-восточный углы."""
+
+    south_west: LatLon
+    north_east: LatLon
+
+    def contains(self, point: LatLon) -> bool:
+        return (
+            self.south_west.lat <= point.lat <= self.north_east.lat
+            and self.south_west.lon <= point.lon <= self.north_east.lon
+        )
+
+
+class Accessibility(StrEnum):
+    """Низкий пол у машины. unknown никогда не показывается как yes."""
+
+    YES = "yes"
+    NO = "no"
+    UNKNOWN = "unknown"
+
+
+class TransportType(StrEnum):
+    BUS = "bus"
+    TROLLEYBUS = "trolleybus"
+    TRAM = "tram"
+    MINIBUS = "minibus"
+
+
+class Place(DomainModel):
+    """Точка А или Б: адрес, место или точка, выбранная на карте."""
+
+    name: str | None = None
+    point: LatLon
+
+
+class Stop(DomainModel):
+    id: str
+    name: str
+    point: LatLon
+
+
+class Line(DomainModel):
+    """Маршрут транспорта (например, автобус 13). Номера повторяются у разных видов."""
+
+    id: str
+    type: TransportType
+    number: str
+    title: str
+
+
+class Vehicle(DomainModel):
+    """Машина на линии сейчас."""
+
+    id: str
+    line_id: str
+    type: TransportType
+    number: str
+    direction: str
+    point: LatLon
+    azimuth: int | None = Field(default=None, ge=0, le=360)
+    speed_kmh: float | None = Field(default=None, ge=0)
+    low_floor: Accessibility
+    position_observed_at: datetime = Field(
+        description="Служебное: когда машина отметилась (UTC). Интерфейс не показывает."
+    )
+
+
+class EtaMethod(StrEnum):
+    """Служебное: как посчитано время прихода. Интерфейс его не называет."""
+
+    PLANNED = "planned"
+    DISTANCE = "distance"
+
+
+class EtaDiagnostics(DomainModel):
+    """Служебные сведения о расчёте: для логов и тестов, не для экрана."""
+
+    method: EtaMethod
+    position_observed_at: datetime
+
+
+class Eta(DomainModel):
+    """Когда машина придёт на остановку."""
+
+    stop_id: str
+    arrive_at: datetime
+    diagnostics: EtaDiagnostics
+
+
+class WalkLeg(DomainModel):
+    """Пеший участок по профилю коляски."""
+
+    kind: Literal["walk"] = "walk"
+    origin: Place
+    destination: Place
+    distance_m: int = Field(ge=0)
+    duration_s: int = Field(ge=0)
+    geometry: list[LatLon] = Field(default_factory=list)
+
+
+class TransitLeg(DomainModel):
+    """Поездка на конкретной машине."""
+
+    kind: Literal["transit"] = "transit"
+    vehicle_id: str
+    line: Line
+    low_floor: Accessibility
+    board_stop: Stop
+    alight_stop: Stop
+    wait_s: int = Field(ge=0, description="Ожидание машины на остановке посадки")
+    depart_at: datetime
+    arrive_at: datetime
+    diagnostics: EtaDiagnostics
+
+
+Leg = Annotated[WalkLeg | TransitLeg, Field(discriminator="kind")]
+
+
+class Journey(DomainModel):
+    """Один вариант маршрута от А до Б с разбивкой по шагам."""
+
+    legs: list[Leg]
+    depart_at: datetime
+    arrive_at: datetime
+    duration_s: int = Field(ge=0)
+    transfers: int = Field(ge=0)
+    low_floor_only: bool
+
+
+class ApiError(DomainModel):
+    """Единый формат ошибки: код, понятное сообщение по-русски, подробности."""
+
+    code: str
+    message: str
+    details: dict[str, object] | None = None
