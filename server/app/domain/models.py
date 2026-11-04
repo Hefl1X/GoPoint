@@ -221,6 +221,16 @@ class TransitLeg(DomainModel):
     board_stop: Stop
     alight_stop: Stop
     wait_s: int = Field(ge=0, description="Ожидание машины на остановке посадки")
+    stops_count: int = Field(ge=1, description="Сколько остановок ехать до выхода")
+    stops_away: int = Field(
+        ge=0, description="Сколько остановок машине осталось до посадки (0: следующая)"
+    )
+    toward: str | None = Field(
+        default=None, description="Конечная, куда едет машина; null у кольцевых"
+    )
+    geometry: list[LatLon] = Field(
+        default_factory=list, description="Линия маршрута от посадки до выхода"
+    )
     depart_at: datetime
     arrive_at: datetime
     diagnostics: EtaDiagnostics

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { ListMapView } from './adapters/map-list/ListMapView';
 import { createMemoryStore } from './adapters/storage/localStore';
+import type { Journey, RouteCheck, RoutePlan } from './domain/journey';
 import type {
   LineDetails,
   LineSummary,
@@ -101,6 +102,57 @@ export const LINE_DETAILS: LineDetails = {
   ],
 };
 
+/** Через сколько минут от «сейчас» (для времени в ответах-заглушках). */
+export const inMinutes = (minutes: number, from = Date.now()) =>
+  new Date(from + minutes * 60_000).toISOString();
+
+/** Маршрут: пешком 6 мин, автобус 3 (машина bus-3-1) через 4 мин после подхода, пешком 4 мин. */
+export function journey(overrides: Partial<Journey> = {}, start = Date.now()): Journey {
+  return {
+    steps: [
+      {
+        kind: 'walk',
+        fromName: null,
+        toName: 'Университет',
+        distanceM: 290,
+        durationS: 360,
+        geometry: [],
+        hasStairs: false,
+      },
+      {
+        kind: 'ride',
+        vehicleId: 'bus-3-1',
+        line: BUS_3_LINE,
+        lowFloor: 'yes',
+        boardStop: stop('10', 'Университет'),
+        alightStop: stop('11', 'Площадь Маркса'),
+        waitS: 240,
+        stopsCount: 7,
+        stopsAway: 2,
+        toward: 'Северный',
+        departAt: inMinutes(10, start),
+        arriveAt: inMinutes(22, start),
+        geometry: [],
+      },
+      {
+        kind: 'walk',
+        fromName: 'Площадь Маркса',
+        toName: null,
+        distanceM: 190,
+        durationS: 240,
+        geometry: [],
+        hasStairs: false,
+      },
+    ],
+    departAt: inMinutes(0, start),
+    arriveAt: inMinutes(26, start),
+    durationS: 26 * 60,
+    transfers: 0,
+    lowFloorOnly: true,
+    ...overrides,
+  };
+}
+
 export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
   return {
     getMeta: vi.fn(() => Promise.resolve(META)),
@@ -109,6 +161,12 @@ export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
     ),
     getLines: vi.fn(() => Promise.resolve(LINES)),
     getLine: vi.fn(() => Promise.resolve(LINE_DETAILS)),
+    planRoute: vi.fn((_points, lowFloorOnly: boolean): Promise<RoutePlan> =>
+      Promise.resolve({ status: 'ok', journeys: [journey({ lowFloorOnly })] }),
+    ),
+    checkRoute: vi.fn((_points, _low, current: Journey): Promise<RouteCheck> =>
+      Promise.resolve({ status: 'ok', stoppedForS: null, current, alternative: null }),
+    ),
     ...overrides,
   };
 }

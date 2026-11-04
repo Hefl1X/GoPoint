@@ -1158,6 +1158,231 @@ h1:focus {
   }
 }
 
+/* ---------- маршрут «сейчас» (Friendly, RouteDetails, FriendlyRerouted) */
+.route {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.route-hero {
+  padding: 8px 16px 12px;
+  border-radius: 22px;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.route-hero p,
+.route-hero h2 {
+  margin: 0;
+}
+
+.route-hero__leave {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.route-hero__main {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.route-hero__arrive {
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.route-hero .route-hero__plaque {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: var(--yes-bg);
+  color: var(--yes-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.route-hero .route-hero__plaque--warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.route-changed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.route-changed p {
+  margin: 0;
+}
+
+.route-changed__title {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.route-card {
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: var(--card);
+}
+
+.timeline {
+  display: flex;
+  gap: 2px;
+  height: 20px;
+}
+
+.timeline__part {
+  flex-basis: 0;
+  min-width: 6px;
+  border-radius: 3px;
+}
+
+.timeline__part:first-child {
+  border-radius: 8px 3px 3px 8px;
+}
+
+.timeline__part:last-child {
+  border-radius: 3px 8px 8px 3px;
+}
+
+.timeline__part--walk {
+  background: var(--text);
+}
+
+.timeline__part--wait {
+  border: 1px solid #5f7a73;
+  background: repeating-linear-gradient(45deg, #8aa09a 0 4px, #ffffff 4px 8px);
+}
+
+.timeline__part--ride {
+  background: var(--part-color);
+}
+
+.timeline__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 6px 0 0;
+  color: #2f4a44;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.timeline__label::before {
+  content: '■ ';
+}
+
+.timeline__label--wait::before {
+  content: '▨ ';
+}
+
+.timeline__label--ride {
+  color: var(--part-color);
+}
+
+.route-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.route-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border-radius: 18px;
+  background: var(--card);
+}
+
+.route-step .pill {
+  height: 34px;
+  min-width: 40px;
+  border-radius: 17px;
+}
+
+.route-step__icon--walk {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 34px;
+  border-radius: 17px;
+  background: var(--map-bg);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.route-step__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.route-step__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.route-step__sub {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.route-step__time {
+  flex: none;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.route__note {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.route-skeleton {
+  height: 72px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, #c9d5d1 0%, #e2eae7 50%, #c9d5d1 100%);
+  background-size: 200% 100%;
+  animation: route-skeleton 1.4s linear infinite;
+}
+
+@keyframes route-skeleton {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

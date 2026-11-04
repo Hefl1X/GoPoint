@@ -106,6 +106,7 @@ class _Context:
     trips: dict[str, tuple[Trip, LiveVehicle]]
     lines: dict[str, Line]
     low_floor_only: bool
+    network: _Network
 
 
 @dataclass
@@ -298,7 +299,9 @@ class JourneyPlanner:
             self._s.search,
             first_vehicle=first_vehicle,
         )
-        ctx = _Context(now, origin, destination, access, egress, trips, lines, low_floor_only)
+        ctx = _Context(
+            now, origin, destination, access, egress, trips, lines, low_floor_only, network
+        )
         journeys: list[Journey] = []
         for plan in plans:
             journey = await self._journey(plan, ctx)
@@ -387,7 +390,9 @@ class JourneyPlanner:
                 legs.append(walk)
                 ready += timedelta(seconds=walk.duration_s)
                 continue
-            leg = self._transit_leg(step, trips, ctx.lines, ready)
+            leg = self._transit_leg(
+                step, trips, ctx.lines, ready, self._toward(step, ctx), self._ride_path(step, ctx)
+            )
             needed = margin + (transfer_margin if rides else timedelta())
             if ready + needed > leg.depart_at:
                 return None
@@ -407,6 +412,38 @@ class JourneyPlanner:
         )
 
     @staticmethod
+    def _toward(ride: Ride, ctx: _Context) -> str | None:
+        """Конечная направления, куда едет машина. У кольцевых конечной нет."""
+        _, live = ctx.trips[ride.trip.vehicle_id]
+        v = live.vehicle
+        line = ctx.lines.get(v.line_id)
+        if line is not None and line.ring:
+            return None
+        geom = ctx.network.geometry.get((v.line_id, v.direction))
+        if geom is None or not geom.path.stops:
+            return None
+        return geom.path.stops[-1].stop.name
+
+    @staticmethod
+    def _ride_path(ride: Ride, ctx: _Context) -> list[LatLon]:
+        """Кусок линии маршрута от остановки посадки до остановки выхода."""
+        _, live = ctx.trips[ride.trip.vehicle_id]
+        v = live.vehicle
+        geom = ctx.network.geometry.get((v.line_id, v.direction))
+        if geom is None:
+            return []
+        index = {s.order: s.point_index for s in geom.path.stops}
+        start = index.get(ride.trip.calls[ride.board].order)
+        end = index.get(ride.trip.calls[ride.alight].order)
+        if start is None or end is None:
+            return []
+        points = geom.path.points
+        if end >= start:
+            return list(points[start : end + 1])
+        # Кольцевой маршрут: через начало линии.
+        return list(points[start:]) + list(points[: end + 1])
+
+    @staticmethod
     def _stop(stop_id: str, plan: Plan, trips: dict[str, tuple[Trip, LiveVehicle]]) -> Stop:
         for ride in plan.rides:
             for call in ride.trip.calls:
@@ -420,6 +457,8 @@ class JourneyPlanner:
         trips: dict[str, tuple[Trip, LiveVehicle]],
         lines: dict[str, Line],
         ready: datetime,
+        toward: str | None,
+        geometry: list[LatLon],
     ) -> TransitLeg:
         _, live = trips[ride.trip.vehicle_id]
         v = live.vehicle
@@ -433,6 +472,12 @@ class JourneyPlanner:
             board_stop=board.stop,
             alight_stop=alight.stop,
             wait_s=max(0, round((board.arrive_at - ready).total_seconds())),
+            stops_count=max(1, ride.alight - ride.board),
+            # Остановки до посадки, к которым машина ещё не подъехала (уже проеханные
+            # в список не попадают).
+            stops_away=ride.board,
+            toward=toward,
+            geometry=geometry,
             depart_at=board.arrive_at,
             arrive_at=alight.arrive_at,
             diagnostics=EtaDiagnostics(

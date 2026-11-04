@@ -12,7 +12,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { MUTED_COLOR, TYPE_COLOR } from '../../domain/transport';
 import type { Endpoint, LatLon, TransportType } from '../../domain/types';
-import type { MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
+import type { MapJourneyLine, MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
 import { STYLE_URL } from './config';
 
 setWorkerUrl(workerUrl);
@@ -97,6 +97,21 @@ function vehiclesGeoJson(vehicles: readonly MapVehicle[], selectedId: string | n
         geometry: { type: 'Point' as const, coordinates: toLngLat(v.point) },
       };
     }),
+  };
+}
+
+const WALK_COLOR = '#17332e';
+
+function journeyGeoJson(lines: readonly MapJourneyLine[] | undefined) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: (lines ?? [])
+      .filter((l) => l.points.length > 1)
+      .map((l) => ({
+        type: 'Feature' as const,
+        properties: { kind: l.kind, color: l.kind === 'walk' ? WALK_COLOR : l.color },
+        geometry: { type: 'LineString' as const, coordinates: l.points.map(toLngLat) },
+      })),
   };
 }
 
@@ -222,6 +237,23 @@ export function MaplibreMapView(props: MapViewProps) {
         source: 'route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': latest.current.routeColor, 'line-width': 5, 'line-opacity': 0.85 },
+      });
+      map.addSource('journey', { type: 'geojson', data: journeyGeoJson(undefined) });
+      map.addLayer({
+        id: 'journey-ride',
+        type: 'line',
+        source: 'journey',
+        filter: ['==', ['get', 'kind'], 'ride'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 6, 'line-opacity': 0.9 },
+      });
+      map.addLayer({
+        id: 'journey-walk',
+        type: 'line',
+        source: 'journey',
+        filter: ['==', ['get', 'kind'], 'walk'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 4, 'line-dasharray': [1, 1.5] },
       });
       map.addSource('user', { type: 'geojson', data: pointGeoJson(null) });
       map.addLayer({
@@ -353,6 +385,32 @@ export function MaplibreMapView(props: MapViewProps) {
     moveTo(map, center, zoom, !focus.exact);
   }, [focus]);
 
+  // Построен маршрут: карта показывает его целиком между карточкой сверху и панелью снизу.
+  const { fitPoints } = props;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !fitPoints || fitPoints.length === 0) return;
+    let [west, south, east, north] = [180, 90, -180, -90];
+    for (const p of fitPoints) {
+      west = Math.min(west, p.lon);
+      east = Math.max(east, p.lon);
+      south = Math.min(south, p.lat);
+      north = Math.max(north, p.lat);
+    }
+    const height = map.getContainer().clientHeight;
+    map.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      {
+        padding: { top: 150, bottom: Math.round(height * 0.45), left: 40, right: 40 },
+        maxZoom: 16,
+        duration: prefersReducedMotion() ? 0 : 600,
+      },
+    );
+  }, [fitPoints]);
+
   // Выбрали машину: карта переезжает к ней один раз (а не за каждым её движением).
   const { selectedVehicleId } = props;
   const selectedVisible = props.vehicles.some((v) => v.id === selectedVehicleId);
@@ -406,5 +464,6 @@ function sync(map: MapLibreMap, props: MapViewProps): void {
     ?.setData(vehiclesGeoJson(props.vehicles, props.selectedVehicleId));
   void map.getSource<GeoJSONSource>('route')?.setData(lineGeoJson(props.routeLine));
   void map.getSource<GeoJSONSource>('user')?.setData(pointGeoJson(props.userLocation));
+  void map.getSource<GeoJSONSource>('journey')?.setData(journeyGeoJson(props.journeyLines));
   if (map.getLayer('route')) map.setPaintProperty('route', 'line-color', props.routeColor);
 }

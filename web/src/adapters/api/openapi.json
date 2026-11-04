@@ -821,6 +821,14 @@
           "diagnostics": {
             "$ref": "#/components/schemas/EtaDiagnostics"
           },
+          "geometry": {
+            "description": "Линия маршрута от посадки до выхода",
+            "items": {
+              "$ref": "#/components/schemas/LatLon"
+            },
+            "title": "Geometry",
+            "type": "array"
+          },
           "kind": {
             "const": "transit",
             "default": "transit",
@@ -832,6 +840,30 @@
           },
           "lowFloor": {
             "$ref": "#/components/schemas/Accessibility"
+          },
+          "stopsAway": {
+            "description": "Сколько остановок машине осталось до посадки (0: следующая)",
+            "minimum": 0.0,
+            "title": "Stopsaway",
+            "type": "integer"
+          },
+          "stopsCount": {
+            "description": "Сколько остановок ехать до выхода",
+            "minimum": 1.0,
+            "title": "Stopscount",
+            "type": "integer"
+          },
+          "toward": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Конечная, куда едет машина; null у кольцевых",
+            "title": "Toward"
           },
           "vehicleId": {
             "title": "Vehicleid",
@@ -851,6 +883,8 @@
           "boardStop",
           "alightStop",
           "waitS",
+          "stopsCount",
+          "stopsAway",
           "departAt",
           "arriveAt",
           "diagnostics"

@@ -2,6 +2,7 @@
 // в клиенте не зашит, поэтому один и тот же код работает на Mac и на сервере.
 // Каждый ответ проверяется схемой zod: повреждённые данные не ломают интерфейс.
 import { z } from 'zod';
+import { firstRide, type Journey, type JourneyStep } from '../../domain/journey';
 import type {
   LatLon,
   LineDetails,
@@ -17,6 +18,8 @@ import type { components } from './schema';
 const API_BASE = '/api/v1';
 // На слабом интернете не ждём бесконечно.
 const TIMEOUT_MS = 15_000;
+// Первый расчёт маршрута после запуска сервера идёт до ~25 с (грузятся линии).
+const ROUTE_TIMEOUT_MS = 45_000;
 
 type Schemas = components['schemas'];
 
@@ -100,6 +103,57 @@ const reverseSchema = z.object({
   place: placeSchema.nullable(),
 }) satisfies z.ZodType<Schemas['ReverseResponse']>;
 
+const walkLegSchema = z.object({
+  kind: z.literal('walk'),
+  origin: z.object({ name: z.string().nullable().default(null), point: latLon }),
+  destination: z.object({ name: z.string().nullable().default(null), point: latLon }),
+  distanceM: z.number().int().min(0),
+  durationS: z.number().int().min(0),
+  geometry: z.array(latLon).default([]),
+  hasStairs: z.boolean().default(false),
+});
+
+const transitLegSchema = z.object({
+  kind: z.literal('transit'),
+  vehicleId: z.string(),
+  line: lineSchema,
+  lowFloor: accessibility,
+  boardStop: stopSchema,
+  alightStop: stopSchema,
+  waitS: z.number().int().min(0),
+  stopsCount: z.number().int().min(1),
+  stopsAway: z.number().int().min(0),
+  toward: z.string().nullable().default(null),
+  departAt: z.string(),
+  arriveAt: z.string(),
+  geometry: z.array(latLon).default([]),
+});
+
+const journeySchema = z.object({
+  legs: z.array(z.discriminatedUnion('kind', [walkLegSchema, transitLegSchema])).min(1),
+  departAt: z.string(),
+  arriveAt: z.string(),
+  durationS: z.number().int().min(0),
+  transfers: z.number().int().min(0),
+  lowFloorOnly: z.boolean(),
+});
+
+const routeSchema = z.object({
+  journeys: z.array(journeySchema).max(3),
+  status: z.enum(['ok', 'no_transit']),
+  message: z.string().nullable().optional(),
+  diagnostics,
+});
+
+const routeCheckSchema = z.object({
+  status: z.enum(['ok', 'stopped', 'late', 'gone']),
+  stoppedForS: z.number().int().nullable().default(null),
+  current: journeySchema.nullable(),
+  alternative: journeySchema.nullable(),
+  gainS: z.number().int().nullable().optional(),
+  diagnostics,
+});
+
 const apiErrorSchema = z.object({
   code: z.string(),
   message: z.string(),
@@ -110,7 +164,10 @@ const BAD_RESPONSE = 'Сервер прислал непонятный отве�
 const OFFLINE = 'Нет подключения к интернету.';
 const TIMEOUT = 'Сервер долго не отвечает. Попробуйте ещё раз.';
 
-function withTimeout(signal: AbortSignal | undefined): {
+function withTimeout(
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+): {
   signal: AbortSignal;
   timedOut: () => boolean;
   done: () => void;
@@ -120,7 +177,7 @@ function withTimeout(signal: AbortSignal | undefined): {
   const timer = setTimeout(() => {
     expired = true;
     controller.abort();
-  }, TIMEOUT_MS);
+  }, timeoutMs);
   const forward = () => {
     controller.abort();
   };
@@ -136,15 +193,29 @@ function withTimeout(signal: AbortSignal | undefined): {
   };
 }
 
-export async function getJson<T>(
+export function getJson<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
+  return requestJson(path, schema, signal);
+}
+
+async function requestJson<T>(
   path: string,
   schema: z.ZodType<T>,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  init: { method?: string; body?: unknown; timeoutMs?: number } = {},
 ): Promise<T> {
-  const request = withTimeout(signal);
+  const request = withTimeout(signal, init.timeoutMs ?? TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, { signal: request.signal });
+    response = await fetch(`${API_BASE}${path}`, {
+      signal: request.signal,
+      ...(init.body === undefined
+        ? {}
+        : {
+            method: init.method ?? 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(init.body),
+          }),
+    });
   } catch (error) {
     request.done();
     if (request.timedOut()) throw new ApiError(0, 'TIMEOUT', TIMEOUT);
@@ -180,12 +251,92 @@ function toVehicle(v: z.infer<typeof vehicleSchema>): DomainVehicle {
   };
 }
 
+type JourneyBody = z.infer<typeof journeySchema>;
+
+function toJourney(j: JourneyBody): Journey {
+  // Служебные поля (способ расчёта, время снимка) сайту не нужны и не показываются.
+  const steps: JourneyStep[] = j.legs.map((leg) =>
+    leg.kind === 'walk'
+      ? {
+          kind: 'walk',
+          fromName: leg.origin.name,
+          toName: leg.destination.name,
+          distanceM: leg.distanceM,
+          durationS: leg.durationS,
+          geometry: leg.geometry,
+          hasStairs: leg.hasStairs,
+        }
+      : {
+          kind: 'ride',
+          vehicleId: leg.vehicleId,
+          line: leg.line,
+          lowFloor: leg.lowFloor,
+          boardStop: leg.boardStop,
+          alightStop: leg.alightStop,
+          waitS: leg.waitS,
+          stopsCount: leg.stopsCount,
+          stopsAway: leg.stopsAway,
+          toward: leg.toward,
+          departAt: leg.departAt,
+          arriveAt: leg.arriveAt,
+          geometry: leg.geometry,
+        },
+  );
+  return {
+    steps,
+    departAt: j.departAt,
+    arriveAt: j.arriveAt,
+    durationS: j.durationS,
+    transfers: j.transfers,
+    lowFloorOnly: j.lowFloorOnly,
+  };
+}
+
+const point = (p: LatLon) => ({ lat: p.lat, lon: p.lon });
+
 export function fetchMeta(signal?: AbortSignal): Promise<DomainMeta> {
   return getJson('/meta', metaSchema, signal);
 }
 
+const routeApi: Pick<LiveApi, 'planRoute' | 'checkRoute'> = {
+  async planRoute(points, lowFloorOnly, signal) {
+    // Координаты только в теле запроса к своему серверу (не в адресе); сервер их не пишет.
+    const body = await requestJson('/route', routeSchema, signal, {
+      body: {
+        origin: point(points.origin),
+        destination: point(points.destination),
+        lowFloorOnly,
+      },
+      timeoutMs: ROUTE_TIMEOUT_MS,
+    });
+    return { status: body.status, journeys: body.journeys.map(toJourney) };
+  },
+
+  async checkRoute(points, lowFloorOnly, journey, plannedArriveAt, signal) {
+    const ride = firstRide(journey);
+    if (!ride) throw new ApiError(0, 'BAD_REQUEST', BAD_RESPONSE);
+    const body = await requestJson('/route/check', routeCheckSchema, signal, {
+      body: {
+        origin: point(points.origin),
+        destination: point(points.destination),
+        lowFloorOnly,
+        vehicleId: ride.vehicleId,
+        plannedArriveAt,
+      },
+      timeoutMs: ROUTE_TIMEOUT_MS,
+    });
+    return {
+      status: body.status,
+      stoppedForS: body.stoppedForS,
+      current: body.current ? toJourney(body.current) : null,
+      alternative: body.alternative ? toJourney(body.alternative) : null,
+    };
+  },
+};
+
 export const httpLiveApi: LiveApi = {
   getMeta: fetchMeta,
+  ...routeApi,
 
   async getVehicles(lowFloorOnly, signal) {
     const query = new URLSearchParams({ lowFloorOnly: String(lowFloorOnly) });

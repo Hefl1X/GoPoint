@@ -3,6 +3,7 @@
 // (refetchIntervalInBackground: false). Устаревшие данные не показываются.
 import { onlineManager, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
+import type { Journey, RouteCheck, RoutePlan, RoutePoints } from '../domain/journey';
 import type { LineDetails, LineSummary, Meta, Vehicle } from '../domain/types';
 import { useServices } from './services';
 
@@ -91,4 +92,63 @@ export function useOnline(): boolean {
     (onChange) => onlineManager.subscribe(onChange),
     () => onlineManager.isOnline(),
   );
+}
+
+const pointKey = (p: RoutePoints) =>
+  [p.origin.lat, p.origin.lon, p.destination.lat, p.destination.lon].map((n) => n.toFixed(6));
+
+/**
+ * Маршрут «сейчас». Сам не обновляется: построенный маршрут меняется только по решению
+ * человека (пересчёт ниже). Новый расчёт при смене точек или настройки.
+ */
+export function useRoutePlan(
+  points: RoutePoints | null,
+  lowFloorOnly: boolean,
+): UseQueryResult<RoutePlan> {
+  const { api } = useServices();
+  return useQuery({
+    queryKey: ['route', points ? pointKey(points) : null, lowFloorOnly],
+    queryFn: ({ signal }) => {
+      if (!points) throw new Error('нет точек');
+      return api.planRoute(points, lowFloorOnly, signal);
+    },
+    enabled: points !== null,
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+}
+
+/** Проверка выбранного маршрута раз в 30 с, пока вкладка открыта. */
+export function useRouteCheck(
+  points: RoutePoints | null,
+  lowFloorOnly: boolean,
+  journey: Journey | null,
+  plannedArriveAt: string | null,
+): UseQueryResult<RouteCheck> {
+  const { api } = useServices();
+  const { refreshMs } = useLiveTiming();
+  const vehicles = journey
+    ? journey.steps.flatMap((s) => (s.kind === 'ride' ? [s.vehicleId] : []))
+    : [];
+  return useQuery({
+    queryKey: [
+      'route-check',
+      points ? pointKey(points) : null,
+      lowFloorOnly,
+      vehicles.join('>'),
+      plannedArriveAt,
+    ],
+    queryFn: ({ signal }) => {
+      if (!points || !journey || !plannedArriveAt) throw new Error('нет маршрута');
+      return api.checkRoute(points, lowFloorOnly, journey, plannedArriveAt, signal);
+    },
+    enabled: points !== null && journey !== null && plannedArriveAt !== null && vehicles.length > 0,
+    refetchInterval: refreshMs,
+    refetchIntervalInBackground: false,
+    staleTime: refreshMs / 2,
+    retry: false,
+  });
 }

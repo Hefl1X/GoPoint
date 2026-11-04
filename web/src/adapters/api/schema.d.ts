@@ -585,12 +585,32 @@ export interface components {
             departAt: string;
             diagnostics: components["schemas"]["EtaDiagnostics"];
             /**
+             * Geometry
+             * @description Линия маршрута от посадки до выхода
+             */
+            geometry?: components["schemas"]["LatLon"][];
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "transit";
             line: components["schemas"]["Line"];
             lowFloor: components["schemas"]["Accessibility"];
+            /**
+             * Stopsaway
+             * @description Сколько остановок машине осталось до посадки (0: следующая)
+             */
+            stopsAway: number;
+            /**
+             * Stopscount
+             * @description Сколько остановок ехать до выхода
+             */
+            stopsCount: number;
+            /**
+             * Toward
+             * @description Конечная, куда едет машина; null у кольцевых
+             */
+            toward?: string | null;
             /** Vehicleid */
             vehicleId: string;
             /**

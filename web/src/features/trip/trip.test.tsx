@@ -41,8 +41,8 @@ describe('карточка «Откуда/Куда»', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Поменять точки А и Б местами' }));
     expect(screen.getByRole('button', { name: 'Откуда: Цирк' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Куда: Аура' })).toBeInTheDocument();
-    // Расчёта маршрута ещё нет: говорим об этом честно.
-    expect(screen.getByText('Точки выбраны')).toBeInTheDocument();
+    // Обе точки есть: сразу строится маршрут.
+    expect(await screen.findByRole('region', { name: 'Маршрут' })).toBeInTheDocument();
   });
 
   it('«Выбрать на карте» сначала для точки Б, потом для А', () => {

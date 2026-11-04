@@ -20,6 +20,13 @@ export interface MapTripPoint {
   readonly label: string;
 }
 
+/** Кусок построенного маршрута: пешком (пунктир) или поездка (цвет маршрута). */
+export interface MapJourneyLine {
+  readonly kind: 'walk' | 'ride';
+  readonly points: readonly LatLon[];
+  readonly color: string;
+}
+
 export interface MapViewProps {
   /** Подпись для экранной читалки. */
   readonly label: string;
@@ -32,6 +39,10 @@ export interface MapViewProps {
   readonly routeLine: readonly LatLon[] | null;
   readonly routeColor: string;
   readonly userLocation: LatLon | null;
+  /** Построенный маршрут (пешие участки и поездки). */
+  readonly journeyLines?: readonly MapJourneyLine[] | undefined;
+  /** Показать все эти точки сразу; новый массив означает новое перемещение. */
+  readonly fitPoints?: readonly LatLon[] | null | undefined;
   /** Точки А и Б. */
   readonly tripPoints: readonly MapTripPoint[];
   /**

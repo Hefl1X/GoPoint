@@ -116,6 +116,17 @@ def test_route_found_with_breakdown(client: TestClient) -> None:
     assert best["arriveAt"] > best["departAt"]
 
 
+def test_transit_leg_has_stops_and_heading(client: TestClient) -> None:
+    """Для экрана: сколько остановок ехать, куда едет машина, далеко ли она от посадки."""
+    for leg in transit_legs(route(client, True)):
+        assert leg["stopsCount"] >= 1
+        assert leg["stopsAway"] >= 0
+        # Автобус 3 в направлении A едет к Северной короне (конечная).
+        assert "Северная корона" in leg["toward"]
+        # Линия поездки для карты: от посадки до выхода.
+        assert len(leg["geometry"]) >= 2
+
+
 def test_low_floor_only_has_only_yes(client: TestClient) -> None:
     legs = transit_legs(route(client, True))
     assert legs

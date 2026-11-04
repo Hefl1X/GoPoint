@@ -1,12 +1,13 @@
 // Главный экран: карта с транспортом на линии, вверху поля «Откуда/Куда»,
 // внизу панель или карточка машины. Здесь же поиск адреса и выбор точки на карте:
 // карта при этом не пересоздаётся.
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { journeyKey, rides, type Journey } from '../../domain/journey';
 import { nextEndpoint } from '../../domain/places';
 import { TYPE_COLOR, onLineText } from '../../domain/transport';
 import type { Endpoint, LatLon, TripPoint } from '../../domain/types';
 import { GeolocationError } from '../../ports/Geolocation';
-import type { MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
+import type { MapJourneyLine, MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
 import { LiveState, StatusBlock } from '../../shared/components';
 import { useLine, useMeta, useOnline, useVehicles } from '../../shared/queries';
 import { navigate, routeHref, type Route } from '../../shared/router';
@@ -17,6 +18,7 @@ import { Sheet } from '../../shared/Sheet';
 import { useTrip } from '../../shared/trip';
 import { CenterPin, PickHint, PickPanel } from '../trip/PickOnMap';
 import { SearchPanel } from '../trip/SearchPanel';
+import { RoutePanel } from '../route/RoutePanel';
 import { TripCard } from '../trip/TripCard';
 import { VehicleCard } from '../vehicle/VehicleCard';
 
@@ -54,6 +56,37 @@ export function MapScreen({ route }: { route: MapRoute }) {
   const [focus, setFocus] = useState<MapViewProps['focus']>(null);
   const [geoState, setGeoState] = useState<'idle' | 'busy' | GeolocationError['reason']>('idle');
   const [center, setCenter] = useState<LatLon | null>(null);
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [fitPoints, setFitPoints] = useState<LatLon[] | null>(null);
+  const shownKey = useRef<string | null>(null);
+  const onJourney = useCallback((j: Journey | null) => {
+    setJourney(j);
+    // Карта показывает маршрут целиком один раз, когда он появился или сменился
+    // (а не каждые 30 с, когда уточняется время).
+    const key = j ? journeyKey(j) : null;
+    if (key !== shownKey.current) {
+      shownKey.current = key;
+      if (j) setFitPoints(j.steps.flatMap((s) => [...s.geometry]));
+    }
+  }, []);
+
+  const routePoints = useMemo(
+    () => (trip.from && trip.to ? { origin: trip.from.point, destination: trip.to.point } : null),
+    [trip.from, trip.to],
+  );
+  const journeyVehicles = useMemo(
+    () => new Set(journey ? rides(journey).map((r) => r.vehicleId) : []),
+    [journey],
+  );
+  const journeyLines = useMemo<MapJourneyLine[]>(
+    () =>
+      (journey?.steps ?? []).map((step) =>
+        step.kind === 'walk'
+          ? { kind: 'walk', points: step.geometry, color: '' }
+          : { kind: 'ride', points: step.geometry, color: TYPE_COLOR[step.line.type] },
+      ),
+    [journey],
+  );
 
   const focusOn = useMemo(
     () =>
@@ -95,9 +128,12 @@ export function MapScreen({ route }: { route: MapRoute }) {
         type: v.type,
         lowFloor: v.lowFloor,
         point: v.point,
-        muted: selected !== null && v.lineId !== selected.lineId,
+        muted:
+          selected !== null
+            ? v.lineId !== selected.lineId
+            : journeyVehicles.size > 0 && !journeyVehicles.has(v.id),
       })),
-    [vehicles.data, selected],
+    [vehicles.data, selected, journeyVehicles],
   );
 
   const direction = selected
@@ -139,6 +175,8 @@ export function MapScreen({ route }: { route: MapRoute }) {
               routeLine={direction?.path ?? null}
               routeColor={selected ? TYPE_COLOR[selected.type] : TYPE_COLOR.bus}
               userLocation={userLocation}
+              journeyLines={vehicleId ? [] : journeyLines}
+              fitPoints={fitPoints}
               focus={focus}
               tripPoints={tripPoints}
               picking={pickingEnd !== null}
@@ -198,8 +236,12 @@ export function MapScreen({ route }: { route: MapRoute }) {
               />
             ) : (
               <>
-                {trip.from && trip.to ? (
-                  <StatusBlock title={ru.trip.routeSoonTitle} text={ru.trip.routeSoon} />
+                {routePoints ? (
+                  <RoutePanel
+                    points={routePoints}
+                    lowFloorOnly={lowFloorOnly}
+                    onJourney={onJourney}
+                  />
                 ) : (
                   <div className="start-intro">
                     <h2 className="start-intro__title">{ru.trip.whereTo}</h2>

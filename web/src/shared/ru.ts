@@ -1,5 +1,7 @@
 // Все тексты интерфейса GoPoint. Слов GPS, «обновлено N сек назад»,
 // «по плану», «по расписанию» здесь быть не должно (проверяется тестом).
+import { plural } from '../domain/transport';
+
 export const ru = {
   appName: 'GoPoint',
   tagline: 'Транспорт Новосибирска на линии сейчас',
@@ -65,8 +67,67 @@ export const ru = {
     pickOnMap: 'Выбрать на карте',
     myLocation: 'Моё местоположение',
     pointOnMap: 'Точка на карте',
-    routeSoonTitle: 'Точки выбраны',
-    routeSoon: 'Расчёт маршрута по транспорту появится в следующей версии.',
+  },
+  route: {
+    label: 'Маршрут',
+    leaveNow: (time: string) => `Выехать сейчас · ${time}`,
+    onlyLowFloor: 'Построен только по низкопольным рейсам',
+    anyPartly: 'Любой транспорт: часть рейсов не низкопольная',
+    anyAllLow: 'Любой транспорт: в этом маршруте все машины с низким полом',
+    timelineLabel: (parts: string) => `Шкала времени, минуты: ${parts}`,
+    minutes: 'мин',
+    stepsLabel: 'Шаги маршрута',
+    walkIcon: 'пеш.',
+    walkToStop: (stop: string) => `Пешком до остановки «${stop}»`,
+    walkTransfer: (stop: string) => `Пересадка: пешком до остановки «${stop}»`,
+    walkToEnd: 'Пешком до точки Б',
+    walkAbout: (metres: number) => `≈ ${String(metres)} м`,
+    stairs: 'на пути есть лестница или эскалатор',
+    rideTitle: (name: string, toward: string | null) =>
+      toward ? `${name}, в сторону «${toward}»` : name,
+    board: (stop: string, time: string) => `Посадка на «${stop}» ≈ в ${time}`,
+    alight: (stop: string, stops: string) => `Выйти на «${stop}», ${stops}`,
+    arrivesIn: (minutes: number) =>
+      minutes === 0 ? 'подъезжает' : `подъезжает, ≈ ${String(minutes)} мин`,
+    away: (type: string, stops: number) =>
+      stops === 0
+        ? `${type} подъезжает к вашей остановке`
+        : `${type} в ${String(stops)} ${plural(stops, 'остановке', 'остановках', 'остановках')} от вас`,
+    transferSlack: (minutes: number) => `пересадка с запасом ${String(minutes)} мин`,
+    stepMinutes: (minutes: number) => `${String(minutes)} мин`,
+    note: 'Время ориентировочное, без учёта пробок впереди. Маршрут построен по данным карты, состояние тротуаров не гарантируется.',
+    searching: 'Ищем маршрут…',
+    searchingLowFloor: 'Подбираем низкопольный транспорт',
+    searchingAny: 'Подбираем транспорт',
+    cancel: 'Отменить поиск',
+    cancelled: 'Поиск отменён',
+    searchAgain: 'Искать снова',
+    noneTitle: 'Транспорта сейчас нет',
+    noneLowFloor:
+      'Сейчас на линии нет низкопольного транспорта между этими точками. Мы не строим маршрут, если не уверены в нём. Попробуйте позже или выберите другие точки.',
+    noneAny:
+      'Сейчас на линии нет транспорта между этими точками. Мы не строим маршрут, если не уверены в нём. Попробуйте позже или выберите другие точки.',
+    refresh: 'Обновить',
+    otherPoints: 'Выбрать другие точки',
+    offline:
+      'Маршрут построить не удалось. Проверьте сеть и повторите попытку: введённые точки сохранены.',
+    outsideTitle: 'Точка вне Новосибирска',
+    outside: 'Маршруты строятся только внутри города. Выберите точку в Новосибирске.',
+    otherPoint: 'Выбрать другую точку',
+    noWalkTitle: 'Не нашли путь пешком',
+    failedTitle: 'Маршрут построить не удалось',
+    changedTitle: 'Маршрут изменился',
+    stopped: (name: string, minutes: number) =>
+      `${name} стоит на месте уже ${String(minutes)} ${plural(minutes, 'минуту', 'минуты', 'минут')}.`,
+    late: (name: string) => `${name} задерживается.`,
+    gone: (name: string) => `${name}: машины больше нет на линии.`,
+    wouldArrive: (now: string, before: string) =>
+      `По нему вы бы приехали в ${now} вместо ${before}.`,
+    better: (time: string) => `Есть вариант быстрее: приедете в ${time}.`,
+    noBetter: 'Другого варианта сейчас нет.',
+    accept: 'Принять новый',
+    keep: 'Оставить прежний',
+    findAgain: 'Найти заново',
   },
   search: {
     fromLabel: 'Откуда: адрес или место',

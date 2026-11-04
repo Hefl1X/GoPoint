@@ -54,6 +54,8 @@ def test_leg_discriminated_by_kind() -> None:
             "boardStop": stop.model_dump(),
             "alightStop": stop.model_dump(),
             "waitS": 120,
+            "stopsCount": 3,
+            "stopsAway": 1,
             "departAt": NOW,
             "arriveAt": NOW,
             "diagnostics": EtaDiagnostics(
