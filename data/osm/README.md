@@ -1,4 +1,5 @@
-# Улицы и рельеф для OpenTripPlanner
+# Улицы для OpenTripPlanner
 
-Здесь будут выгрузка OpenStreetMap по Новосибирску и данные рельефа (запрос 5).
-Файлы большие и в git не попадают; рядом появится скрипт, который их скачивает.
+Сюда `scripts/build-otp-graph.sh` скачивает выгрузку OpenStreetMap по Сибирскому округу
+(`siberian-fed-district.osm.pbf`, ~590 МБ) и, с флагом `--with-dem`, файлы рельефа Copernicus.
+Файлы большие и в git не попадают. Вырезанный город и граф лежат в `data/otp/`.

@@ -15,10 +15,11 @@ from app.api import v1
 from app.api.errors import install_error_handlers
 from app.api.schemas import Health
 from app.config import APP_NAME, APP_VERSION, Settings, get_settings
-from app.ports import Geocoder, TransitFeed
+from app.ports import Geocoder, TransitFeed, WalkPlanner
 from app.services.geocoding import CachePolicy, GeocodingService
 from app.services.live_snapshot import Clock, LiveSnapshotService, utc_now
-from app.wiring import build_geocoder, build_transit_feed
+from app.services.walking import WalkingService
+from app.wiring import build_geocoder, build_transit_feed, build_walk_planner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -28,6 +29,7 @@ def create_app(
     *,
     feed: TransitFeed | None = None,
     geocoder: Geocoder | None = None,
+    walk_planner: WalkPlanner | None = None,
     clock: Clock = utc_now,
     start_poller: bool = True,
 ) -> FastAPI:
@@ -46,6 +48,10 @@ def create_app(
         cache=CachePolicy(ttl_s=settings.search_cache_ttl_s, max_size=settings.search_cache_size),
         min_interval_s=settings.photon_min_interval_s,
     )
+    close_walk: Callable[[], Awaitable[None]] | None = None
+    if walk_planner is None:
+        walk_planner, close_walk = build_walk_planner(settings)
+    walking = WalkingService(walk_planner, cache_ttl_s=settings.walk_cache_ttl_s)
     live = LiveSnapshotService(
         feed,
         clock=clock,
@@ -68,6 +74,8 @@ def create_app(
                 await close_feed()
             if close_geocoder:
                 await close_geocoder()
+            if close_walk:
+                await close_walk()
 
     app = FastAPI(
         title=f"{APP_NAME} API",
@@ -81,6 +89,7 @@ def create_app(
     app.state.settings = settings
     app.state.live = live
     app.state.geocoding = geocoding
+    app.state.walking = walking
     app.state.clock = clock
     app.add_middleware(
         CORSMiddleware,

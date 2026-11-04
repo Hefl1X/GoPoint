@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     search_cache_ttl_s: int = Field(default=86_400, ge=60)
     search_cache_size: int = Field(default=2_000, ge=10)
 
+    # Пешие участки: OpenTripPlanner во внутренней сети Docker.
+    otp_url: str = "http://otp:8080"
+    otp_timeout_s: float = Field(default=10.0, gt=0)
+    # Скорость человека на коляске по ровному месту, м/с. Значение решает владелец
+    # (источники в docs/DECISIONS.md). На подъёмах и переходах OTP сам снижает скорость.
+    walk_speed_mps: float = Field(default=0.8, gt=0.1, le=3.0)
+    walk_cache_ttl_s: int = Field(default=86_400, ge=60)
+
     # Границы Новосибирска (примерно, уточнить по границе из OpenStreetMap).
     city_south: float = 54.80
     city_west: float = 82.70

@@ -180,6 +180,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/walk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Walk
+         * @description Пеший участок по профилю коляски: время, расстояние, линия. Служебный адрес для
+         *     проверки и для расчёта маршрута; профиль коляски включён всегда.
+         */
+        post: operations["walk_api_v1_walk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -539,6 +560,10 @@ export interface components {
          * @description Пеший участок по профилю коляски.
          */
         WalkLeg: {
+            /** Climbm */
+            climbM?: number | null;
+            /** Descentm */
+            descentM?: number | null;
             destination: components["schemas"]["Place"];
             /** Distancem */
             distanceM: number;
@@ -547,11 +572,21 @@ export interface components {
             /** Geometry */
             geometry?: components["schemas"]["LatLon"][];
             /**
+             * Hasstairs
+             * @default false
+             */
+            hasStairs: boolean;
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "walk";
             origin: components["schemas"]["Place"];
+        };
+        /** WalkRequest */
+        WalkRequest: {
+            destination: components["schemas"]["LatLon"];
+            origin: components["schemas"]["LatLon"];
         };
     };
     responses: never;
@@ -1032,6 +1067,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReverseResponse"];
+                };
+            };
+            /** @description Неверные данные запроса */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ошибка сервера */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ещё не сделано */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    walk_api_v1_walk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalkLeg"];
                 };
             };
             /** @description Неверные данные запроса */

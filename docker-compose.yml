@@ -32,6 +32,17 @@ services:
     restart: unless-stopped
     networks: [internal]
 
+  otp:
+    # OpenTripPlanner 2.10.0 только для пеших участков (граф улиц: scripts/build-otp-graph.sh).
+    image: opentripplanner/opentripplanner:2.10.0
+    command: ["--load", "--serve"]
+    environment:
+      JAVA_TOOL_OPTIONS: ${GOPOINT_OTP_JAVA_OPTS:--Xmx2g}
+    volumes:
+      - ./data/otp:/var/opentripplanner
+    restart: unless-stopped
+    networks: [internal]
+
   caddy:
     build: ./web
     image: gopoint-web:local

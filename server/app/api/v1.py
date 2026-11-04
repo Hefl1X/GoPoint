@@ -1,7 +1,7 @@
 """Адреса /api/v1 (раздел 9 docs/ARCHITECTURE.md).
 
-Работают: /health, /meta, /search, /search/reverse, /live/vehicles, /live/routes,
-/live/routes/{id}.
+Работают: /health, /meta, /search, /search/reverse, /walk, /live/vehicles,
+/live/routes, /live/routes/{id}.
 Остальные уже описаны в контракте (OpenAPI) и отвечают 501 до своих задач.
 """
 
@@ -29,14 +29,24 @@ from app.api.schemas import (
     SnapshotDiagnostics,
     VehicleDetails,
     VehiclesResponse,
+    WalkRequest,
 )
 from app.config import APP_NAME, APP_VERSION, Settings
 from app.domain.geo import next_stop_order
 from app.domain.live import line_sort_key, usable_vehicles
-from app.domain.models import Bounds, Direction, LatLon, TransportType
-from app.ports import GeocoderError, TransitFeedError, UnknownLineError
+from app.domain.models import Bounds, Direction, LatLon, Place, TransportType, WalkLeg
+from app.ports import (
+    GeocoderError,
+    NoAccessibleWalkError,
+    NoWalkRouteError,
+    PointNotOnStreetError,
+    TransitFeedError,
+    UnknownLineError,
+    WalkPlannerError,
+)
 from app.services.geocoding import GeocodingService
 from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
+from app.services.walking import WalkingService
 
 router = APIRouter(prefix="/api/v1", responses=ERROR_RESPONSES)
 
@@ -71,10 +81,16 @@ def get_geocoding(request: Request) -> GeocodingService:
     return geocoding
 
 
+def get_walking(request: Request) -> WalkingService:
+    walking: WalkingService = request.app.state.walking
+    return walking
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 LiveDep = Annotated[LiveSnapshotService, Depends(get_live)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
 GeocodingDep = Annotated[GeocodingService, Depends(get_geocoding)]
+WalkingDep = Annotated[WalkingService, Depends(get_walking)]
 
 
 def transit_unavailable() -> AppError:
@@ -178,6 +194,41 @@ async def search_reverse(
     except GeocoderError as exc:
         raise geocoder_unavailable() from exc
     return ReverseResponse(place=place)
+
+
+def walk_error(exc: WalkPlannerError) -> AppError:
+    if isinstance(exc, PointNotOnStreetError):
+        return AppError(
+            422,
+            "POINT_NOT_ON_STREET",
+            "Рядом с точкой не нашлось улицы или тротуара. Выберите точку ближе к дороге.",
+        )
+    if isinstance(exc, NoAccessibleWalkError):
+        return AppError(
+            422,
+            "NO_ACCESSIBLE_WALK",
+            "Отсюда нашёлся путь только по лестнице или эскалатору. Выберите точку ближе к улице.",
+        )
+    if isinstance(exc, NoWalkRouteError):
+        return AppError(422, "NO_WALK_ROUTE", "Не нашли путь по улицам между этими точками.")
+    return AppError(
+        503,
+        "WALK_UNAVAILABLE",
+        "Не удалось посчитать путь по улицам. Попробуйте через минуту.",
+    )
+
+
+@router.post("/walk", tags=["route"])
+async def walk(body: WalkRequest, settings: SettingsDep, walking: WalkingDep) -> WalkLeg:
+    """Пеший участок по профилю коляски: время, расстояние, линия. Служебный адрес для
+    проверки и для расчёта маршрута; профиль коляски включён всегда."""
+    bounds = settings.city_bounds
+    if not (bounds.contains(body.origin) and bounds.contains(body.destination)):
+        raise outside_city()
+    try:
+        return await walking.walk(Place(point=body.origin), Place(point=body.destination))
+    except WalkPlannerError as exc:
+        raise walk_error(exc) from exc
 
 
 @router.post("/route", tags=["route"])

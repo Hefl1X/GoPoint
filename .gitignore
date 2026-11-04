@@ -39,3 +39,7 @@ caddy_config/
 # База поиска адресов Photon (большие файлы, собираются скриптом)
 data/photon/*
 !data/photon/README.md
+
+# Граф OpenTripPlanner и его исходные данные (большие, собираются скриптом)
+data/otp/*
+!data/otp/README.md

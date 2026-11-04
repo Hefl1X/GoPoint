@@ -43,6 +43,11 @@ class ReverseResponse(DomainModel):
     )
 
 
+class WalkRequest(DomainModel):
+    origin: LatLon
+    destination: LatLon
+
+
 class RouteRequest(DomainModel):
     origin: LatLon
     destination: LatLon

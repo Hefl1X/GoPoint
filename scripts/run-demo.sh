@@ -51,6 +51,12 @@ if ! docker compose exec -T photon test -d /data/photon_data >/dev/null 2>&1; th
   echo "Соберите её один раз: bash scripts/build-photon-db.sh"
 fi
 
+if [ ! -f data/otp/graph.obj ]; then
+  echo
+  echo "Внимание: граф улиц не собран, пешие участки считаться не будут."
+  echo "Соберите его один раз: bash scripts/build-otp-graph.sh"
+fi
+
 lan_ip=""
 for iface in en0 en1 en2; do
   lan_ip="$(ipconfig getifaddr "$iface" 2>/dev/null || true)"

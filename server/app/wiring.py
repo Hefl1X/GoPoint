@@ -10,10 +10,11 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from app.adapters.fake.feed import FakeTransitFeed
+from app.adapters.otp.walk import OtpWalkPlanner
 from app.adapters.photon.geocoder import PhotonGeocoder
 from app.adapters.tsugaet.feed import TsugaetFeed
 from app.config import Settings
-from app.ports import Geocoder, TransitFeed
+from app.ports import Geocoder, TransitFeed, WalkPlanner
 
 
 async def _noop() -> None:
@@ -46,3 +47,13 @@ def build_geocoder(settings: Settings) -> tuple[Geocoder, Callable[[], Awaitable
         timeout_s=settings.photon_timeout_s,
     )
     return geocoder, geocoder.aclose
+
+
+def build_walk_planner(settings: Settings) -> tuple[WalkPlanner, Callable[[], Awaitable[None]]]:
+    """Адаптер WalkPlanner и функция его закрытия."""
+    planner = OtpWalkPlanner(
+        base_url=settings.otp_url,
+        speed_mps=settings.walk_speed_mps,
+        timeout_s=settings.otp_timeout_s,
+    )
+    return planner, planner.aclose

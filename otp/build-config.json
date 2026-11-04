@@ -1,0 +1,13 @@
+{
+  "osmDefaults": {
+    "timeZone": "Asia/Novosibirsk",
+    "osmTagMapping": "default"
+  },
+  "osm": [
+    {
+      "source": "novosibirsk.osm.pbf"
+    }
+  ],
+  "areaVisibility": true,
+  "transitFeeds": []
+}

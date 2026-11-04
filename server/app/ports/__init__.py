@@ -43,8 +43,32 @@ class TransitFeed(Protocol):
         ...
 
 
+class WalkPlannerError(Exception):
+    """Пеший участок не удалось построить. Подклассы говорят почему."""
+
+
+class PointNotOnStreetError(WalkPlannerError):
+    """Точку не удалось привязать к улице (рядом нет дорог и тротуаров)."""
+
+
+class NoWalkRouteError(WalkPlannerError):
+    """Между точками нет пути по улицам."""
+
+
+class NoAccessibleWalkError(NoWalkRouteError):
+    """Путь по улицам есть, но только с лестницами, эскалатором или другими препятствиями.
+
+    Частый случай: точка внутри площади, которая связана с улицами только подземным
+    переходом (например, середина площади Ленина в данных OpenStreetMap).
+    """
+
+
+class WalkPlannerUnavailableError(WalkPlannerError):
+    """Сервис пеших маршрутов не ответил вовремя или ответил ошибкой."""
+
+
 class WalkPlanner(Protocol):
-    """Пеший участок между двумя точками по профилю коляски."""
+    """Пеший участок между двумя точками по профилю коляски (всегда, без выбора)."""
 
     async def walk(self, origin: Place, destination: Place) -> WalkLeg: ...
 

@@ -846,6 +846,30 @@
         "additionalProperties": false,
         "description": "Пеший участок по профилю коляски.",
         "properties": {
+          "climbM": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Climbm"
+          },
+          "descentM": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descentm"
+          },
           "destination": {
             "$ref": "#/components/schemas/Place"
           },
@@ -866,6 +890,11 @@
             "title": "Geometry",
             "type": "array"
           },
+          "hasStairs": {
+            "default": false,
+            "title": "Hasstairs",
+            "type": "boolean"
+          },
           "kind": {
             "const": "walk",
             "default": "walk",
@@ -883,6 +912,23 @@
           "durationS"
         ],
         "title": "WalkLeg",
+        "type": "object"
+      },
+      "WalkRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/LatLon"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/LatLon"
+          }
+        },
+        "required": [
+          "origin",
+          "destination"
+        ],
+        "title": "WalkRequest",
         "type": "object"
       }
     }
@@ -1571,6 +1617,68 @@
         "summary": "Search Reverse",
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/api/v1/walk": {
+      "post": {
+        "description": "Пеший участок по профилю коляски: время, расстояние, линия. Служебный адрес для\nпроверки и для расчёта маршрута; профиль коляски включён всегда.",
+        "operationId": "walk_api_v1_walk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalkLeg"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Неверные данные запроса"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ошибка сервера"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ещё не сделано"
+          }
+        },
+        "summary": "Walk",
+        "tags": [
+          "route"
         ]
       }
     }

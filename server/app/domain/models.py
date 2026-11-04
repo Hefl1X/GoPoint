@@ -203,6 +203,11 @@ class WalkLeg(DomainModel):
     distance_m: int = Field(ge=0)
     duration_s: int = Field(ge=0)
     geometry: list[LatLon] = Field(default_factory=list)
+    # Подъём и спуск за участок по данным рельефа, метры (если рельеф известен).
+    climb_m: float | None = Field(default=None, ge=0)
+    descent_m: float | None = Field(default=None, ge=0)
+    # На пути есть лестница или эскалатор (OTP идёт через них, только если иначе никак).
+    has_stairs: bool = False
 
 
 class TransitLeg(DomainModel):

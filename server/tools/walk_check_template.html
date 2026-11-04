@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GoPoint: 10 пеших маршрутов</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<style>
+ html,body{margin:0;height:100%;font:15px system-ui,sans-serif;color:#17332e}
+ #map{position:absolute;inset:0 0 0 340px}
+ #list{position:absolute;top:0;bottom:0;left:0;width:340px;overflow:auto;padding:12px;box-sizing:border-box;background:#f7fbfa}
+ #list button{display:block;width:100%;text-align:left;margin:4px 0;padding:8px;border:1px solid #cfe0db;border-radius:10px;background:#fff;cursor:pointer;font:inherit}
+ .sw{display:inline-block;width:12px;height:12px;border-radius:6px;margin-right:6px;vertical-align:middle}
+ @media (max-width:700px){#map{inset:45% 0 0 0}#list{width:auto;right:0;bottom:55%}}
+</style></head><body>
+<div id="list"><b>10 пеших маршрутов</b><br>
+<small>Сплошная линия: путь для коляски (как в приложении). Пунктир: обычный пешеход, для сравнения.
+Нажмите на маршрут в списке, чтобы приблизить.</small><div id="items"></div>
+<small>© OpenStreetMap contributors · OpenFreeMap © OpenMapTiles</small></div>
+<div id="map"></div>
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script>
+const data = __DATA__;
+const map = new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[82.92,55.03],zoom:11});
+map.on('load',()=>{
+  map.addSource('r',{type:'geojson',data});
+  map.addLayer({id:'plain',type:'line',source:'r',filter:['==',['get','kind'],'пешеход'],
+    paint:{'line-color':['get','color'],'line-width':3,'line-dasharray':[2,2],'line-opacity':0.7}});
+  map.addLayer({id:'chair',type:'line',source:'r',filter:['==',['get','kind'],'коляска'],
+    paint:{'line-color':['get','color'],'line-width':5}});
+});
+const items=document.getElementById('items');
+const seen=new Set();
+for(const f of data.features){
+  if(f.properties.kind!=='коляска'||seen.has(f.properties.n))continue; seen.add(f.properties.n);
+  const b=document.createElement('button');
+  b.innerHTML='<span class="sw" style="background:'+f.properties.color+'"></span>'+f.properties.text;
+  b.onclick=()=>{const c=f.geometry.coordinates;const bb=c.reduce((a,p)=>[[Math.min(a[0][0],p[0]),Math.min(a[0][1],p[1])],[Math.max(a[1][0],p[0]),Math.max(a[1][1],p[1])]],[c[0],c[0]]);map.fitBounds(bb,{padding:60});};
+  items.appendChild(b);
+}
+</script></body></html>
