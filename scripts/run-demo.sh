@@ -44,6 +44,13 @@ if ! curl -fsS "http://localhost:${port}/health" >/dev/null 2>&1; then
   exit 1
 fi
 
+# База поиска адресов собирается отдельно (один раз, около 5 минут).
+if ! docker compose exec -T photon test -d /data/photon_data >/dev/null 2>&1; then
+  echo
+  echo "Внимание: база поиска адресов ещё не собрана, подсказки адресов работать не будут."
+  echo "Соберите её один раз: bash scripts/build-photon-db.sh"
+fi
+
 lan_ip=""
 for iface in en0 en1 en2; do
   lan_ip="$(ipconfig getifaddr "$iface" 2>/dev/null || true)"

@@ -26,6 +26,11 @@ uv run lint-imports
 step "Сервер: тесты (pytest)"
 uv run pytest
 
+step "Поиск адресов: вырезание города из выгрузки Photon"
+uv run ruff check "$root/photon"
+uv run ruff format --check "$root/photon"
+(cd "$root/photon" && python3 -m unittest -q)
+
 step "Контракт API: типы сайта соответствуют серверу"
 uv run python -m app.openapi_export "$root/web/src/adapters/api/openapi.json"
 cd "$root/web"

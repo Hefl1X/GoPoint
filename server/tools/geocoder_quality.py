@@ -2,6 +2,8 @@
 
 Запуск вручную, не чаще раза в день (около 60 запросов с паузой 1,1 с):
     cd server && uv run python -m tools.geocoder_quality > /tmp/geocoder.md
+Свой Photon в Docker снаружи не виден, поэтому для него проверка запускается внутри
+контейнера сервера (см. docs/HANDOFF.md). Путь к списку мест можно передать первым аргументом.
 
 Для каждого места два запроса:
 - в Photon так, как напечатал бы человек (короткий запрос), тем же путём, что и сайт
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -63,7 +66,8 @@ class Result:
 
 
 def load_rows() -> list[Row]:
-    with PLACES_CSV.open(encoding="utf-8") as f:
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else PLACES_CSV
+    with path.open(encoding="utf-8") as f:
         return [
             Row(r["id"], r["category"], r["query"], r["reference"], float(r["radius_m"]))
             for r in csv.DictReader(f)

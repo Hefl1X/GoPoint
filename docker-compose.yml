@@ -1,5 +1,6 @@
 # GoPoint: запуск одной командой (scripts/run-demo.sh или docker compose up -d --build).
-# Наружу открыт только caddy. Сервер и (позже) OpenTripPlanner живут во внутренней сети.
+# Наружу открыт только caddy. Сервер, поиск адресов (photon) и (позже) OpenTripPlanner
+# живут во внутренней сети.
 name: gopoint
 
 services:
@@ -9,6 +10,25 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      # Свой поиск адресов по Новосибирску (база: scripts/build-photon-db.sh).
+      GOPOINT_PHOTON_URL: ${GOPOINT_PHOTON_URL:-http://photon:2322}
+    restart: unless-stopped
+    networks: [internal]
+
+  photon:
+    build: ./photon
+    image: gopoint-photon:local
+    environment:
+      PHOTON_JAVA_OPTS: ${GOPOINT_PHOTON_JAVA_OPTS:--Xmx1g}
+    volumes:
+      - photon_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:2322/status"]
+      interval: 30s
+      timeout: 3s
+      start_period: 60s
+      retries: 3
     restart: unless-stopped
     networks: [internal]
 
@@ -33,5 +53,6 @@ networks:
   internal: {}
 
 volumes:
+  photon_data: {}
   caddy_data: {}
   caddy_config: {}

@@ -35,3 +35,7 @@ caddy_config/
 
 # Личные настройки Claude Code
 .claude/settings.local.json
+
+# База поиска адресов Photon (большие файлы, собираются скриптом)
+data/photon/*
+!data/photon/README.md
