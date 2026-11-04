@@ -10,6 +10,10 @@ describe('адреса экранов', () => {
     ['#/transport/minibus-30%D0%90', { name: 'line', lineId: 'minibus-30А' }],
     ['#/settings', { name: 'settings' }],
     ['#/about', { name: 'about' }],
+    ['#/search/from', { name: 'search', end: 'from' }],
+    ['#/search/to', { name: 'search', end: 'to' }],
+    ['#/pick/to', { name: 'pick', end: 'to' }],
+    ['#/pick/куда', { name: 'pick', end: 'to' }],
     ['#/непонятно', { name: 'map', vehicleId: null }],
     ['#/transport/%E0%A4%A', { name: 'transport' }],
   ])('%s', (hash, route) => {
@@ -21,6 +25,8 @@ describe('адреса экранов', () => {
       { name: 'map', vehicleId: 'tram-0013-4' },
       { name: 'line', lineId: 'minibus-30А' },
       { name: 'settings' },
+      { name: 'search', end: 'from' },
+      { name: 'pick', end: 'to' },
     ];
     for (const route of routes) expect(parseRoute(routeHref(route))).toEqual(route);
   });

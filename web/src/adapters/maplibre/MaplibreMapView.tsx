@@ -1,12 +1,18 @@
 // Карта на MapLibre GL и векторных тайлах OpenFreeMap (данные OpenStreetMap).
 // Только здесь известно про MapLibre и порядок координат [lon, lat].
-import { Map as MapLibreMap, setWorkerUrl, type GeoJSONSource, type LngLatLike } from 'maplibre-gl';
+import {
+  Map as MapLibreMap,
+  Marker,
+  setWorkerUrl,
+  type GeoJSONSource,
+  type LngLatLike,
+} from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { MUTED_COLOR, TYPE_COLOR } from '../../domain/transport';
-import type { LatLon, TransportType } from '../../domain/types';
-import type { MapVehicle, MapViewProps } from '../../ports/MapView';
+import type { Endpoint, LatLon, TransportType } from '../../domain/types';
+import type { MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
 import { STYLE_URL } from './config';
 
 setWorkerUrl(workerUrl);
@@ -125,6 +131,51 @@ function pointGeoJson(point: LatLon | null) {
   };
 }
 
+const END_LETTER: Record<Endpoint, string> = { from: 'А', to: 'Б' };
+
+/** Значок точки: А зелёный круг с буквой, Б оранжевая булавка с буквой (DESIGN.md). */
+export function tripMarkerElement(end: Endpoint): HTMLElement {
+  // MapLibre двигает значок через transform внешнего элемента, поэтому форма
+  // (повёрнутая булавка) рисуется во внутреннем.
+  const wrap = document.createElement('div');
+  wrap.className = 'trip-marker-wrap';
+  wrap.setAttribute('role', 'img');
+  const shape = document.createElement('div');
+  shape.className = `trip-marker trip-marker--${end}`;
+  const letter = document.createElement('span');
+  letter.className = 'trip-marker__letter';
+  letter.textContent = END_LETTER[end];
+  shape.append(letter);
+  wrap.append(shape);
+  return wrap;
+}
+
+function syncTripMarkers(
+  map: MapLibreMap,
+  markers: Map<Endpoint, Marker>,
+  points: readonly MapTripPoint[],
+): void {
+  for (const [end, marker] of markers) {
+    if (!points.some((p) => p.end === end)) {
+      marker.remove();
+      markers.delete(end);
+    }
+  }
+  for (const p of points) {
+    let marker = markers.get(p.end);
+    if (!marker) {
+      marker = new Marker({
+        element: tripMarkerElement(p.end),
+        anchor: p.end === 'to' ? 'bottom' : 'center',
+      });
+      marker.setLngLat(toLngLat(p.point)).addTo(map);
+      markers.set(p.end, marker);
+    }
+    marker.setLngLat(toLngLat(p.point));
+    marker.getElement().setAttribute('aria-label', `Точка ${END_LETTER[p.end]}: ${p.label}`);
+  }
+}
+
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -133,6 +184,7 @@ export function MaplibreMapView(props: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const loaded = useRef(false);
+  const markers = useRef(new Map<Endpoint, Marker>());
   const latest = useRef(props);
   useEffect(() => {
     latest.current = props;
@@ -234,6 +286,7 @@ export function MaplibreMapView(props: MapViewProps) {
       });
       for (const layer of ['vehicles', 'vehicle-dots', 'vehicle-selected']) {
         map.on('click', layer, (event) => {
+          if (latest.current.picking) return;
           const id: unknown = event.features?.[0]?.properties.id;
           if (typeof id === 'string') latest.current.onVehicleSelect(id);
         });
@@ -248,12 +301,41 @@ export function MaplibreMapView(props: MapViewProps) {
       sync(map, latest.current);
     });
 
+    // Выбор точки: нажатие переносит центр карты, центр сообщается после движения.
+    map.on('click', (event) => {
+      if (!latest.current.picking) return;
+      map.easeTo({ center: event.lngLat, duration: prefersReducedMotion() ? 0 : 300 });
+    });
+    map.on('moveend', () => {
+      if (!latest.current.picking) return;
+      const c = map.getCenter();
+      latest.current.onCenterChange?.({ lat: c.lat, lon: c.lng });
+    });
+
+    const tripMarkers = markers.current;
     return () => {
       loaded.current = false;
       mapRef.current = null;
+      tripMarkers.clear();
       map.remove();
     };
   }, []);
+
+  // Значки А и Б (элементы страницы поверх карты, не зависят от загрузки стиля).
+  const { tripPoints } = props;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) syncTripMarkers(map, markers.current, tripPoints);
+  }, [tripPoints]);
+
+  // Начали выбирать точку: сразу сообщаем, где центр карты.
+  const { picking } = props;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !picking) return;
+    const c = map.getCenter();
+    latest.current.onCenterChange?.({ lat: c.lat, lon: c.lng });
+  }, [picking]);
 
   // Данные обновляются без пересоздания карты.
   useEffect(() => {
@@ -268,7 +350,7 @@ export function MaplibreMapView(props: MapViewProps) {
     if (!map || !focus) return;
     const center = toLngLat(focus.point);
     const zoom = Math.max(map.getZoom(), 14);
-    moveTo(map, center, zoom);
+    moveTo(map, center, zoom, !focus.exact);
   }, [focus]);
 
   // Выбрали машину: карта переезжает к ней один раз (а не за каждым её движением).
@@ -309,9 +391,12 @@ export function MaplibreMapView(props: MapViewProps) {
   );
 }
 
-/** Точка встаёт в верхнюю четверть карты: низ экрана закрыт панелью. */
-function moveTo(map: MapLibreMap, center: [number, number], zoom: number): void {
-  const offset: [number, number] = [0, -map.getContainer().clientHeight * 0.25];
+/**
+ * Точка встаёт чуть выше центра (сверху карточка «Откуда/Куда», снизу панель,
+ * видимая часть карты между ними) или ровно в центр.
+ */
+function moveTo(map: MapLibreMap, center: [number, number], zoom: number, lift = true): void {
+  const offset: [number, number] = [0, lift ? -map.getContainer().clientHeight * 0.15 : 0];
   map.easeTo({ center, zoom, offset, duration: prefersReducedMotion() ? 0 : 600 });
 }
 

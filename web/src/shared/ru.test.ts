@@ -3,6 +3,8 @@ import { ru } from './ru';
 
 function allStrings(value: unknown): string[] {
   if (typeof value === 'string') return [value];
+  // Тексты-шаблоны проверяем с образцом подстановки.
+  if (typeof value === 'function') return [String((value as (x: unknown) => unknown)('Б'))];
   if (value && typeof value === 'object') return Object.values(value).flatMap(allStrings);
   return [];
 }

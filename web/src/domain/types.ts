@@ -76,3 +76,23 @@ export interface Meta {
   readonly lowFloorOnlyDefault: boolean;
   readonly staleSeconds: number;
 }
+
+/** Что за место нашёл поиск адреса: от этого зависит подпись в подсказке. */
+export type PlaceKind = 'address' | 'street' | 'stop' | 'place' | 'area';
+
+export interface PlaceSuggestion {
+  readonly id: string;
+  readonly title: string;
+  readonly subtitle: string | null;
+  readonly kind: PlaceKind;
+  readonly point: LatLon;
+}
+
+/** Точка А («Откуда») или Б («Куда»). */
+export type Endpoint = 'from' | 'to';
+
+export interface TripPoint {
+  /** Что показать в поле: адрес, название или «Точка на карте». */
+  readonly label: string;
+  readonly point: LatLon;
+}

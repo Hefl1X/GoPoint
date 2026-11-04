@@ -3,12 +3,15 @@
 // Каждый ответ проверяется схемой zod: повреждённые данные не ломают интерфейс.
 import { z } from 'zod';
 import type {
+  LatLon,
   LineDetails,
   LineSummary,
   Meta as DomainMeta,
+  PlaceSuggestion,
   Vehicle as DomainVehicle,
 } from '../../domain/types';
 import { ApiError, type LiveApi } from '../../ports/LiveApi';
+import type { PlaceSearch } from '../../ports/PlaceSearch';
 import type { components } from './schema';
 
 const API_BASE = '/api/v1';
@@ -79,6 +82,22 @@ const lineDetailsSchema = z.object({
   ),
   diagnostics,
 }) satisfies z.ZodType<Schemas['LineDetails']>;
+
+const placeSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1),
+  subtitle: z.string().nullable().default(null),
+  kind: z.enum(['address', 'street', 'stop', 'place', 'area']),
+  point: latLon,
+});
+
+const searchSchema = z.object({
+  places: z.array(placeSchema),
+}) satisfies z.ZodType<Schemas['SearchResponse']>;
+
+const reverseSchema = z.object({
+  place: placeSchema.nullable(),
+}) satisfies z.ZodType<Schemas['ReverseResponse']>;
 
 const apiErrorSchema = z.object({
   code: z.string(),
@@ -193,6 +212,21 @@ export const httpLiveApi: LiveApi = {
         })),
       })),
     };
+  },
+};
+
+export const httpPlaceSearch: PlaceSearch = {
+  async search(query, signal): Promise<PlaceSuggestion[]> {
+    const params = new URLSearchParams({ q: query });
+    const body = await getJson(`/search?${params.toString()}`, searchSchema, signal);
+    return body.places;
+  },
+
+  async reverse(point: LatLon, signal): Promise<PlaceSuggestion | null> {
+    // Координаты только в запросе к своему серверу; сервер их не записывает.
+    const params = new URLSearchParams({ lat: point.lat.toFixed(6), lon: point.lon.toFixed(6) });
+    const body = await getJson(`/search/reverse?${params.toString()}`, reverseSchema, signal);
+    return body.place;
   },
 };
 

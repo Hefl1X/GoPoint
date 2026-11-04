@@ -1,0 +1,30 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "N",
+                "osm_id": 611611886,
+                "osm_key": "highway",
+                "osm_value": "bus_stop",
+                "type": "house",
+                "name": "Цирк",
+                "street": "улица Челюскинцев",
+                "district": "Челюскинский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "630000",
+                "countrycode": "RU"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9114541,
+                    55.0412723
+                ]
+            }
+        }
+    ]
+}

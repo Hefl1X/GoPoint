@@ -1,0 +1,65 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 172805396,
+                "osm_key": "highway",
+                "osm_value": "secondary",
+                "type": "street",
+                "name": "Вокзальная магистраль",
+                "district": "Челюскинский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "630000",
+                "countrycode": "RU",
+                "extent": [
+                    82.9156827,
+                    55.031562,
+                    82.9160272,
+                    55.0314908
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9158551,
+                    55.0315272
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 1136381606,
+                "osm_key": "highway",
+                "osm_value": "primary_link",
+                "type": "street",
+                "name": "Вокзальная магистраль",
+                "district": "Депутатский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "630099",
+                "countrycode": "RU",
+                "extent": [
+                    82.9196809,
+                    55.030413,
+                    82.9202919,
+                    55.0300489
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9199864,
+                    55.030231
+                ]
+            }
+        }
+    ]
+}

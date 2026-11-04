@@ -21,6 +21,9 @@
   --nav-total: calc(var(--nav-height) + env(safe-area-inset-bottom));
   /* Сколько видно от свёрнутой панели. */
   --sheet-peek: 34px;
+  /* Высота карточки «Откуда/Куда» вверху карты (два поля по 48 px и отступы). */
+  --trip-card-h: 112px;
+  --top-safe: env(safe-area-inset-top);
   --focus: #0f4a40;
   color-scheme: light;
 }
@@ -428,7 +431,7 @@ h1:focus {
 .map-locate {
   position: absolute;
   z-index: 1;
-  top: calc(12px + env(safe-area-inset-top));
+  top: calc(var(--trip-card-h) + 20px + var(--top-safe));
   right: 14px;
   display: grid;
   place-items: center;
@@ -510,7 +513,7 @@ h1:focus {
 .map-attribution {
   position: absolute;
   z-index: 1;
-  top: calc(8px + env(safe-area-inset-top));
+  top: calc(var(--trip-card-h) + 20px + var(--top-safe));
   left: 8px;
   max-width: calc(100% - 80px);
   padding: 2px 8px;
@@ -534,13 +537,371 @@ h1:focus {
   font-family: inherit;
 }
 
+/* ---------- точки А и Б */
+.endpoint-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.endpoint-badge--to {
+  background: var(--point-b);
+}
+
+.trip-card {
+  position: absolute;
+  z-index: 3;
+  top: calc(10px + var(--top-safe));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px 6px 8px;
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: 0 2px 10px rgb(15 74 64 / 22%);
+}
+
+.trip-card__fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.trip-card__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.trip-card__field + .trip-card__field {
+  border-top: 1px solid #dbe7e4;
+  border-radius: 0 0 14px 14px;
+}
+
+.trip-card__value,
+.trip-card__placeholder {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.trip-card__value {
+  font-weight: 700;
+}
+
+.trip-card__placeholder {
+  color: var(--caption);
+}
+
+.trip-card__swap {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 24px;
+  background: #e3efec;
+  color: var(--accent-dark);
+  cursor: pointer;
+}
+
+.trip-card__swap:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.start-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.start-intro__title {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.button--primary {
+  border: 0;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* значки на карте и булавка выбора точки */
+.trip-marker {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
+  color: #ffffff;
+  font-family: Nunito, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* Б: булавка (капля остриём вниз), буква стоит прямо. */
+.trip-marker--to {
+  width: 34px;
+  height: 34px;
+  border-radius: 50% 50% 50% 0;
+  background: var(--point-b);
+  transform: rotate(-45deg);
+  margin-bottom: 6px;
+}
+
+.trip-marker__letter {
+  display: block;
+}
+
+.trip-marker--to .trip-marker__letter {
+  transform: rotate(45deg);
+}
+
+/* Острие булавки Б снизу по центру (MapLibre ставит низ элемента на точку). */
+.trip-marker-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.center-pin {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+}
+
+/* Острие булавки Б и центр круга А совпадают с центром карты. */
+.center-pin .trip-marker--from {
+  transform: translate(-50%, -50%);
+}
+
+.center-pin .trip-marker--to {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  margin: 0;
+  transform: translate(-50%, -7px) rotate(-45deg);
+  transform-origin: center;
+}
+
+.pick-hint {
+  position: absolute;
+  z-index: 3;
+  top: calc(10px + var(--top-safe));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px 10px 16px;
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: 0 2px 10px rgb(15 74 64 / 22%);
+}
+
+.pick-hint__title {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.pick-hint__text {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.pick-panel {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: var(--nav-total);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 24px 24px 0 0;
+  background: var(--panel);
+  box-shadow: 0 -4px 16px rgb(15 74 64 / 15%);
+}
+
+.pick-panel__caption {
+  font-size: 13px;
+  color: var(--caption);
+}
+
+.pick-panel__address {
+  font-size: 17px;
+  font-weight: 800;
+  min-height: 24px;
+}
+
+.pick-panel .button {
+  margin-top: 6px;
+}
+
+/* ---------- поиск адреса */
+.search-panel {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(10px + var(--top-safe)) 12px 12px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.search-panel__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-panel__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid #cfe0db;
+  border-radius: 22px;
+  background: var(--card);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  cursor: pointer;
+}
+
+.search-panel__results {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.search-panel__hint {
+  padding: 8px 4px;
+  color: var(--text-2);
+}
+
+.suggestions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: 18px;
+  background: var(--card);
+}
+
+.suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid #e3ecea;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.suggestions li:last-child .suggestion {
+  border-bottom: 0;
+}
+
+.suggestion__kind {
+  flex: none;
+  min-width: 52px;
+  margin-top: 2px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #e3efec;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--accent-dark);
+}
+
+.suggestion__kind--stop {
+  background: #dbe5fb;
+  color: #1d3f9a;
+}
+
+.suggestion__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.suggestion__title {
+  font-weight: 800;
+}
+
+.suggestion__subtitle {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.search-panel__attribution {
+  flex: none;
+}
+
 /* список вместо карты */
 .map-list {
   position: absolute;
   inset: 0 0 auto;
-  max-height: 55%;
+  max-height: 60%;
   overflow: auto;
-  padding: 72px 14px 12px;
+  /* Под карточкой «Откуда/Куда» и кнопкой местоположения. */
+  padding: calc(var(--trip-card-h) + 76px + var(--top-safe)) 14px 12px;
+}
+
+.map-list__trip {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-weight: 700;
 }
 
 .map-list__note {
@@ -768,6 +1129,26 @@ h1:focus {
 }
 
 @media (min-width: 900px) {
+  .trip-card,
+  .pick-hint {
+    right: auto;
+    width: 420px;
+    left: 16px;
+  }
+
+  .search-panel {
+    right: auto;
+    width: 452px;
+  }
+
+  .pick-panel {
+    left: 16px;
+    right: auto;
+    bottom: calc(var(--nav-total) + 16px);
+    width: 420px;
+    border-radius: 24px;
+  }
+
   .sheet {
     left: 16px;
     right: auto;

@@ -1,0 +1,35 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "R",
+                "osm_id": 4106721,
+                "osm_key": "highway",
+                "osm_value": "pedestrian",
+                "type": "street",
+                "name": "Площадь Гарина-Михайловского",
+                "district": "Челюскинский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "630000",
+                "countrycode": "RU",
+                "extent": [
+                    82.8964602,
+                    55.0367902,
+                    82.900309,
+                    55.0343419
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.8976792,
+                    55.0355536
+                ]
+            }
+        }
+    ]
+}

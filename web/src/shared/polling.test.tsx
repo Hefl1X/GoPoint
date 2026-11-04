@@ -14,7 +14,7 @@ const fastMeta = { ...META, refreshIntervalS: 1 };
 function setup() {
   const getVehicles = vi.fn(() => Promise.resolve(VEHICLES));
   const api = fakeApi({ getMeta: () => Promise.resolve(fastMeta), getVehicles });
-  renderApp(<MapScreen vehicleId={null} />, { api });
+  renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, { api });
   return getVehicles;
 }
 

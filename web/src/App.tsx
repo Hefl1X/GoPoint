@@ -18,7 +18,10 @@ export function App() {
   return (
     <div className="app">
       <div className="app__content">
-        {route.name === 'map' ? <MapScreen vehicleId={route.vehicleId} /> : null}
+        {/* Карта, поиск адреса и выбор точки: один и тот же экран, карта не пересоздаётся. */}
+        {route.name === 'map' || route.name === 'search' || route.name === 'pick' ? (
+          <MapScreen route={route} />
+        ) : null}
         {route.name === 'transport' ? <LiveRoutesScreen /> : null}
         {route.name === 'line' ? (
           <LiveRouteScreen key={route.lineId} lineId={route.lineId} />

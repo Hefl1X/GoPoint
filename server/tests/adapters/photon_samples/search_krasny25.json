@@ -1,0 +1,36 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 85290536,
+                "osm_key": "place",
+                "osm_value": "house",
+                "type": "house",
+                "housenumber": "25/1",
+                "street": "Красный проспект",
+                "district": "Депутатский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "630099",
+                "countrycode": "RU",
+                "extent": [
+                    82.9194691,
+                    55.0288107,
+                    82.9196169,
+                    55.028615
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9195412,
+                    55.0287121
+                ]
+            }
+        }
+    ]
+}

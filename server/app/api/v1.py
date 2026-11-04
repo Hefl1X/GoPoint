@@ -1,6 +1,7 @@
 """Адреса /api/v1 (раздел 9 docs/ARCHITECTURE.md).
 
-Работают: /health, /meta, /live/vehicles, /live/routes, /live/routes/{id}.
+Работают: /health, /meta, /search, /search/reverse, /live/vehicles, /live/routes,
+/live/routes/{id}.
 Остальные уже описаны в контракте (OpenAPI) и отвечают 501 до своих задач.
 """
 
@@ -21,6 +22,7 @@ from app.api.schemas import (
     LineSummary,
     LineVehicle,
     Meta,
+    ReverseResponse,
     RouteRequest,
     RouteResponse,
     SearchResponse,
@@ -32,7 +34,8 @@ from app.config import APP_NAME, APP_VERSION, Settings
 from app.domain.geo import next_stop_order
 from app.domain.live import line_sort_key, usable_vehicles
 from app.domain.models import Bounds, Direction, LatLon, TransportType
-from app.ports import TransitFeedError, UnknownLineError
+from app.ports import GeocoderError, TransitFeedError, UnknownLineError
+from app.services.geocoding import GeocodingService
 from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
 
 router = APIRouter(prefix="/api/v1", responses=ERROR_RESPONSES)
@@ -63,9 +66,15 @@ def get_clock(request: Request) -> Clock:
     return clock
 
 
+def get_geocoding(request: Request) -> GeocodingService:
+    geocoding: GeocodingService = request.app.state.geocoding
+    return geocoding
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 LiveDep = Annotated[LiveSnapshotService, Depends(get_live)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
+GeocodingDep = Annotated[GeocodingService, Depends(get_geocoding)]
 
 
 def transit_unavailable() -> AppError:
@@ -74,6 +83,18 @@ def transit_unavailable() -> AppError:
         "TRANSIT_UNAVAILABLE",
         "Не удалось получить данные о транспорте. Попробуйте через минуту.",
     )
+
+
+def geocoder_unavailable() -> AppError:
+    return AppError(
+        503,
+        "GEOCODER_UNAVAILABLE",
+        "Поиск адресов сейчас не работает. Выберите точку на карте.",
+    )
+
+
+def outside_city() -> AppError:
+    return AppError(422, "OUTSIDE_CITY", "Эта точка за пределами Новосибирска.")
 
 
 def line_not_found() -> AppError:
@@ -130,8 +151,33 @@ async def meta(settings: SettingsDep) -> Meta:
 
 
 @router.get("/search", tags=["search"])
-async def search(q: Annotated[str, Query(min_length=3, max_length=200)]) -> SearchResponse:
-    raise not_implemented()
+async def search(
+    geocoding: GeocodingDep,
+    q: Annotated[str, Query(min_length=3, max_length=200, description="Адрес или название")],
+) -> SearchResponse:
+    """Подсказки адресов и мест в Новосибирске (данные OpenStreetMap)."""
+    try:
+        places = await geocoding.search(q)
+    except GeocoderError as exc:
+        raise geocoder_unavailable() from exc
+    return SearchResponse(places=places)
+
+
+@router.get("/search/reverse", tags=["search"])
+async def search_reverse(
+    geocoding: GeocodingDep,
+    lat: Annotated[float, Query(ge=-90, le=90)],
+    lon: Annotated[float, Query(ge=-180, le=180)],
+) -> ReverseResponse:
+    """Адрес у точки, выбранной на карте."""
+    point = LatLon(lat=lat, lon=lon)
+    if not geocoding.bounds.contains(point):
+        raise outside_city()
+    try:
+        place = await geocoding.reverse(point)
+    except GeocoderError as exc:
+        raise geocoder_unavailable() from exc
+    return ReverseResponse(place=place)
 
 
 @router.post("/route", tags=["route"])

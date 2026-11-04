@@ -1,0 +1,37 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 1392060785,
+                "osm_key": "building",
+                "osm_value": "transportation",
+                "type": "house",
+                "housenumber": "12/1",
+                "name": "Автокасса \"Речной вокзал\"",
+                "street": "Большевистская улица",
+                "district": "Восход",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "630009",
+                "countrycode": "RU",
+                "extent": [
+                    82.9357961,
+                    55.0081931,
+                    82.9359114,
+                    55.0081362
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9358532,
+                    55.0081655
+                ]
+            }
+        }
+    ]
+}

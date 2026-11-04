@@ -5,12 +5,21 @@ import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { ListMapView } from './adapters/map-list/ListMapView';
 import { createMemoryStore } from './adapters/storage/localStore';
-import type { LineDetails, LineSummary, Meta, Vehicle } from './domain/types';
+import type {
+  LineDetails,
+  LineSummary,
+  Meta,
+  PlaceSuggestion,
+  TripPoint,
+  Vehicle,
+} from './domain/types';
 import type { Geolocator } from './ports/Geolocation';
 import type { LiveApi } from './ports/LiveApi';
+import type { PlaceSearch } from './ports/PlaceSearch';
 import type { KeyValueStore } from './ports/Storage';
 import { ServicesProvider, type Services } from './shared/services';
 import { SettingsProvider } from './shared/settings';
+import { TripProvider } from './shared/trip';
 
 export const META: Meta = {
   appName: 'GoPoint',
@@ -104,21 +113,66 @@ export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
   };
 }
 
+export const PLACES: PlaceSuggestion[] = [
+  {
+    id: 'osm-W1',
+    title: 'Аура',
+    subtitle: 'Военная улица, 5, Депутатский',
+    kind: 'place',
+    point: { lat: 55.0435, lon: 82.9227 },
+  },
+  {
+    id: 'osm-W2',
+    title: 'Красный проспект, 25/1',
+    subtitle: 'Депутатский',
+    kind: 'address',
+    point: { lat: 55.0287, lon: 82.9195 },
+  },
+  {
+    id: 'osm-N3',
+    title: 'Цирк',
+    subtitle: 'улица Челюскинцев',
+    kind: 'stop',
+    point: { lat: 55.04, lon: 82.91 },
+  },
+];
+
+export function fakePlaces(overrides: Partial<PlaceSearch> = {}): PlaceSearch {
+  return {
+    search: vi.fn((q: string) =>
+      Promise.resolve(PLACES.filter((p) => p.title.toLowerCase().includes(q.toLowerCase()))),
+    ),
+    reverse: vi.fn(() => Promise.resolve(PLACES[1] ?? null)),
+    ...overrides,
+  };
+}
+
 export function renderApp(
   ui: ReactNode,
-  options: { api?: LiveApi; store?: KeyValueStore; geolocator?: Geolocator } = {},
+  options: {
+    api?: LiveApi;
+    store?: KeyValueStore;
+    geolocator?: Geolocator;
+    places?: PlaceSearch;
+    mapCanPick?: boolean;
+    trip?: { from?: TripPoint | null; to?: TripPoint | null };
+  } = {},
 ): RenderResult & { services: Services } {
   const services: Services = {
     api: options.api ?? fakeApi(),
     store: options.store ?? createMemoryStore(),
     geolocator: options.geolocator ?? { locate: () => Promise.resolve({ lat: 55, lon: 83 }) },
     MapView: ListMapView,
+    mapCanPick: options.mapCanPick ?? false,
+    places: options.places ?? fakePlaces(),
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const result = render(
     <QueryClientProvider client={client}>
       <ServicesProvider services={services}>
-        <SettingsProvider>{ui}</SettingsProvider>
+        <SettingsProvider>
+          <TripProvider initial={options.trip}>{ui}</TripProvider>
+        </SettingsProvider>
       </ServicesProvider>
     </QueryClientProvider>,
   );

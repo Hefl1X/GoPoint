@@ -1,0 +1,37 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 79524744,
+                "osm_key": "shop",
+                "osm_value": "mall",
+                "type": "house",
+                "housenumber": "5",
+                "name": "Аура",
+                "street": "Военная улица",
+                "district": "Депутатский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "360099",
+                "countrycode": "RU",
+                "extent": [
+                    82.9352696,
+                    55.0298711,
+                    82.9376715,
+                    55.0276087
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9365684,
+                    55.028667
+                ]
+            }
+        }
+    ]
+}

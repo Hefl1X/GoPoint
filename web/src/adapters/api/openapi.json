@@ -482,6 +482,79 @@
         "title": "Place",
         "type": "object"
       },
+      "PlaceKind": {
+        "description": "Что за место нашёл поиск: от этого зависит значок в подсказке.",
+        "enum": [
+          "address",
+          "street",
+          "stop",
+          "place",
+          "area"
+        ],
+        "title": "PlaceKind",
+        "type": "string"
+      },
+      "PlaceSuggestion": {
+        "additionalProperties": false,
+        "description": "Подсказка поиска адреса: что показать человеку и где это на карте.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaceKind"
+          },
+          "point": {
+            "$ref": "#/components/schemas/LatLon"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "point"
+        ],
+        "title": "PlaceSuggestion",
+        "type": "object"
+      },
+      "ReverseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "place": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaceSuggestion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Адрес или место у точки; null, если рядом ничего не нашлось"
+          }
+        },
+        "required": [
+          "place"
+        ],
+        "title": "ReverseResponse",
+        "type": "object"
+      },
       "RouteRequest": {
         "additionalProperties": false,
         "properties": {
@@ -527,7 +600,7 @@
         "properties": {
           "places": {
             "items": {
-              "$ref": "#/components/schemas/Place"
+              "$ref": "#/components/schemas/PlaceSuggestion"
             },
             "title": "Places",
             "type": "array"
@@ -1360,13 +1433,16 @@
     },
     "/api/v1/search": {
       "get": {
+        "description": "Подсказки адресов и мест в Новосибирске (данные OpenStreetMap).",
         "operationId": "search_api_v1_search_get",
         "parameters": [
           {
+            "description": "Адрес или название",
             "in": "query",
             "name": "q",
             "required": true,
             "schema": {
+              "description": "Адрес или название",
               "maxLength": 200,
               "minLength": 3,
               "title": "Q",
@@ -1417,6 +1493,82 @@
           }
         },
         "summary": "Search",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/reverse": {
+      "get": {
+        "description": "Адрес у точки, выбранной на карте.",
+        "operationId": "search_reverse_api_v1_search_reverse_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lon",
+            "required": true,
+            "schema": {
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lon",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReverseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Неверные данные запроса"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ошибка сервера"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ещё не сделано"
+          }
+        },
+        "summary": "Search Reverse",
         "tags": [
           "search"
         ]

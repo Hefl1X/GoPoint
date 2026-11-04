@@ -32,6 +32,8 @@ function props(overrides: Partial<MapViewProps> = {}): MapViewProps {
     routeColor: '#1d4ed8',
     userLocation: null,
     focus: null,
+    tripPoints: [],
+    picking: false,
     onVehicleSelect: vi.fn(),
     ...overrides,
   };
@@ -63,6 +65,21 @@ function contract(name: string, View: MapView) {
         'aria-pressed',
         'true',
       );
+    });
+
+    it('показывает точки А и Б с подписью', () => {
+      render(
+        <View
+          {...props({
+            tripPoints: [
+              { end: 'from', point: { lat: 55, lon: 83 }, label: 'Аура' },
+              { end: 'to', point: { lat: 55.1, lon: 83 }, label: 'Красный проспект, 25/1' },
+            ],
+          })}
+        />,
+      );
+      expect(screen.getByText(/Точка А: Аура/)).toBeInTheDocument();
+      expect(screen.getByText(/Точка Б: Красный проспект, 25\/1/)).toBeInTheDocument();
     });
 
     it('пустой список не ломает вид', () => {

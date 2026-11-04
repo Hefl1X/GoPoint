@@ -14,7 +14,7 @@ from app.domain.models import (
     Journey,
     LatLon,
     Line,
-    Place,
+    PlaceSuggestion,
     Stop,
     Vehicle,
 )
@@ -34,7 +34,13 @@ class Meta(DomainModel):
 
 
 class SearchResponse(DomainModel):
-    places: list[Place]
+    places: list[PlaceSuggestion]
+
+
+class ReverseResponse(DomainModel):
+    place: PlaceSuggestion | None = Field(
+        description="Адрес или место у точки; null, если рядом ничего не нашлось"
+    )
 
 
 class RouteRequest(DomainModel):

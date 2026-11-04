@@ -68,6 +68,26 @@ class Place(DomainModel):
     point: LatLon
 
 
+class PlaceKind(StrEnum):
+    """Что за место нашёл поиск: от этого зависит значок в подсказке."""
+
+    ADDRESS = "address"  # дом с номером
+    STREET = "street"
+    STOP = "stop"  # остановка транспорта
+    PLACE = "place"  # организация, торговый центр, больница и т. п.
+    AREA = "area"  # район, микрорайон, посёлок
+
+
+class PlaceSuggestion(DomainModel):
+    """Подсказка поиска адреса: что показать человеку и где это на карте."""
+
+    id: str
+    title: str = Field(min_length=1)
+    subtitle: str | None = None
+    kind: PlaceKind
+    point: LatLon
+
+
 class Stop(DomainModel):
     id: str
     name: str

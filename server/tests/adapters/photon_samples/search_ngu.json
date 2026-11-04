@@ -1,0 +1,62 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 29109691,
+                "osm_key": "amenity",
+                "osm_value": "university",
+                "type": "house",
+                "housenumber": "53",
+                "name": "НГУЭиУ",
+                "street": "Ядринцевская улица",
+                "district": "Депутатский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "360099",
+                "countrycode": "RU",
+                "extent": [
+                    82.9276405,
+                    55.0345567,
+                    82.9299952,
+                    55.0338858
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9295072,
+                    55.0342119
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "N",
+                "osm_id": 1018786645,
+                "osm_key": "amenity",
+                "osm_value": "university",
+                "type": "house",
+                "name": "НГУЭиУ",
+                "street": "улица Ломоносова",
+                "district": "Фрунзенский",
+                "city": "Новосибирск",
+                "state": "Новосибирская область",
+                "country": "Россия",
+                "postcode": "630000",
+                "countrycode": "RU"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    82.9358443,
+                    55.0389469
+                ]
+            }
+        }
+    ]
+}

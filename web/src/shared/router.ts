@@ -2,9 +2,12 @@
 // Работают «Назад» в браузере и жест «назад», не требуют настройки сервера
 // и подойдут для оболочки Capacitor.
 import { useEffect, useState } from 'react';
+import type { Endpoint } from '../domain/types';
 
 export type Route =
   | { readonly name: 'map'; readonly vehicleId: string | null }
+  | { readonly name: 'search'; readonly end: Endpoint }
+  | { readonly name: 'pick'; readonly end: Endpoint }
   | { readonly name: 'transport' }
   | { readonly name: 'line'; readonly lineId: string }
   | { readonly name: 'settings' }
@@ -21,7 +24,12 @@ export function parseRoute(hash: string): Route {
       return '';
     }
   };
+  const end: Endpoint = second === 'from' ? 'from' : 'to';
   switch (first) {
+    case 'search':
+      return { name: 'search', end };
+    case 'pick':
+      return { name: 'pick', end };
     case 'vehicle':
       return { name: 'map', vehicleId: second ? decode(second) || null : null };
     case 'transport':
@@ -41,6 +49,10 @@ export function routeHref(route: Route): string {
   switch (route.name) {
     case 'map':
       return route.vehicleId ? `#/vehicle/${encodeURIComponent(route.vehicleId)}` : '#/';
+    case 'search':
+      return `#/search/${route.end}`;
+    case 'pick':
+      return `#/pick/${route.end}`;
     case 'transport':
       return '#/transport';
     case 'line':
@@ -52,8 +64,13 @@ export function routeHref(route: Route): string {
   }
 }
 
-export function navigate(route: Route): void {
-  window.location.hash = routeHref(route);
+export function navigate(route: Route, options: { replace?: boolean } = {}): void {
+  if (options.replace) {
+    // Без новой записи в истории: «Назад» после выбора точки не открывает поиск снова.
+    window.location.replace(routeHref(route));
+  } else {
+    window.location.hash = routeHref(route);
+  }
 }
 
 export function useRoute(): Route {

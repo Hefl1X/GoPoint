@@ -3,7 +3,15 @@
 import { lineName, lowFloorLabel, TYPE_COLOR, MUTED_COLOR } from '../../domain/transport';
 import type { MapViewProps } from '../../ports/MapView';
 
-export function ListMapView({ label, vehicles, selectedVehicleId, onVehicleSelect }: MapViewProps) {
+const END_NAME = { from: 'Точка А', to: 'Точка Б' } as const;
+
+export function ListMapView({
+  label,
+  vehicles,
+  selectedVehicleId,
+  tripPoints,
+  onVehicleSelect,
+}: MapViewProps) {
   const sorted = [...vehicles].sort(
     (a, b) =>
       Number(a.muted) - Number(b.muted) ||
@@ -12,7 +20,17 @@ export function ListMapView({ label, vehicles, selectedVehicleId, onVehicleSelec
   );
   return (
     <section className="map-list" aria-label={label} data-testid="map-list">
-      <p className="map-list__note">Карта недоступна на этом устройстве. Транспорт на линии:</p>
+      <p className="map-list__note">Карта недоступна на этом устройстве.</p>
+      {tripPoints.length > 0 ? (
+        <ul className="map-list__trip">
+          {tripPoints.map((p) => (
+            <li key={p.end}>
+              {END_NAME[p.end]}: {p.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="map-list__note">Транспорт на линии:</p>
       <ul className="map-list__items">
         {sorted.map((v) => (
           <li key={v.id}>

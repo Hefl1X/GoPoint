@@ -5,7 +5,17 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-from app.domain.models import Direction, Line, LinePath, LiveVehicle, Place, WalkLeg
+from app.domain.models import (
+    Bounds,
+    Direction,
+    LatLon,
+    Line,
+    LinePath,
+    LiveVehicle,
+    Place,
+    PlaceSuggestion,
+    WalkLeg,
+)
 
 
 class TransitFeedError(Exception):
@@ -39,7 +49,19 @@ class WalkPlanner(Protocol):
     async def walk(self, origin: Place, destination: Place) -> WalkLeg: ...
 
 
-class Geocoder(Protocol):
-    """Поиск адресов и мест."""
+class GeocoderError(Exception):
+    """Сервис поиска адресов не ответил или ответил не в том формате."""
 
-    async def search(self, query: str, limit: int) -> list[Place]: ...
+
+class Geocoder(Protocol):
+    """Поиск адресов и мест (источник: OpenStreetMap через Photon)."""
+
+    async def search(
+        self, query: str, *, limit: int, bounds: Bounds, near: LatLon
+    ) -> list[PlaceSuggestion]:
+        """Подсказки по тексту в пределах bounds; ближе к near выше. Порядок: лучшие первыми."""
+        ...
+
+    async def reverse(self, point: LatLon) -> PlaceSuggestion | None:
+        """Ближайший адрес или место у точки; None, если рядом ничего нет."""
+        ...

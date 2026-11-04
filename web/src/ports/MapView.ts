@@ -1,7 +1,7 @@
 // Порт карты. Реализации: adapters/maplibre (векторная карта) и adapters/map-list
 // (список вместо карты, если WebGL недоступен). Координаты только { lat, lon }.
 import type { ComponentType } from 'react';
-import type { Accessibility, Bounds, LatLon, TransportType } from '../domain/types';
+import type { Accessibility, Bounds, Endpoint, LatLon, TransportType } from '../domain/types';
 
 export interface MapVehicle {
   readonly id: string;
@@ -11,6 +11,13 @@ export interface MapVehicle {
   readonly point: LatLon;
   /** Машина не из выбранного маршрута: показывается серой. */
   readonly muted: boolean;
+}
+
+/** Точка А или Б на карте. */
+export interface MapTripPoint {
+  readonly end: Endpoint;
+  readonly point: LatLon;
+  readonly label: string;
 }
 
 export interface MapViewProps {
@@ -25,8 +32,20 @@ export interface MapViewProps {
   readonly routeLine: readonly LatLon[] | null;
   readonly routeColor: string;
   readonly userLocation: LatLon | null;
-  /** Куда переместить карту; новый объект означает новое перемещение. */
-  readonly focus: { readonly point: LatLon } | null;
+  /** Точки А и Б. */
+  readonly tripPoints: readonly MapTripPoint[];
+  /**
+   * Куда переместить карту; новый объект означает новое перемещение.
+   * exact: точка ровно в центре карты (для выбора точки), иначе чуть выше центра,
+   * потому что низ экрана закрыт панелью.
+   */
+  readonly focus: { readonly point: LatLon; readonly exact?: boolean } | null;
+  /**
+   * Режим «Выбрать на карте»: машины не выбираются, нажатие на карту переносит туда
+   * центр, а центр карты сообщается через onCenterChange после каждого движения.
+   */
+  readonly picking: boolean;
+  readonly onCenterChange?: ((center: LatLon) => void) | undefined;
   readonly onVehicleSelect: (id: string) => void;
 }
 

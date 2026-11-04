@@ -46,11 +46,25 @@ class Settings(BaseSettings):
     # Какие виды транспорта берём, через запятую (маршрутки включены решением владельца 04.11.2026).
     transport_types: str = "bus,trolleybus,tram,minibus"
 
+    # Поиск адресов: photon (публичный сервер или свой экземпляр по адресу photon_url).
+    geocoder: Literal["photon"] = "photon"
+    photon_url: str = "https://photon.komoot.io"
+    photon_timeout_s: float = Field(default=5.0, gt=0)
+    # Не чаще одного запроса к Photon за столько секунд (бережём публичный сервер).
+    photon_min_interval_s: float = Field(default=0.2, ge=0.1)
+    # Сколько подсказок показывать и сколько хранить ответы поиска в памяти.
+    search_limit: int = Field(default=6, ge=1, le=10)
+    search_cache_ttl_s: int = Field(default=86_400, ge=60)
+    search_cache_size: int = Field(default=2_000, ge=10)
+
     # Границы Новосибирска (примерно, уточнить по границе из OpenStreetMap).
     city_south: float = 54.80
     city_west: float = 82.70
     city_north: float = 55.20
     city_east: float = 83.20
+    # Центр города (площадь Ленина): поиск адресов предпочитает места ближе к нему.
+    city_center_lat: float = 55.0302
+    city_center_lon: float = 82.9204
 
     @property
     def transport_type_set(self) -> frozenset[TransportType]:
@@ -63,6 +77,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def city_center(self) -> LatLon:
+        return LatLon(lat=self.city_center_lat, lon=self.city_center_lon)
 
     @property
     def city_bounds(self) -> Bounds:

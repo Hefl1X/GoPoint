@@ -52,7 +52,7 @@ describe('Настройки', () => {
 
 describe('Главный экран', () => {
   it('показывает число низкопольных машин и машины на карте', async () => {
-    renderApp(<MapScreen vehicleId={null} />);
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />);
     expect(await screen.findByText('На линии сейчас: 1 низкопольная машина')).toBeInTheDocument();
     const map = screen.getByRole('region', { name: /Карта Новосибирска/ });
     expect(within(map).getAllByRole('button')).toHaveLength(1);
@@ -60,7 +60,7 @@ describe('Главный экран', () => {
 
   it('при выключенной настройке все машины с пометками', async () => {
     const store = createMemoryStore({ 'gopoint.lowFloorOnly': 'false' });
-    renderApp(<MapScreen vehicleId={null} />, { store });
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, { store });
     expect(await screen.findByText('На линии сейчас: 3 машины')).toBeInTheDocument();
     const map = screen.getByRole('region', { name: /Карта Новосибирска/ });
     expect(within(map).getByText(/Автобус 3, не низкий пол/)).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('Главный экран', () => {
   });
 
   it('нет низкопольных: серый блок и ссылка на настройки', async () => {
-    renderApp(<MapScreen vehicleId={null} />, {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
       api: fakeApi({ getVehicles: () => Promise.resolve([]) }),
     });
     expect(await screen.findByText('Транспорта сейчас нет')).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe('Главный экран', () => {
   });
 
   it('нет сети: понятное сообщение и «Повторить»', async () => {
-    renderApp(<MapScreen vehicleId={null} />, {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
       api: fakeApi({
         getVehicles: () =>
           Promise.reject(new ApiError(0, 'NETWORK', 'Нет подключения к интернету.')),
@@ -93,7 +93,7 @@ describe('Главный экран', () => {
   });
 
   it('ошибка сервера: его сообщение по-русски', async () => {
-    renderApp(<MapScreen vehicleId={null} />, {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
       api: fakeApi({
         getVehicles: () =>
           Promise.reject(
@@ -107,19 +107,19 @@ describe('Главный экран', () => {
   });
 
   it('кнопка «Моё местоположение» одна', async () => {
-    renderApp(<MapScreen vehicleId={null} />);
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />);
     await screen.findByText(/На линии сейчас/);
     expect(screen.getAllByRole('button', { name: 'Моё местоположение' })).toHaveLength(1);
   });
 
   it('нажатие на машину открывает её карточку', async () => {
-    renderApp(<MapScreen vehicleId={null} />);
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />);
     fireEvent.click(await screen.findByRole('button', { name: /Автобус 3/ }));
     expect(window.location.hash).toBe('#/vehicle/bus-3-1');
   });
 
   it('карточка машины: куда едет, следующая остановка, низкий пол', async () => {
-    renderApp(<MapScreen vehicleId="bus-3-1" />);
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: 'bus-3-1' }} />);
     expect(await screen.findByRole('heading', { name: 'Автобус 3' })).toBeInTheDocument();
     expect(await screen.findByText('в сторону Северный')).toBeInTheDocument();
     expect(screen.getByText('Следующая остановка')).toBeInTheDocument();
@@ -132,12 +132,12 @@ describe('Главный экран', () => {
   });
 
   it('машины больше нет на линии: так и говорим', async () => {
-    renderApp(<MapScreen vehicleId="bus-3-777" />);
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: 'bus-3-777' }} />);
     expect(await screen.findByText('Сведений об этой машине сейчас нет.')).toBeInTheDocument();
   });
 
   it('отказ в геолокации не ломает экран', async () => {
-    renderApp(<MapScreen vehicleId={null} />, {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
       geolocator: { locate: () => Promise.reject(new GeolocationError('denied')) },
     });
     await screen.findByText(/На линии сейчас/);
@@ -150,7 +150,7 @@ describe('Главный экран', () => {
   });
 
   it('без HTTPS объясняем, почему местоположения нет', async () => {
-    renderApp(<MapScreen vehicleId={null} />, {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
       geolocator: { locate: () => Promise.reject(new GeolocationError('insecure')) },
     });
     fireEvent.click(locateButton());
