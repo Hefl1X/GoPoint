@@ -314,13 +314,22 @@ export interface components {
              */
             stops: components["schemas"]["Stop"][];
             /** Vehicles */
-            vehicles: components["schemas"]["Vehicle"][];
+            vehicles: components["schemas"]["LineVehicle"][];
         };
         /** LineSummary */
         LineSummary: {
             line: components["schemas"]["Line"];
             /** Vehiclesonline */
             vehiclesOnLine: number;
+        };
+        /** LineVehicle */
+        LineVehicle: {
+            /**
+             * Nextstoporder
+             * @description Номер следующей остановки в списке stops; null, если впереди остановок нет
+             */
+            nextStopOrder: number | null;
+            vehicle: components["schemas"]["Vehicle"];
         };
         /** LinesResponse */
         LinesResponse: {

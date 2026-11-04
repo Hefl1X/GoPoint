@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, fetchMeta } from './client';
+import { ApiError, fetchMeta, httpLiveApi } from './client';
 
 const goodMeta = {
   appName: 'GoPoint',
@@ -49,5 +49,60 @@ describe('клиент API', () => {
       code: 'NETWORK',
       message: 'Нет подключения к интернету.',
     });
+  });
+});
+
+describe('машины на линии', () => {
+  const vehicle = {
+    id: 'bus-3-1',
+    lineId: 'bus-3',
+    type: 'bus',
+    number: '3',
+    direction: 'A',
+    point: { lat: 55.03, lon: 82.92 },
+    azimuth: 90,
+    speedKmh: 20,
+    lowFloor: 'yes',
+    positionObservedAt: '2026-11-04T05:27:31Z',
+  };
+  const diagnostics = { fetchedAt: '2026-11-04T05:28:00Z', complete: true };
+
+  it('передаёт lowFloorOnly и не отдаёт служебное время отметки', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(Response.json({ vehicles: [vehicle], diagnostics })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await httpLiveApi.getVehicles(false);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/v1/live/vehicles?lowFloorOnly=false');
+    expect(result).toHaveLength(1);
+    expect(result[0]).not.toHaveProperty('positionObservedAt');
+    expect(result[0]?.lowFloor).toBe('yes');
+  });
+
+  it('неизвестное значение низкого пола делает ответ непонятным, а не «да»', async () => {
+    mockFetch(() =>
+      Promise.resolve(
+        Response.json({ vehicles: [{ ...vehicle, lowFloor: 'maybe' }], diagnostics }),
+      ),
+    );
+    await expect(httpLiveApi.getVehicles(true)).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
+  });
+
+  it('координаты массивом не принимаются', async () => {
+    mockFetch(() =>
+      Promise.resolve(Response.json({ vehicles: [{ ...vehicle, point: [55, 82] }], diagnostics })),
+    );
+    await expect(httpLiveApi.getVehicles(true)).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
+  });
+
+  it('id маршрута кодируется в адресе', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(Response.json({}, { status: 404 })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await httpLiveApi.getLine('minibus-30А', true).catch(() => undefined);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/v1/live/routes/minibus-30%D0%90?lowFloorOnly=true',
+    );
   });
 });

@@ -297,3 +297,28 @@ def test_trace_points_named_dash_are_not_stops() -> None:
 def test_broken_or_empty_trace_is_error(data: object) -> None:
     with pytest.raises(TsugaetFormatError):
         parse_trace(data, "bus-3", Direction.A)
+
+
+def test_stop_names_have_single_spaces() -> None:
+    data = {
+        "trasses": [
+            {
+                "r": [
+                    {
+                        "marsh": "0013",
+                        "u": [
+                            {
+                                "id": "1",
+                                "n": "Гусинобродское  шоссе (т)",
+                                "lat": "55.0",
+                                "lng": "83.0",
+                            },
+                            {"lat": "55.1", "lng": "83.0"},
+                        ],
+                    }
+                ]
+            }
+        ]
+    }
+    path = parse_trace(data, "tram-0013", Direction.A)
+    assert path.stops[0].stop.name == "Гусинобродское шоссе (т)"

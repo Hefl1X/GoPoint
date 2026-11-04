@@ -65,6 +65,22 @@ export default tseslint.config(
     },
   },
   {
+    // Экраны и общие части знают только порты; адаптеры подставляет main.tsx.
+    files: ['src/features/**/*.{ts,tsx}', 'src/shared/**/*.{ts,tsx}', 'src/ports/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...adapterOnlyPackages,
+            { group: ['**/adapters/**'], message: 'Только через порты (src/ports).' },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['src/adapters/**/*.{ts,tsx}'],
     rules: { 'no-restricted-imports': 'off', 'no-restricted-globals': 'off' },
   },

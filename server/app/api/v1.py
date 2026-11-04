@@ -19,6 +19,7 @@ from app.api.schemas import (
     LineDirection,
     LinesResponse,
     LineSummary,
+    LineVehicle,
     Meta,
     RouteRequest,
     RouteResponse,
@@ -28,6 +29,7 @@ from app.api.schemas import (
     VehiclesResponse,
 )
 from app.config import APP_NAME, APP_VERSION, Settings
+from app.domain.geo import next_stop_order
 from app.domain.live import line_sort_key, usable_vehicles
 from app.domain.models import Bounds, Direction, LatLon, TransportType
 from app.ports import TransitFeedError, UnknownLineError
@@ -218,7 +220,11 @@ async def live_route(
                     direction=direction,
                     stops=[s.stop for s in path.stops],
                     path=path.points,
-                    vehicles=[v for v in vehicles if v.direction is direction],
+                    vehicles=[
+                        LineVehicle(vehicle=v, next_stop_order=next_stop_order(path, v.point))
+                        for v in vehicles
+                        if v.direction is direction
+                    ],
                 )
             )
     except UnknownLineError as exc:

@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | ЦУГАЭТ, map.nskgortrans.ru | данные о транспорте (запрос 2) | официальных условий API нет; `terms_of_use.docx` и письменное разрешение оформляет владелец | не проверено | пока нет письменного разрешения: нагрузка минимальная, сервис не публикуется в общий доступ; источник указывается в «О приложении» |
 | OpenStreetMap | улицы для пеших участков, подложка карты | https://www.openstreetmap.org/copyright (ODbL) | не проверено | подпись «© OpenStreetMap contributors» на карте и в «О приложении» обязательна |
-| OpenFreeMap | тайлы карты (запрос 3) | https://openfreemap.org | не проверено | проверить пределы публичного сервера |
+| OpenFreeMap | тайлы карты (стиль positron) | https://openfreemap.org/tos/ | 2026-11-04 | бесплатно, без ключа и регистрации, без cookie, ограничений на число запросов нет; без гарантий, может прекратить работу без предупреждения; запросы идут через Cloudflare; запрещён массовый автоматический сбор (скачивание для работы без сети не больше 3000 тайлов / 50 МБ). Подпись «OpenFreeMap © OpenMapTiles Data from OpenStreetMap» MapLibre ставит сам |
 | Photon | поиск адресов (запрос 4) | https://photon.komoot.io | не проверено | публичный сервер для небольшой нагрузки |
 | OpenTripPlanner | пешие участки (запрос 5) | LGPL-3.0, https://www.opentripplanner.org | не проверено | используется как отдельный контейнер без изменений |
 | Copernicus DEM | рельеф (запрос 5) | https://spacedata.copernicus.eu | не проверено | указать источник |
@@ -28,4 +28,6 @@
 | ESLint, typescript-eslint, eslint-plugin-react-hooks, eslint-plugin-jsx-a11y, Prettier | MIT | проверки кода сайта |
 | @axe-core/playwright | MPL-2.0 | автоматическая проверка доступности (только в тестах) |
 | openapi-typescript | MIT | генерация типов сайта из контракта API |
+| maplibre-gl | BSD-3-Clause | карта |
+| @fontsource/nunito | OFL-1.1 (шрифт Nunito) | шрифт, файлы лежат в сборке сайта |
 | Caddy | Apache-2.0 | раздача сайта и HTTPS |

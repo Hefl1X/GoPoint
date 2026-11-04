@@ -135,8 +135,10 @@ def test_route_details(client: TestClient) -> None:
     assert direction_a["direction"] == "A"
     assert len(direction_a["stops"]) == 35
     assert len(direction_a["path"]) == 335
-    assert all(v["direction"] == "A" for v in direction_a["vehicles"])
     assert direction_a["vehicles"]
+    for item in direction_a["vehicles"]:
+        assert item["vehicle"]["direction"] == "A"
+        assert item["nextStopOrder"] is None or 0 < item["nextStopOrder"] < 35
 
 
 def test_unknown_route_is_404(client: TestClient) -> None:

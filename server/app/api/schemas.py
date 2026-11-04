@@ -69,11 +69,18 @@ class LinesResponse(DomainModel):
     diagnostics: SnapshotDiagnostics
 
 
+class LineVehicle(DomainModel):
+    vehicle: Vehicle
+    next_stop_order: int | None = Field(
+        description="Номер следующей остановки в списке stops; null, если впереди остановок нет"
+    )
+
+
 class LineDirection(DomainModel):
     direction: Direction
     stops: list[Stop] = Field(description="Остановки по порядку движения")
     path: list[LatLon] = Field(description="Линия маршрута по порядку движения")
-    vehicles: list[Vehicle]
+    vehicles: list[LineVehicle]
 
 
 class LineDetails(DomainModel):

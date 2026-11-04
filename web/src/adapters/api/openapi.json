@@ -337,7 +337,7 @@
           },
           "vehicles": {
             "items": {
-              "$ref": "#/components/schemas/Vehicle"
+              "$ref": "#/components/schemas/LineVehicle"
             },
             "title": "Vehicles",
             "type": "array"
@@ -369,6 +369,32 @@
           "vehiclesOnLine"
         ],
         "title": "LineSummary",
+        "type": "object"
+      },
+      "LineVehicle": {
+        "additionalProperties": false,
+        "properties": {
+          "nextStopOrder": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Номер следующей остановки в списке stops; null, если впереди остановок нет",
+            "title": "Nextstoporder"
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/Vehicle"
+          }
+        },
+        "required": [
+          "vehicle",
+          "nextStopOrder"
+        ],
+        "title": "LineVehicle",
         "type": "object"
       },
       "LinesResponse": {

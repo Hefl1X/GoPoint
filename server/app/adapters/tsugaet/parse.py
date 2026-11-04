@@ -326,7 +326,7 @@ def parse_trace(data: Any, line_id: str, direction: Direction) -> LinePath:
             point = LatLon(lat=_float(raw, "lat"), lon=_float(raw, "lng"))
             name = raw.get("n")
             if isinstance(name, str) and name.strip() and name != "-":
-                stop = Stop(id=_s(raw, "id"), name=name.strip(), point=point)
+                stop = Stop(id=_s(raw, "id"), name=" ".join(name.split()), point=point)
                 stops.append(RouteStop(order=len(stops), stop=stop, point_index=len(points)))
             points.append(point)
     except (ValueError, AttributeError, ValidationError) as exc:
