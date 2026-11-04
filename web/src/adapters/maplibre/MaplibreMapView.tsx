@@ -1,12 +1,6 @@
 // Карта на MapLibre GL и векторных тайлах OpenFreeMap (данные OpenStreetMap).
 // Только здесь известно про MapLibre и порядок координат [lon, lat].
-import {
-  AttributionControl,
-  Map as MapLibreMap,
-  setWorkerUrl,
-  type GeoJSONSource,
-  type LngLatLike,
-} from 'maplibre-gl';
+import { Map as MapLibreMap, setWorkerUrl, type GeoJSONSource, type LngLatLike } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
@@ -92,6 +86,7 @@ function vehiclesGeoJson(vehicles: readonly MapVehicle[], selectedId: string | n
           order: v.id === selectedId ? 2 : v.muted ? 0 : 1,
           color: v.muted ? MUTED_COLOR : TYPE_COLOR[v.type],
           filled: style === 'filled',
+          selected: v.id === selectedId,
         },
         geometry: { type: 'Point' as const, coordinates: toLngLat(v.point) },
       };
@@ -158,16 +153,12 @@ export function MaplibreMapView(props: MapViewProps) {
         [bounds.southWest.lon - 0.2, bounds.southWest.lat - 0.1],
         [bounds.northEast.lon + 0.2, bounds.northEast.lat + 0.1],
       ],
+      // Подпись источников рисуем сами (ниже), стандартная закрывает кнопки на телефоне.
       attributionControl: false,
       dragRotate: false,
       pitchWithRotate: false,
     });
     map.touchZoomRotate.disableRotation();
-    // Наверху: внизу карту закрывает панель.
-    map.addControl(
-      new AttributionControl({ compact: true, customAttribution: '© OpenStreetMap contributors' }),
-      'top-left',
-    );
     mapRef.current = map;
 
     map.on('load', () => {
@@ -209,6 +200,7 @@ export function MaplibreMapView(props: MapViewProps) {
         id: 'vehicles',
         type: 'symbol',
         source: 'vehicles',
+        filter: ['!', ['get', 'selected']],
         layout: {
           'icon-image': ['get', 'image'],
           'icon-text-fit': 'both',
@@ -222,7 +214,25 @@ export function MaplibreMapView(props: MapViewProps) {
         },
         paint: { 'text-color': ['get', 'textColor'] },
       });
-      for (const layer of ['vehicles', 'vehicle-dots']) {
+      map.addLayer({
+        id: 'vehicle-selected',
+        type: 'symbol',
+        source: 'vehicles',
+        // Выбранная машина видна всегда, поверх остальных.
+        filter: ['get', 'selected'],
+        layout: {
+          'icon-image': ['get', 'image'],
+          'icon-text-fit': 'both',
+          'icon-allow-overlap': true,
+          'text-allow-overlap': true,
+          'text-field': ['get', 'number'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 15,
+          'symbol-sort-key': ['get', 'order'],
+        },
+        paint: { 'text-color': ['get', 'textColor'] },
+      });
+      for (const layer of ['vehicles', 'vehicle-dots', 'vehicle-selected']) {
         map.on('click', layer, (event) => {
           const id: unknown = event.features?.[0]?.properties.id;
           if (typeof id === 'string') latest.current.onVehicleSelect(id);
@@ -274,13 +284,28 @@ export function MaplibreMapView(props: MapViewProps) {
   }, [selectedVehicleId, selectedVisible]);
 
   return (
-    <div
-      ref={container}
-      className="map-view"
-      role="region"
-      aria-label={props.label}
-      data-testid="map-maplibre"
-    />
+    <>
+      <div
+        ref={container}
+        className="map-view"
+        role="region"
+        aria-label={props.label}
+        data-testid="map-maplibre"
+      />
+      {/* Подпись источников карты (условия OpenStreetMap и OpenFreeMap): одна короткая
+          строка вверху, всегда видна, не закрывает кнопки. */}
+      <p className="map-attribution">
+        ©{' '}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          OpenStreetMap contributors
+        </a>{' '}
+        ·{' '}
+        <a href="https://openfreemap.org" target="_blank" rel="noreferrer">
+          OpenFreeMap
+        </a>{' '}
+        © OpenMapTiles
+      </p>
+    </>
   );
 }
 

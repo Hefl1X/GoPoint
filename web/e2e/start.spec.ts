@@ -26,10 +26,38 @@ test('главный экран: карта, число машин, подпис
   await expect(page).toHaveTitle('GoPoint');
   await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
   await expect(page.getByTestId('map-maplibre')).toBeVisible();
-  await expect(page.locator('.attribution')).toHaveText('© OpenStreetMap contributors');
+  await expect(page.locator('.map-attribution')).toContainText('© OpenStreetMap contributors');
+  // Карта на весь экран: меню и панель лежат поверх неё.
+  const box = await page.getByTestId('map-maplibre').boundingBox();
+  const viewport = page.viewportSize();
+  expect(box?.height).toBe(viewport?.height);
+  await expect(page.getByRole('button', { name: 'Моё местоположение' })).toHaveCount(1);
   await expect(page.getByRole('navigation', { name: 'Разделы' })).toBeVisible();
   await noHorizontalScroll(page);
   await noAxeViolations(page);
+});
+
+test('панель сворачивается движением вниз и открывает карту', async ({ page }) => {
+  await mockServer(page);
+  await page.goto('/');
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
+  const grip = page.getByRole('button', { name: 'Свернуть панель' });
+  const box = await grip.boundingBox();
+  if (!box) throw new Error('нет ручки панели');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 60, { steps: 5 });
+  await page.mouse.move(x, y + 150, { steps: 5 });
+  await page.mouse.up();
+  const expand = page.getByRole('button', { name: 'Развернуть панель' });
+  await expect(expand).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeHidden();
+  await noAxeViolations(page);
+  await expand.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
 });
 
 test('без WebGL (список вместо карты) машины выбираются с клавиатуры', async ({ page }) => {

@@ -13,14 +13,19 @@ afterEach(() => {
   window.location.hash = '';
 });
 
-// На главном экране две кнопки «Моё местоположение»: на карте и в панели (как в макете).
+// Кнопка «Моё местоположение» одна: значок на карте (решение владельца).
 function locateButton(): HTMLElement {
-  const [first] = screen.getAllByRole('button', { name: 'Моё местоположение' });
-  if (!first) throw new Error('Нет кнопки «Моё местоположение»');
-  return first;
+  return screen.getByRole('button', { name: 'Моё местоположение' });
 }
 
 describe('Настройки', () => {
+  it('объясняет, как отличить на карте низкопольную машину от обычной', () => {
+    renderApp(<SettingsScreen />);
+    const legend = screen.getByRole('region', { name: 'Как отличить на карте' });
+    expect(legend).toHaveTextContent('закрашенный номер: низкий пол');
+    expect(legend).toHaveTextContent('номер в рамке: не низкий пол или не указан');
+  });
+
   it('«Низкопольный транспорт» по умолчанию включена и читается как переключатель', () => {
     renderApp(<SettingsScreen />);
     const toggle = screen.getByRole('switch', { name: 'Низкопольный транспорт' });
@@ -99,6 +104,12 @@ describe('Главный экран', () => {
     expect(
       await screen.findByText('Не удалось получить данные о транспорте.', {}, { timeout: 4000 }),
     ).toBeInTheDocument();
+  });
+
+  it('кнопка «Моё местоположение» одна', async () => {
+    renderApp(<MapScreen vehicleId={null} />);
+    await screen.findByText(/На линии сейчас/);
+    expect(screen.getAllByRole('button', { name: 'Моё местоположение' })).toHaveLength(1);
   });
 
   it('нажатие на машину открывает её карточку', async () => {

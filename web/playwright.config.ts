@@ -19,6 +19,11 @@ export default defineConfig({
       name: 'phone-390x844',
       use: { ...devices['Pixel 5'], viewport: { width: 390, height: 844 } },
     },
+    {
+      // Размер экрана iPhone 15 Pro (телефон владельца).
+      name: 'iphone-15-pro-393x852',
+      use: { ...devices['Pixel 5'], viewport: { width: 393, height: 852 } },
+    },
   ],
   webServer: {
     command: `npm run build && npx vite preview --port ${port} --strictPort --host 127.0.0.1`,

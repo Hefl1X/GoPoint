@@ -16,7 +16,11 @@
   --grey-bg: #d5dedb;
   --grey-text: #3d5650;
   --card: #ffffff;
-  --nav-height: 64px;
+  --nav-height: 60px;
+  /* Нижнее меню с учётом полоски «домой» на iPhone. */
+  --nav-total: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  /* Сколько видно от свёрнутой панели. */
+  --sheet-peek: 34px;
   --focus: #0f4a40;
   color-scheme: light;
 }
@@ -95,22 +99,26 @@ h1:focus {
 
 /* ---------- оболочка */
 .app {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100dvh;
+  overflow: hidden;
 }
 
+/* Экран занимает весь телефон, нижнее меню лежит поверх него. */
 .app__content {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   overflow: auto;
 }
 
 .bottom-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
   display: flex;
-  height: var(--nav-height);
-  flex: none;
+  height: var(--nav-total);
   background: var(--card);
   border-top: 1px solid #dfe8e5;
   padding-bottom: env(safe-area-inset-bottom);
@@ -125,7 +133,7 @@ h1:focus {
   gap: 2px;
   min-height: 48px;
   color: var(--text-2);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   text-decoration: none;
 }
@@ -133,8 +141,8 @@ h1:focus {
 .bottom-nav__icon {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 30px;
+  width: 52px;
+  height: 28px;
   border-radius: 15px;
 }
 
@@ -151,7 +159,7 @@ h1:focus {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px 14px 24px;
+  padding: calc(16px + env(safe-area-inset-top)) 14px calc(var(--nav-total) + 24px);
   max-width: 640px;
   margin: 0 auto;
 }
@@ -294,9 +302,9 @@ h1:focus {
 }
 
 .pill--outline {
+  /* Как на карте: белая «таблетка» в цветной рамке. */
   background: #ffffff;
   color: var(--pill-color);
-  border-style: dashed;
 }
 
 .pill--large {
@@ -419,8 +427,8 @@ h1:focus {
 
 .map-locate {
   position: absolute;
-  /* Ниже подписи карты: развёрнутая подпись занимает верх экрана. */
-  top: 76px;
+  z-index: 1;
+  top: calc(12px + env(safe-area-inset-top));
   right: 14px;
   display: grid;
   place-items: center;
@@ -436,36 +444,85 @@ h1:focus {
 
 .sheet {
   position: absolute;
+  z-index: 2;
   left: 0;
   right: 0;
-  bottom: 0;
-  max-height: 70%;
-  overflow: auto;
+  bottom: var(--nav-total);
+  max-height: 55%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 10px 18px 14px;
-  border-radius: 30px 30px 0 0;
+  border-radius: 24px 24px 0 0;
   background: var(--panel);
   box-shadow: 0 -4px 16px rgb(15 74 64 / 15%);
+  transition: transform 0.2s ease-out;
+  touch-action: none;
+}
+
+.sheet--dragging {
+  transition: none;
+}
+
+/* Ручка: за неё тянут вниз и вверх. Цель нажатия на всю ширину. */
+.sheet__grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--sheet-peek);
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
 }
 
 .sheet__handle {
-  align-self: center;
   width: 44px;
   height: 5px;
   border-radius: 3px;
-  background: #b9cbc6;
+  background: #9fb3ad;
+}
+
+.sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 12px;
+  overflow: auto;
+  font-size: 14px;
+}
+
+.sheet--collapsed .sheet__body {
+  visibility: hidden;
 }
 
 .on-line {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 16px;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 14px;
   background: var(--card);
-  font-weight: 800;
+  font-weight: 700;
+}
+
+/* Подпись источников карты: видна всегда, даже со свёрнутой панелью. */
+.map-attribution {
+  position: absolute;
+  z-index: 1;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 8px;
+  max-width: calc(100% - 80px);
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 88%);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.map-attribution a {
+  color: inherit;
 }
 
 .attribution {
@@ -524,7 +581,21 @@ h1:focus {
 .vehicle-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+}
+
+.vehicle-card h2 {
+  font-size: 18px;
+}
+
+.vehicle-card .pill--large {
+  min-width: 42px;
+  height: 34px;
+  font-size: 16px;
+}
+
+.vehicle-card .button {
+  min-height: 44px;
 }
 
 .vehicle-card__head {
@@ -542,7 +613,7 @@ h1:focus {
 }
 
 .next-stop {
-  padding: 14px 16px;
+  padding: 10px 14px;
   border-radius: 22px;
   background: var(--accent);
   color: #ffffff;
@@ -554,7 +625,7 @@ h1:focus {
 }
 
 .next-stop__name {
-  font-size: 24px;
+  font-size: 19px;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -630,6 +701,21 @@ h1:focus {
 }
 
 /* ---------- настройки */
+.legend__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend__list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .setting {
   flex-direction: row;
   align-items: center;
@@ -685,9 +771,9 @@ h1:focus {
   .sheet {
     left: 16px;
     right: auto;
-    bottom: 16px;
+    bottom: calc(var(--nav-total) + 16px);
     width: 420px;
-    border-radius: 30px;
+    border-radius: 24px;
   }
 }
 

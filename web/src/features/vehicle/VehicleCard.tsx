@@ -51,7 +51,6 @@ export function VehicleCard({
 
   return (
     <article className="vehicle-card" aria-labelledby="vehicle-card-title">
-      <div className="sheet__handle" aria-hidden="true" />
       <div className="vehicle-card__head">
         <Pill type={vehicle.type} number={vehicle.number} lowFloor={vehicle.lowFloor} large />
         <div className="vehicle-card__titles">
@@ -82,7 +81,6 @@ export function VehicleCard({
       >
         {ru.vehicle.allStops}
       </a>
-      <p className="attribution">{ru.map.attribution}</p>
     </article>
   );
 }

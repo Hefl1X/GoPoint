@@ -10,6 +10,7 @@ import { navigate, routeHref } from '../../shared/router';
 import { ru } from '../../shared/ru';
 import { useServices } from '../../shared/services';
 import { useSettings } from '../../shared/settings';
+import { Sheet } from '../../shared/Sheet';
 import { VehicleCard } from '../vehicle/VehicleCard';
 
 const geoMessage: Record<GeolocationError['reason'], string> = {
@@ -108,7 +109,8 @@ export function MapScreen({ vehicleId }: { vehicleId: string | null }) {
         </svg>
       </button>
 
-      <section className="sheet" aria-label={vehicleId ? undefined : ru.tagline}>
+      {/* Новый ключ при выборе машины: панель снова раскрывается. */}
+      <Sheet key={vehicleId ?? 'start'} label={vehicleId ? undefined : ru.tagline}>
         {vehicleId ? (
           <VehicleCard
             vehicle={selected}
@@ -120,7 +122,6 @@ export function MapScreen({ vehicleId }: { vehicleId: string | null }) {
           />
         ) : (
           <>
-            <div className="sheet__handle" aria-hidden="true" />
             <LiveState
               query={vehicles.query}
               data={vehicles.data}
@@ -130,8 +131,8 @@ export function MapScreen({ vehicleId }: { vehicleId: string | null }) {
                   <p className="on-line">
                     <svg
                       viewBox="0 0 24 24"
-                      width="22"
-                      height="22"
+                      width="20"
+                      height="20"
                       aria-hidden="true"
                       fill="none"
                       stroke="currentColor"
@@ -163,21 +164,12 @@ export function MapScreen({ vehicleId }: { vehicleId: string | null }) {
                 <p>{geoMessage[geoState]}</p>
               </div>
             ) : null}
-            <button
-              type="button"
-              className="button button--outline"
-              onClick={locate}
-              disabled={geoState === 'busy'}
-            >
-              {ru.map.locate}
-            </button>
             <a className="link" href={routeHref({ name: 'about' })}>
               {ru.map.about}
             </a>
-            <p className="attribution">{ru.map.attribution}</p>
           </>
         )}
-      </section>
+      </Sheet>
     </div>
   );
 }
