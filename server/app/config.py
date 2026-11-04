@@ -65,11 +65,38 @@ class Settings(BaseSettings):
     walk_speed_mps: float = Field(default=0.8, gt=0.1, le=3.0)
     walk_cache_ttl_s: int = Field(default=86_400, ge=60)
 
+    # Расчёт маршрута «сейчас». Значения по умолчанию и источники: docs/DECISIONS.md.
+    # Пороги и запасы решает владелец.
+    # Скорость машины для расчёта прихода: текущая, но не ниже и не выше этих, км/ч.
+    vehicle_min_speed_kmh: float = Field(default=15.0, gt=0)
+    vehicle_max_speed_kmh: float = Field(default=40.0, gt=0)
+    # Стоянка машины на каждой промежуточной остановке, с.
+    dwell_s: int = Field(default=20, ge=0)
+    # Быть на остановке за столько до машины (посадка по аппарели), с.
+    board_margin_s: int = Field(default=120, ge=0)
+    # Дополнительный запас на пересадке, с.
+    transfer_margin_s: int = Field(default=180, ge=0)
+    # Машина «стоит», если не двигается дольше, с; «опаздывает», если позже плана на, с.
+    stopped_threshold_s: int = Field(default=300, ge=60)
+    late_threshold_s: int = Field(default=180, ge=60)
+    # Машину дальше этого от линии своего маршрута в расчёт не берём, м.
+    max_vehicle_offset_m: float = Field(default=200.0, gt=0)
+    # Пересадка пешком между остановками не дальше, м (по прямой).
+    transfer_radius_m: float = Field(default=300.0, ge=0)
+    # Сколько ближайших остановок у точек А и Б рассматривать.
+    access_stops: int = Field(default=6, ge=1, le=20)
+    # Насколько вперёд смотреть, мин.
+    horizon_min: int = Field(default=60, ge=10, le=180)
+    # Прошлый снимок машин годится для расчёта, если ЦУГАЭТ не отвечает, не дольше, с.
+    snapshot_max_age_s: int = Field(default=300, ge=60)
+
     # Границы Новосибирска (примерно, уточнить по границе из OpenStreetMap).
     city_south: float = 54.80
     city_west: float = 82.70
     city_north: float = 55.20
     city_east: float = 83.20
+    # Граница города (GeoJSON из OpenStreetMap); пусто — встроенная граница Новосибирска.
+    city_boundary_file: str = ""
     # Центр города (площадь Ленина): поиск адресов предпочитает места ближе к нему.
     city_center_lat: float = 55.0302
     city_center_lon: float = 82.9204

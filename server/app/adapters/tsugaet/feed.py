@@ -21,6 +21,7 @@ from app.adapters.tsugaet.parse import (
     TsugaetFormatError,
     parse_routes,
     parse_trace,
+    parse_traces,
     parse_vehicles,
 )
 from app.domain.models import Direction, Line, LinePath, LiveVehicle, TransportType
@@ -31,6 +32,9 @@ log = logging.getLogger(__name__)
 DEFAULT_BASE_URL = "https://map.nskgortrans.ru"
 # markers.php отдаёт машины не больше чем по 6 маршрутам за запрос (проверено 2026-11-04).
 MARKERS_MAX_ROUTES = 6
+# trasses.php отдаёт линии нескольких маршрутов за запрос (8 проверено 2026-11-04);
+# берём по 10, чтобы все линии города грузились примерно за 22 запроса в сутки.
+TRASSES_BATCH = 10
 
 
 class TsugaetFeed:
@@ -112,6 +116,21 @@ class TsugaetFeed:
             return parse_trace(data, line_id, direction)
         except TsugaetFormatError as exc:
             raise TransitFeedError(str(exc)) from exc
+
+    async def line_paths(
+        self, line_ids: Sequence[str], direction: Direction
+    ) -> dict[str, LinePath]:
+        routes = [await self._route(i) for i in line_ids]
+        result: dict[str, LinePath] = {}
+        for start in range(0, len(routes), TRASSES_BATCH):
+            batch = routes[start : start + TRASSES_BATCH]
+            key = "".join(r.key(direction.value) for r in batch)
+            data = await self._get_json("/trasses.php", {"r": key})
+            try:
+                result.update(parse_traces(data, [(r.line_id, r.marsh) for r in batch], direction))
+            except TsugaetFormatError as exc:
+                raise TransitFeedError(str(exc)) from exc
+        return result
 
     async def vehicles(self, line_ids: Sequence[str]) -> list[LiveVehicle]:
         if len(line_ids) > MARKERS_MAX_ROUTES:

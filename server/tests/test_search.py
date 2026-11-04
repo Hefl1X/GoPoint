@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.domain.area import CityArea
 from app.domain.models import Bounds, LatLon, PlaceKind, PlaceSuggestion
 from app.domain.search import clean_suggestions, is_searchable, normalize_query
 from app.main import create_app
@@ -70,7 +71,13 @@ class FakeTime:
 def service(geo: StubGeocoder, time: FakeTime | None = None) -> GeocodingService:
     t = time or FakeTime()
     return GeocodingService(
-        geo, bounds=BOUNDS, near=CENTER, limit=3, cache=CachePolicy(ttl_s=60), now=t, sleep=t.sleep
+        geo,
+        area=CityArea(bounds=BOUNDS),
+        near=CENTER,
+        limit=3,
+        cache=CachePolicy(ttl_s=60),
+        now=t,
+        sleep=t.sleep,
     )
 
 

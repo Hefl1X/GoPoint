@@ -52,6 +52,7 @@ const lineSchema = z.object({
   type: transportType,
   number: z.string(),
   title: z.string(),
+  ring: z.boolean().default(false),
 });
 
 const stopSchema = z.object({ id: z.string(), name: z.string(), point: latLon });

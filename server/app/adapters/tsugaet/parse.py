@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
@@ -79,7 +80,10 @@ class RouteInfo:
     @property
     def line(self) -> Line:
         title = f"{self.stop_begin} — {self.stop_end}" if self.stop_end else self.stop_begin
-        return Line(id=self.line_id, type=self.type, number=self.name, title=title)
+        # У кольцевых маршрутов конечная stope пустая [проверено].
+        return Line(
+            id=self.line_id, type=self.type, number=self.name, title=title, ring=not self.stop_end
+        )
 
     def key(self, direction: str = "W") -> str:
         """Ключ для параметра r: «тип-код-направление-номер|»."""
@@ -306,6 +310,57 @@ def parse_vehicles(data: Any) -> ParsedVehicles:
 # ---------------------------------------------------------------- линии
 
 
+def _route_to_path(route: dict[str, Any], line_id: str, direction: Direction) -> LinePath:
+    points: list[LatLon] = []
+    stops: list[RouteStop] = []
+    try:
+        for raw in route["u"]:
+            point = LatLon(lat=_float(raw, "lat"), lon=_float(raw, "lng"))
+            name = raw.get("n")
+            if isinstance(name, str) and name.strip() and name != "-":
+                stop = Stop(id=_s(raw, "id"), name=" ".join(name.split()), point=point)
+                stops.append(RouteStop(order=len(stops), stop=stop, point_index=len(points)))
+            points.append(point)
+    except (ValueError, AttributeError, ValidationError) as exc:
+        raise TsugaetFormatError(f"trasses: {str(exc).splitlines()[0]}") from exc
+    if len(points) < 2:
+        raise TsugaetFormatError("trasses: в линии меньше двух точек")
+    return LinePath(line_id=line_id, direction=direction, points=points, stops=stops)
+
+
+def parse_traces(
+    data: Any, wanted: Sequence[tuple[str, str]], direction: Direction
+) -> dict[str, LinePath]:
+    """Ответ trasses.php на несколько маршрутов сразу.
+
+    wanted: (id линии, код marsh) в том же порядке, что ключи в запросе. Ответ приходит
+    группами в порядке ключей [проверено 2026-11-04]; код marsh в группе сверяется,
+    при несовпадении группа пропускается. Пустые линии (у некоторых кольцевых
+    маршрутов нет обратного направления) в ответ не попадают.
+    """
+    if not isinstance(data, dict) or not isinstance(data.get("trasses"), list):
+        raise TsugaetFormatError("trasses: в ответе нет списка trasses")
+    groups = data["trasses"]
+    result: dict[str, LinePath] = {}
+    for (line_id, marsh), group in zip(wanted, groups, strict=False):
+        routes = group.get("r") if isinstance(group, dict) else None
+        if not isinstance(routes, list) or not routes:
+            continue
+        route = routes[0]
+        if not isinstance(route, dict) or not isinstance(route.get("u"), list):
+            continue
+        if str(route.get("marsh", "")) != marsh:
+            log.warning("trasses: группа %s не совпала с кодом маршрута, пропущена", line_id)
+            continue
+        if len(route["u"]) < 2:
+            continue
+        try:
+            result[line_id] = _route_to_path(route, line_id, direction)
+        except TsugaetFormatError as exc:
+            log.warning("trasses: линия %s %s пропущена: %s", line_id, direction, exc)
+    return result
+
+
 def parse_trace(data: Any, line_id: str, direction: Direction) -> LinePath:
     """Ответ trasses.php для одного маршрута в одном направлении."""
     if not isinstance(data, dict) or not isinstance(data.get("trasses"), list):
@@ -319,18 +374,4 @@ def parse_trace(data: Any, line_id: str, direction: Direction) -> LinePath:
     ]
     if not routes:
         raise TsugaetFormatError("trasses: линия маршрута не пришла")
-    points: list[LatLon] = []
-    stops: list[RouteStop] = []
-    try:
-        for raw in routes[0]["u"]:
-            point = LatLon(lat=_float(raw, "lat"), lon=_float(raw, "lng"))
-            name = raw.get("n")
-            if isinstance(name, str) and name.strip() and name != "-":
-                stop = Stop(id=_s(raw, "id"), name=" ".join(name.split()), point=point)
-                stops.append(RouteStop(order=len(stops), stop=stop, point_index=len(points)))
-            points.append(point)
-    except (ValueError, AttributeError, ValidationError) as exc:
-        raise TsugaetFormatError(f"trasses: {str(exc).splitlines()[0]}") from exc
-    if len(points) < 2:
-        raise TsugaetFormatError("trasses: в линии меньше двух точек")
-    return LinePath(line_id=line_id, direction=direction, points=points, stops=stops)
+    return _route_to_path(routes[0], line_id, direction)

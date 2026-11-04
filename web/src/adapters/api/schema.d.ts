@@ -132,8 +132,35 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Route */
+        /**
+         * Route
+         * @description Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.
+         *
+         *     lowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой
+         *     поездки пометка lowFloor. Пешие участки всегда по профилю коляски.
+         */
         post: operations["route_api_v1_route_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/route/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Route Check
+         * @description Пересчёт выбранного маршрута: машина стоит, пропала или опаздывает — есть ли вариант
+         *     лучше. Маршрут не заменяется: решает человек.
+         */
+        post: operations["route_check_api_v1_route_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -333,6 +360,12 @@ export interface components {
             id: string;
             /** Number */
             number: string;
+            /**
+             * Ring
+             * @description Кольцевой маршрут (без конечной)
+             * @default false
+             */
+            ring: boolean;
             /** Title */
             title: string;
             type: components["schemas"]["TransportType"];
@@ -435,6 +468,48 @@ export interface components {
             /** @description Адрес или место у точки; null, если рядом ничего не нашлось */
             place: components["schemas"]["PlaceSuggestion"] | null;
         };
+        /** RouteCheckRequest */
+        RouteCheckRequest: {
+            destination: components["schemas"]["LatLon"];
+            /**
+             * Lowflooronly
+             * @default true
+             */
+            lowFloorOnly: boolean;
+            origin: components["schemas"]["LatLon"];
+            /**
+             * Plannedarriveat
+             * Format: date-time
+             * @description Когда человек должен был приехать (UTC)
+             */
+            plannedArriveAt: string;
+            /**
+             * Vehicleid
+             * @description Машина первой поездки
+             */
+            vehicleId: string;
+        };
+        /** RouteCheckResponse */
+        RouteCheckResponse: {
+            /** @description Предложение: решает человек */
+            alternative: components["schemas"]["Journey"] | null;
+            /** @description Тот же маршрут с новым временем */
+            current: components["schemas"]["Journey"] | null;
+            diagnostics: components["schemas"]["SnapshotDiagnostics"];
+            /**
+             * Gains
+             * @description Насколько раньше по предложению, с
+             */
+            gainS?: number | null;
+            /**
+             * Status
+             * @description ok: всё по плану; stopped: машина стоит; late: опаздывает; gone: пропала
+             * @enum {string}
+             */
+            status: "ok" | "stopped" | "late" | "gone";
+            /** Stoppedfors */
+            stoppedForS?: number | null;
+        };
         /** RouteRequest */
         RouteRequest: {
             destination: components["schemas"]["LatLon"];
@@ -447,8 +522,20 @@ export interface components {
         };
         /** RouteResponse */
         RouteResponse: {
+            diagnostics: components["schemas"]["SnapshotDiagnostics"];
             /** Journeys */
             journeys: components["schemas"]["Journey"][];
+            /**
+             * Message
+             * @description Что сказать человеку, по-русски
+             */
+            message?: string | null;
+            /**
+             * Status
+             * @description no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем)
+             * @enum {string}
+             */
+            status: "ok" | "no_transit";
         };
         /** SearchResponse */
         SearchResponse: {
@@ -967,6 +1054,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RouteResponse"];
+                };
+            };
+            /** @description Неверные данные запроса */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ошибка сервера */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ещё не сделано */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    route_check_api_v1_route_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouteCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteCheckResponse"];
                 };
             };
             /** @description Неверные данные запроса */

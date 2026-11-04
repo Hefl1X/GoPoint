@@ -12,12 +12,15 @@ from pathlib import Path
 from typing import Any
 
 from app.adapters.tsugaet.feed import MARKERS_MAX_ROUTES
-from app.adapters.tsugaet.parse import parse_routes, parse_trace, parse_vehicles
+from app.adapters.tsugaet.parse import parse_routes, parse_trace, parse_traces, parse_vehicles
 from app.domain.models import Direction, Line, LinePath, LiveVehicle
 from app.ports import TransitFeedError, UnknownLineError
 
 # Какие линии есть в образцах: (маршрут, направление) -> файл.
 _TRACE_FILES = {("bus-3", Direction.A): "trasses_bus3_A.json"}
+# Пакетные образцы: автобус 3, трамвай 13, маршрутка 24, в порядке ключей запроса.
+_BATCH_FILES = {Direction.A: "trasses_batch_A.json", Direction.B: "trasses_batch_B.json"}
+_BATCH_LINES = ["bus-3", "tram-0013", "minibus-24"]
 
 
 class FakeTransitFeed:
@@ -51,6 +54,14 @@ class FakeTransitFeed:
         if name is None:
             raise TransitFeedError(f"заглушка: нет образца линии {line_id} {direction}")
         return parse_trace(self._load(name), line_id, direction)
+
+    async def line_paths(
+        self, line_ids: Sequence[str], direction: Direction
+    ) -> dict[str, LinePath]:
+        self._check()
+        wanted = [(i, self._routes[i].marsh) for i in _BATCH_LINES]
+        paths = parse_traces(self._load(_BATCH_FILES[direction]), wanted, direction)
+        return {i: p for i, p in paths.items() if i in set(line_ids)}
 
     async def vehicles(self, line_ids: Sequence[str]) -> list[LiveVehicle]:
         self._check()

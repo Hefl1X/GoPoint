@@ -10,10 +10,12 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from app.adapters.fake.feed import FakeTransitFeed
+from app.adapters.osm_boundary.load import DEFAULT_FILE, load_polygons
 from app.adapters.otp.walk import OtpWalkPlanner
 from app.adapters.photon.geocoder import PhotonGeocoder
 from app.adapters.tsugaet.feed import TsugaetFeed
 from app.config import Settings
+from app.domain.area import CityArea
 from app.ports import Geocoder, TransitFeed, WalkPlanner
 
 
@@ -57,3 +59,9 @@ def build_walk_planner(settings: Settings) -> tuple[WalkPlanner, Callable[[], Aw
         timeout_s=settings.otp_timeout_s,
     )
     return planner, planner.aclose
+
+
+def build_city_area(settings: Settings) -> CityArea:
+    """Территория города: прямоугольник из настроек и граница из OpenStreetMap."""
+    path = Path(settings.city_boundary_file) if settings.city_boundary_file else DEFAULT_FILE
+    return CityArea(bounds=settings.city_bounds, polygons=load_polygons(path))

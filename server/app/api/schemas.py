@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import Field
 
@@ -43,6 +44,13 @@ class ReverseResponse(DomainModel):
     )
 
 
+class SnapshotDiagnostics(DomainModel):
+    """Служебное: когда получен снимок машин. Интерфейс не показывает."""
+
+    fetched_at: datetime
+    complete: bool = Field(description="Источник ответил по всем маршрутам в последний раз")
+
+
 class WalkRequest(DomainModel):
     origin: LatLon
     destination: LatLon
@@ -56,13 +64,30 @@ class RouteRequest(DomainModel):
 
 class RouteResponse(DomainModel):
     journeys: list[Journey] = Field(max_length=3)
+    status: Literal["ok", "no_transit"] = Field(
+        description="no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем)"
+    )
+    message: str | None = Field(default=None, description="Что сказать человеку, по-русски")
+    diagnostics: SnapshotDiagnostics
 
 
-class SnapshotDiagnostics(DomainModel):
-    """Служебное: когда получен снимок машин. Интерфейс не показывает."""
+class RouteCheckRequest(DomainModel):
+    origin: LatLon
+    destination: LatLon
+    low_floor_only: bool = True
+    vehicle_id: str = Field(min_length=1, max_length=64, description="Машина первой поездки")
+    planned_arrive_at: datetime = Field(description="Когда человек должен был приехать (UTC)")
 
-    fetched_at: datetime
-    complete: bool = Field(description="Источник ответил по всем маршрутам в последний раз")
+
+class RouteCheckResponse(DomainModel):
+    status: Literal["ok", "stopped", "late", "gone"] = Field(
+        description="ok: всё по плану; stopped: машина стоит; late: опаздывает; gone: пропала"
+    )
+    stopped_for_s: int | None = None
+    current: Journey | None = Field(description="Тот же маршрут с новым временем")
+    alternative: Journey | None = Field(description="Предложение: решает человек")
+    gain_s: int | None = Field(default=None, description="Насколько раньше по предложению, с")
+    diagnostics: SnapshotDiagnostics
 
 
 class VehiclesResponse(DomainModel):

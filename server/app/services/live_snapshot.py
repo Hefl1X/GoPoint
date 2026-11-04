@@ -16,7 +16,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from app.domain.models import Direction, Line, LinePath, LiveVehicle
+from app.domain.geo import distance_m
+from app.domain.models import Direction, LatLon, Line, LinePath, LiveVehicle
 from app.ports import TransitFeed, TransitFeedError
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,16 @@ class Snapshot:
     fetched_at: datetime  # когда начат опрос, давший этот снимок
     complete: bool  # все пачки пришли в этот раз
     by_line: dict[str, list[LiveVehicle]] = field(default_factory=dict)
+
+
+# Машина считается стоящей, пока её отметки не уходят дальше этого расстояния.
+STILL_RADIUS_M = 30.0
+
+
+@dataclass(frozen=True)
+class _Still:
+    point: LatLon
+    since: datetime  # время первой отметки в этой точке
 
 
 @dataclass
@@ -64,6 +75,9 @@ class LiveSnapshotService:
         self._paths: dict[tuple[str, Direction], _Cached[LinePath]] = {}
         self._refresh_lock = asyncio.Lock()
         self._lines_lock = asyncio.Lock()
+        self._network: _Cached[dict[tuple[str, Direction], LinePath]] | None = None
+        self._network_lock = asyncio.Lock()
+        self._still: dict[str, _Still] = {}
 
     # ------------------------------------------------------------ активность
 
@@ -112,6 +126,50 @@ class LiveSnapshotService:
             raise
         self._paths[key] = _Cached(value, now)
         return value
+
+    async def network(self) -> dict[tuple[str, Direction], LinePath]:
+        """Линии и остановки всех маршрутов в обоих направлениях (для расчёта маршрута).
+
+        Грузятся пакетами (около 22 запросов к ЦУГАЭТ) и хранятся сутки. Если обновить
+        не удалось, используются прошлые. Маршрутов без линии в направлении здесь нет.
+        """
+        async with self._network_lock:
+            now = self._clock()
+            if self._network and now - self._network.at < self._lines_ttl:
+                return self._network.value
+            try:
+                ids = [line.id for line in await self.lines()]
+                value: dict[tuple[str, Direction], LinePath] = {}
+                for direction in Direction:
+                    for line_id, path in (await self._feed.line_paths(ids, direction)).items():
+                        value[(line_id, direction)] = path
+            except TransitFeedError:
+                if self._network:
+                    log.warning("Линии маршрутов не обновились, используем прошлые")
+                    return self._network.value
+                raise
+            self._network = _Cached(value, now)
+            for key, path in value.items():
+                self._paths[key] = _Cached(path, now)
+            return value
+
+    def still_for(self, vehicle_id: str, now: datetime | None = None) -> timedelta | None:
+        """Сколько машина стоит на месте по её отметкам; None, если машину не видели."""
+        still = self._still.get(vehicle_id)
+        if still is None:
+            return None
+        return (now or self._clock()) - still.since
+
+    def _track_still(self, vehicles: list[LiveVehicle]) -> None:
+        seen: dict[str, _Still] = {}
+        for live in vehicles:
+            v = live.vehicle
+            prev = self._still.get(v.id)
+            if prev and distance_m(prev.point, v.point) <= STILL_RADIUS_M:
+                seen[v.id] = prev
+            else:
+                seen[v.id] = _Still(point=v.point, since=v.position_observed_at)
+        self._still = seen
 
     # ------------------------------------------------------------ машины
 
@@ -168,6 +226,7 @@ class LiveSnapshotService:
             if batches and failed == len(batches):
                 raise TransitFeedError("Источник не ответил ни на одну пачку")
             vehicles = [v for group in by_line.values() for v in group]
+            self._track_still(vehicles)
             self._snapshot = Snapshot(
                 vehicles=vehicles, fetched_at=started, complete=failed == 0, by_line=by_line
             )

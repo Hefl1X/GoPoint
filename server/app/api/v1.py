@@ -1,13 +1,13 @@
 """Адреса /api/v1 (раздел 9 docs/ARCHITECTURE.md).
 
-Работают: /health, /meta, /search, /search/reverse, /walk, /live/vehicles,
-/live/routes, /live/routes/{id}.
+Работают: /health, /meta, /search, /search/reverse, /walk, /route, /route/check,
+/live/vehicles, /live/routes, /live/routes/{id}.
 Остальные уже описаны в контракте (OpenAPI) и отвечают 501 до своих задач.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -23,6 +23,8 @@ from app.api.schemas import (
     LineVehicle,
     Meta,
     ReverseResponse,
+    RouteCheckRequest,
+    RouteCheckResponse,
     RouteRequest,
     RouteResponse,
     SearchResponse,
@@ -32,6 +34,7 @@ from app.api.schemas import (
     WalkRequest,
 )
 from app.config import APP_NAME, APP_VERSION, Settings
+from app.domain.area import CityArea
 from app.domain.geo import next_stop_order
 from app.domain.live import line_sort_key, usable_vehicles
 from app.domain.models import Bounds, Direction, LatLon, Place, TransportType, WalkLeg
@@ -45,6 +48,7 @@ from app.ports import (
     WalkPlannerError,
 )
 from app.services.geocoding import GeocodingService
+from app.services.journey_planner import JourneyPlanner, TransitUnavailableError
 from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
 from app.services.walking import WalkingService
 
@@ -86,11 +90,19 @@ def get_walking(request: Request) -> WalkingService:
     return walking
 
 
+def get_planner(request: Request) -> JourneyPlanner:
+    planner: JourneyPlanner = request.app.state.planner
+    return planner
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 LiveDep = Annotated[LiveSnapshotService, Depends(get_live)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
 GeocodingDep = Annotated[GeocodingService, Depends(get_geocoding)]
 WalkingDep = Annotated[WalkingService, Depends(get_walking)]
+PlannerDep = Annotated[JourneyPlanner, Depends(get_planner)]
+
+NO_TRANSIT_MESSAGE = "Транспорта сейчас нет"
 
 
 def transit_unavailable() -> AppError:
@@ -187,7 +199,7 @@ async def search_reverse(
 ) -> ReverseResponse:
     """Адрес у точки, выбранной на карте."""
     point = LatLon(lat=lat, lon=lon)
-    if not geocoding.bounds.contains(point):
+    if not geocoding.area.contains(point):
         raise outside_city()
     try:
         place = await geocoding.reverse(point)
@@ -219,21 +231,82 @@ def walk_error(exc: WalkPlannerError) -> AppError:
 
 
 @router.post("/walk", tags=["route"])
-async def walk(body: WalkRequest, settings: SettingsDep, walking: WalkingDep) -> WalkLeg:
+async def walk(body: WalkRequest, city: CityDep, walking: WalkingDep) -> WalkLeg:
     """Пеший участок по профилю коляски: время, расстояние, линия. Служебный адрес для
     проверки и для расчёта маршрута; профиль коляски включён всегда."""
-    bounds = settings.city_bounds
-    if not (bounds.contains(body.origin) and bounds.contains(body.destination)):
-        raise outside_city()
+    _check_points(city, body.origin, body.destination)
     try:
         return await walking.walk(Place(point=body.origin), Place(point=body.destination))
     except WalkPlannerError as exc:
         raise walk_error(exc) from exc
 
 
+def get_city(request: Request) -> CityArea:
+    city: CityArea = request.app.state.city
+    return city
+
+
+CityDep = Annotated[CityArea, Depends(get_city)]
+
+
+def _check_points(city: CityArea, *points: LatLon) -> None:
+    if not all(city.contains(p) for p in points):
+        raise outside_city()
+
+
 @router.post("/route", tags=["route"])
-async def route(body: RouteRequest) -> RouteResponse:
-    raise not_implemented()
+async def route(body: RouteRequest, city: CityDep, planner: PlannerDep) -> RouteResponse:
+    """Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.
+
+    lowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой
+    поездки пометка lowFloor. Пешие участки всегда по профилю коляски.
+    """
+    _check_points(city, body.origin, body.destination)
+    try:
+        outcome = await planner.plan(
+            body.origin, body.destination, low_floor_only=body.low_floor_only
+        )
+    except TransitUnavailableError as exc:
+        raise transit_unavailable() from exc
+    except WalkPlannerError as exc:
+        raise walk_error(exc) from exc
+    return RouteResponse(
+        journeys=outcome.journeys,
+        status=outcome.status,
+        message=NO_TRANSIT_MESSAGE if outcome.status == "no_transit" else None,
+        diagnostics=_diagnostics(outcome.snapshot),
+    )
+
+
+@router.post("/route/check", tags=["route"])
+async def route_check(
+    body: RouteCheckRequest, city: CityDep, settings: SettingsDep, planner: PlannerDep
+) -> RouteCheckResponse:
+    """Пересчёт выбранного маршрута: машина стоит, пропала или опаздывает — есть ли вариант
+    лучше. Маршрут не заменяется: решает человек."""
+    _check_points(city, body.origin, body.destination)
+    try:
+        outcome = await planner.check(
+            body.origin,
+            body.destination,
+            low_floor_only=body.low_floor_only,
+            vehicle_id=body.vehicle_id,
+            planned_arrive_at=body.planned_arrive_at,
+            stopped_threshold=timedelta(seconds=settings.stopped_threshold_s),
+            late_threshold=timedelta(seconds=settings.late_threshold_s),
+        )
+    except TransitUnavailableError as exc:
+        raise transit_unavailable() from exc
+    except WalkPlannerError as exc:
+        raise walk_error(exc) from exc
+    return RouteCheckResponse(
+        status=outcome.status,
+        stopped_for_s=outcome.stopped_for_s,
+        current=outcome.current,
+        alternative=outcome.alternative,
+        gain_s=outcome.gain_s,
+        diagnostics=_diagnostics(outcome.snapshot),
+    )
 
 
 @router.get("/live/vehicles", tags=["live"])

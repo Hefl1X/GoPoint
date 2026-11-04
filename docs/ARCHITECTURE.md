@@ -199,7 +199,8 @@ nsk-transit/
 | GET | `/search?q=` | подсказки адресов и мест в Новосибирске (от 3 букв) |
 | GET | `/search/reverse?lat=&lon=` | адрес у точки, выбранной на карте («Выбрать на карте») |
 | POST | `/walk` | служебный: пеший участок по профилю коляски между двумя точками (время, метры, линия, `hasStairs`) |
-| POST | `/route` | от точки, до точки, `lowFloorOnly`: до 3 вариантов с шагами, временем, пометками |
+| POST | `/route` | от точки, до точки, `lowFloorOnly`: до 3 вариантов с шагами, временем, пометками; `status: no_transit` и «Транспорта сейчас нет», если машин нет |
+| POST | `/route/check` | пересчёт выбранного маршрута: машина стоит / пропала / опаздывает, тот же маршрут с новым временем и предложение (не заменяет) |
 | GET | `/live/vehicles?bbox=&lowFloorOnly=` | машины на линии для карты |
 | GET | `/live/routes?lowFloorOnly=` | маршруты с числом машин на линии, фильтр по виду |
 | GET | `/live/routes/{id}` | остановки по порядку и машины между ними |
@@ -255,3 +256,24 @@ nsk-transit/
 
 Сервер обращается к OTP по `GOPOINT_OTP_URL` (`http://otp:8080`), GraphQL `/otp/gtfs/v1`. Наружу OTP не открыт.
 Настройки штрафов меняются в `otp/router-config.json` и применяются после `build-otp-graph.sh` или перезапуска `otp` с обновлённым файлом в `data/otp/`.
+
+## 12. Граница города
+
+Файл `server/app/adapters/osm_boundary/novosibirsk_city.geojson` — «городской округ Новосибирск»
+(OpenStreetMap, relation 1751445). Как обновить (после `build-otp-graph.sh`, когда есть выгрузка Сибири):
+
+```bash
+docker run --rm -v "$PWD/data:/data" gopoint-osm-tools:local getid -r --overwrite -o /data/otp/city.osm.pbf /data/osm/siberian-fed-district.osm.pbf r1751445
+docker run --rm -v "$PWD/data:/data" gopoint-osm-tools:local export --overwrite -f geojson -o /data/otp/city.geojson /data/otp/city.osm.pbf
+```
+
+Затем оставить в файле только объект «городской округ Новосибирск», округлить координаты до 5 знаков
+и положить на место прежнего файла. Другой файл можно задать настройкой `GOPOINT_CITY_BOUNDARY_FILE`.
+
+## 13. Модуль LiveTransit (как устроен код)
+
+- `domain/linear.py` — положение машины на линии и время прихода на остановки впереди (пункты 1–2 раздела 8).
+- `domain/journey_search.py` — поиск по кругам (до 3 поездок), запасные варианты, проверка выбранной машины.
+- `services/journey_planner.py` — собирает машины из снимка, линии всех маршрутов (`LiveSnapshotService.network`,
+  сутки), пешие участки через `WalkingService` (OTP) и превращает найденное в шаги `Journey`.
+- `domain/area.py` — «точка в городе».

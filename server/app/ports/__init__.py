@@ -38,6 +38,15 @@ class TransitFeed(Protocol):
 
     async def line_path(self, line_id: str, direction: Direction) -> LinePath: ...
 
+    async def line_paths(
+        self, line_ids: Sequence[str], direction: Direction
+    ) -> dict[str, LinePath]:
+        """Линии нескольких маршрутов одним заходом (адаптер сам делит на запросы).
+
+        Маршруты без линии в этом направлении в ответ не попадают.
+        """
+        ...
+
     async def vehicles(self, line_ids: Sequence[str]) -> list[LiveVehicle]:
         """Все машины указанных маршрутов (не больше max_lines_per_request), без фильтров."""
         ...

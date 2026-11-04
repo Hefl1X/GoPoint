@@ -13,7 +13,8 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from app.domain.models import Bounds, LatLon, PlaceSuggestion
+from app.domain.area import CityArea
+from app.domain.models import LatLon, PlaceSuggestion
 from app.domain.search import cache_point, clean_suggestions, is_searchable, normalize_query
 from app.ports import Geocoder
 from app.services.cache import Monotonic, TtlCache
@@ -30,7 +31,7 @@ class GeocodingService:
         self,
         geocoder: Geocoder,
         *,
-        bounds: Bounds,
+        area: CityArea,
         near: LatLon,
         limit: int = 6,
         cache: CachePolicy = CachePolicy(),  # noqa: B008  неизменяемый объект
@@ -39,7 +40,8 @@ class GeocodingService:
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._geocoder = geocoder
-        self._bounds = bounds
+        self._bounds = area.bounds
+        self._area = area
         self._near = near
         self._limit = limit
         self._min_interval_s = min_interval_s
@@ -56,8 +58,8 @@ class GeocodingService:
         self.requests_made = 0  # для проверки нагрузки на сервис поиска
 
     @property
-    def bounds(self) -> Bounds:
-        return self._bounds
+    def area(self) -> CityArea:
+        return self._area
 
     async def _throttled[T](self, call: Callable[[], Awaitable[T]]) -> T:
         # Один запрос за раз и пауза между ними, сколько бы людей ни искало.
@@ -84,7 +86,8 @@ class GeocodingService:
                 key, limit=self._limit, bounds=self._bounds, near=self._near
             )
         )
-        result = clean_suggestions(raw, self._bounds, self._limit)
+        inside = [item for item in raw if self._area.contains(item.point)]
+        result = clean_suggestions(inside, self._bounds, self._limit)
         self._search_cache.put(key, result)
         return result
 
@@ -95,6 +98,6 @@ class GeocodingService:
         if hit:
             return cached
         found = await self._throttled(lambda: self._geocoder.reverse(point))
-        result = found if found is not None and self._bounds.contains(found.point) else None
+        result = found if found is not None and self._area.contains(found.point) else None
         self._reverse_cache.put(key, result)
         return result

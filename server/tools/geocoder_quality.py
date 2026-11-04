@@ -28,6 +28,7 @@ import httpx
 
 from app.adapters.photon.geocoder import PhotonGeocoder
 from app.config import get_settings
+from app.domain.area import CityArea
 from app.domain.geo import distance_m
 from app.domain.models import LatLon, PlaceSuggestion
 from app.services.geocoding import GeocodingService
@@ -114,7 +115,7 @@ async def main() -> None:
     photon = PhotonGeocoder(base_url=settings.photon_url, user_agent=settings.user_agent)
     service = GeocodingService(
         photon,
-        bounds=settings.city_bounds,
+        area=CityArea(bounds=settings.city_bounds),
         near=settings.city_center,
         limit=settings.search_limit,
         min_interval_s=PAUSE_S,

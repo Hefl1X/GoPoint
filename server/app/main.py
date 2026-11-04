@@ -7,6 +7,7 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,11 +16,19 @@ from app.api import v1
 from app.api.errors import install_error_handlers
 from app.api.schemas import Health
 from app.config import APP_NAME, APP_VERSION, Settings, get_settings
+from app.domain.journey_search import SearchParams
+from app.domain.linear import EtaParams
 from app.ports import Geocoder, TransitFeed, WalkPlanner
 from app.services.geocoding import CachePolicy, GeocodingService
+from app.services.journey_planner import JourneyPlanner, PlannerSettings
 from app.services.live_snapshot import Clock, LiveSnapshotService, utc_now
 from app.services.walking import WalkingService
-from app.wiring import build_geocoder, build_transit_feed, build_walk_planner
+from app.wiring import (
+    build_city_area,
+    build_geocoder,
+    build_transit_feed,
+    build_walk_planner,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -37,12 +46,13 @@ def create_app(
     close_feed: Callable[[], Awaitable[None]] | None = None
     if feed is None:
         feed, close_feed = build_transit_feed(settings)
+    city = build_city_area(settings)
     close_geocoder: Callable[[], Awaitable[None]] | None = None
     if geocoder is None:
         geocoder, close_geocoder = build_geocoder(settings)
     geocoding = GeocodingService(
         geocoder,
-        bounds=settings.city_bounds,
+        area=city,
         near=settings.city_center,
         limit=settings.search_limit,
         cache=CachePolicy(ttl_s=settings.search_cache_ttl_s, max_size=settings.search_cache_size),
@@ -87,9 +97,16 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.state.city = city
     app.state.live = live
     app.state.geocoding = geocoding
     app.state.walking = walking
+    app.state.planner = JourneyPlanner(
+        live,
+        walking,
+        clock=clock,
+        settings=planner_settings(settings),
+    )
     app.state.clock = clock
     app.add_middleware(
         CORSMiddleware,
@@ -105,6 +122,28 @@ def create_app(
         return Health()
 
     return app
+
+
+def planner_settings(settings: Settings) -> PlannerSettings:
+    return PlannerSettings(
+        eta=EtaParams(
+            min_speed_mps=settings.vehicle_min_speed_kmh / 3.6,
+            max_speed_mps=settings.vehicle_max_speed_kmh / 3.6,
+            dwell_s=settings.dwell_s,
+        ),
+        search=SearchParams(
+            board_margin_s=settings.board_margin_s,
+            transfer_margin_s=settings.transfer_margin_s,
+            board_within_s=settings.horizon_min * 60,
+        ),
+        stale_seconds=settings.stale_seconds,
+        max_vehicle_offset_m=settings.max_vehicle_offset_m,
+        transfer_radius_m=settings.transfer_radius_m,
+        access_stops=settings.access_stops,
+        horizon=timedelta(minutes=settings.horizon_min),
+        walk_speed_mps=settings.walk_speed_mps,
+        snapshot_max_age=timedelta(seconds=settings.snapshot_max_age_s),
+    )
 
 
 app = create_app()

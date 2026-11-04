@@ -101,6 +101,7 @@ class Line(DomainModel):
     type: TransportType
     number: str
     title: str
+    ring: bool = Field(default=False, description="Кольцевой маршрут (без конечной)")
 
 
 class Direction(StrEnum):

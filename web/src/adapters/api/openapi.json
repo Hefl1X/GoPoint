@@ -271,6 +271,12 @@
             "title": "Number",
             "type": "string"
           },
+          "ring": {
+            "default": false,
+            "description": "Кольцевой маршрут (без конечной)",
+            "title": "Ring",
+            "type": "boolean"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -555,6 +561,115 @@
         "title": "ReverseResponse",
         "type": "object"
       },
+      "RouteCheckRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/LatLon"
+          },
+          "lowFloorOnly": {
+            "default": true,
+            "title": "Lowflooronly",
+            "type": "boolean"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/LatLon"
+          },
+          "plannedArriveAt": {
+            "description": "Когда человек должен был приехать (UTC)",
+            "format": "date-time",
+            "title": "Plannedarriveat",
+            "type": "string"
+          },
+          "vehicleId": {
+            "description": "Машина первой поездки",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Vehicleid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "vehicleId",
+          "plannedArriveAt"
+        ],
+        "title": "RouteCheckRequest",
+        "type": "object"
+      },
+      "RouteCheckResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternative": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Journey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Предложение: решает человек"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Journey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Тот же маршрут с новым временем"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/SnapshotDiagnostics"
+          },
+          "gainS": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Насколько раньше по предложению, с",
+            "title": "Gains"
+          },
+          "status": {
+            "description": "ok: всё по плану; stopped: машина стоит; late: опаздывает; gone: пропала",
+            "enum": [
+              "ok",
+              "stopped",
+              "late",
+              "gone"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stoppedForS": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stoppedfors"
+          }
+        },
+        "required": [
+          "status",
+          "current",
+          "alternative",
+          "diagnostics"
+        ],
+        "title": "RouteCheckResponse",
+        "type": "object"
+      },
       "RouteRequest": {
         "additionalProperties": false,
         "properties": {
@@ -580,6 +695,9 @@
       "RouteResponse": {
         "additionalProperties": false,
         "properties": {
+          "diagnostics": {
+            "$ref": "#/components/schemas/SnapshotDiagnostics"
+          },
           "journeys": {
             "items": {
               "$ref": "#/components/schemas/Journey"
@@ -587,10 +705,33 @@
             "maxItems": 3,
             "title": "Journeys",
             "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Что сказать человеку, по-русски",
+            "title": "Message"
+          },
+          "status": {
+            "description": "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем)",
+            "enum": [
+              "ok",
+              "no_transit"
+            ],
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
-          "journeys"
+          "journeys",
+          "status",
+          "diagnostics"
         ],
         "title": "RouteResponse",
         "type": "object"
@@ -1418,6 +1559,7 @@
     },
     "/api/v1/route": {
       "post": {
+        "description": "Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.\n\nlowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой\nпоездки пометка lowFloor. Пешие участки всегда по профилю коляски.",
         "operationId": "route_api_v1_route_post",
         "requestBody": {
           "content": {
@@ -1472,6 +1614,68 @@
           }
         },
         "summary": "Route",
+        "tags": [
+          "route"
+        ]
+      }
+    },
+    "/api/v1/route/check": {
+      "post": {
+        "description": "Пересчёт выбранного маршрута: машина стоит, пропала или опаздывает — есть ли вариант\nлучше. Маршрут не заменяется: решает человек.",
+        "operationId": "route_check_api_v1_route_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Неверные данные запроса"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ошибка сервера"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ещё не сделано"
+          }
+        },
+        "summary": "Route Check",
         "tags": [
           "route"
         ]
