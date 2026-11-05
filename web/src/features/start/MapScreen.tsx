@@ -9,7 +9,7 @@ import type { Endpoint, LatLon, TripPoint } from '../../domain/types';
 import { GeolocationError } from '../../ports/Geolocation';
 import type { MapJourneyLine, MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
 import { LiveState, StatusBlock } from '../../shared/components';
-import { useLine, useMeta, useOnline, useVehicles } from '../../shared/queries';
+import { useLine, useMeta, useOnline, useVehicleDetails, useVehicles } from '../../shared/queries';
 import { navigate, routeHref, type Route } from '../../shared/router';
 import { ru } from '../../shared/ru';
 import { useServices } from '../../shared/services';
@@ -51,6 +51,7 @@ export function MapScreen({ route }: { route: MapRoute }) {
   const vehicles = useVehicles(lowFloorOnly);
   const selected = vehicles.data?.find((v) => v.id === vehicleId) ?? null;
   const line = useLine(selected?.lineId ?? null, lowFloorOnly);
+  const details = useVehicleDetails(selected?.id ?? null);
 
   const [userLocation, setUserLocation] = useState<LatLon | null>(null);
   const [focus, setFocus] = useState<MapViewProps['focus']>(null);
@@ -230,6 +231,7 @@ export function MapScreen({ route }: { route: MapRoute }) {
                 vehicle={selected}
                 loading={vehicles.data === undefined}
                 direction={direction}
+                details={details.data}
                 onClose={() => {
                   navigate({ name: 'map', vehicleId: null });
                 }}

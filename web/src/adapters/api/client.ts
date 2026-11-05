@@ -9,7 +9,9 @@ import type {
   LineSummary,
   Meta as DomainMeta,
   PlaceSuggestion,
+  StopArrivals,
   Vehicle as DomainVehicle,
+  VehicleDetails,
 } from '../../domain/types';
 import { ApiError, type LiveApi } from '../../ports/LiveApi';
 import type { PlaceSearch } from '../../ports/PlaceSearch';
@@ -86,6 +88,35 @@ const lineDetailsSchema = z.object({
   ),
   diagnostics,
 }) satisfies z.ZodType<Schemas['LineDetails']>;
+
+// Служебное: как посчитано время. Интерфейс его не показывает.
+const etaDiagnostics = z.object({
+  method: z.enum(['planned', 'distance']),
+  positionObservedAt: z.string(),
+});
+
+const arrivalsSchema = z.object({
+  stop: stopSchema,
+  arrivals: z.array(
+    z.object({
+      vehicle: vehicleSchema,
+      toward: z.string().nullable().default(null),
+      stopsAway: z.number().int().min(0),
+      arriveAt: z.string(),
+      diagnostics: etaDiagnostics,
+    }),
+  ),
+  diagnostics,
+}) satisfies z.ZodType<Schemas['ArrivalsResponse']>;
+
+const vehicleDetailsSchema = z.object({
+  vehicle: vehicleSchema,
+  toward: z.string().nullable().default(null),
+  nextStops: z.array(
+    z.object({ stop: stopSchema, arriveAt: z.string(), diagnostics: etaDiagnostics }),
+  ),
+  diagnostics,
+}) satisfies z.ZodType<Schemas['VehicleDetails']>;
 
 const placeSchema = z.object({
   id: z.string(),
@@ -363,6 +394,31 @@ export const httpLiveApi: LiveApi = {
           nextStopOrder: item.nextStopOrder,
         })),
       })),
+    };
+  },
+
+  async getStopArrivals(stopId, lowFloorOnly, signal): Promise<StopArrivals> {
+    const query = new URLSearchParams({ lowFloorOnly: String(lowFloorOnly) });
+    const path = `/live/stops/${encodeURIComponent(stopId)}/arrivals?${query.toString()}`;
+    const body = await getJson(path, arrivalsSchema, signal);
+    return {
+      stop: body.stop,
+      arrivals: body.arrivals.map((a) => ({
+        vehicle: toVehicle(a.vehicle),
+        toward: a.toward,
+        stopsAway: a.stopsAway,
+        arriveAt: a.arriveAt,
+      })),
+    };
+  },
+
+  async getVehicleDetails(vehicleId, signal): Promise<VehicleDetails> {
+    const path = `/live/vehicles/${encodeURIComponent(vehicleId)}`;
+    const body = await getJson(path, vehicleDetailsSchema, signal);
+    return {
+      vehicle: toVehicle(body.vehicle),
+      toward: body.toward,
+      nextStops: body.nextStops.map((s) => ({ stop: s.stop, arriveAt: s.arriveAt })),
     };
   },
 };

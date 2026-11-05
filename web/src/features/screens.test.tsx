@@ -6,6 +6,7 @@ import { ApiError } from '../ports/LiveApi';
 import { fakeApi, renderApp } from '../test-utils';
 import { LiveRouteScreen } from './live-route/LiveRouteScreen';
 import { LiveRoutesScreen } from './live-routes/LiveRoutesScreen';
+import { LiveStopScreen } from './live-stop/LiveStopScreen';
 import { SettingsScreen } from './settings/SettingsScreen';
 import { MapScreen } from './start/MapScreen';
 
@@ -131,6 +132,24 @@ describe('Главный экран', () => {
     );
   });
 
+  it('карточка машины: минуты до следующей остановки и дальше по маршруту', async () => {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: 'bus-3-1' }} />);
+    expect(await screen.findByText('Цирк · 2 мин')).toBeInTheDocument();
+    const further = screen.getByRole('region', { name: 'Дальше по маршруту' });
+    expect(further).toHaveTextContent('Площадь Маркса');
+    expect(further).toHaveTextContent('9 мин');
+    expect(further).toHaveTextContent('≈ 20 мин');
+  });
+
+  it('минут нет (сервер не ответил): карточка показывает остановку по линии', async () => {
+    const api = fakeApi({
+      getVehicleDetails: () => Promise.reject(new ApiError(503, 'TRANSIT_UNAVAILABLE', 'нет')),
+    });
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: 'bus-3-1' }} />, { api });
+    expect(await screen.findByText('Следующая остановка')).toBeInTheDocument();
+    expect(screen.queryByText(/мин$/)).not.toBeInTheDocument();
+  });
+
   it('машины больше нет на линии: так и говорим', async () => {
     renderApp(<MapScreen route={{ name: 'map', vehicleId: 'bus-3-777' }} />);
     expect(await screen.findByText('Сведений об этой машине сейчас нет.')).toBeInTheDocument();
@@ -231,5 +250,74 @@ describe('Маршрут на линии', () => {
       },
       { timeout: 4000 },
     );
+  });
+});
+
+describe('Остановка', () => {
+  it('что подъезжает: номер, куда, минуты; только низкопольные при включённой настройке', async () => {
+    renderApp(<LiveStopScreen stopId="2" />);
+    expect(await screen.findByRole('heading', { name: 'Цирк' })).toBeInTheDocument();
+    expect(screen.getByText('Автобус 3 → Северный')).toBeInTheDocument();
+    expect(screen.getByText('4 мин')).toBeInTheDocument();
+    expect(screen.getByText('в 2 остановках')).toBeInTheDocument();
+    expect(screen.queryByText(/Трамвай 13/)).not.toBeInTheDocument();
+  });
+
+  it('при выключенной настройке любой транспорт с пометкой и «≈» для дальних', async () => {
+    renderApp(<LiveStopScreen stopId="2" />, {
+      store: createMemoryStore({ 'gopoint.lowFloorOnly': 'false' }),
+    });
+    expect(await screen.findByText('Трамвай 13 → Писарева')).toBeInTheDocument();
+    expect(screen.getByText('≈ 12 мин')).toBeInTheDocument();
+    expect(screen.getByText('низкий пол не указан')).toBeInTheDocument();
+  });
+
+  it('никто не подъезжает: серый блок и ссылка на настройки', async () => {
+    const api = fakeApi({
+      getStopArrivals: () =>
+        Promise.resolve({
+          stop: { id: '2', name: 'Цирк', point: { lat: 55, lon: 83 } },
+          arrivals: [],
+        }),
+    });
+    renderApp(<LiveStopScreen stopId="2" />, { api });
+    expect(await screen.findByText('Транспорта сейчас нет')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Показать любой транспорт' })).toHaveAttribute(
+      'href',
+      '#/settings',
+    );
+  });
+
+  it('«Проложить маршрут отсюда» ставит точку А и просит выбрать «Куда»', async () => {
+    renderApp(<LiveStopScreen stopId="2" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Проложить маршрут отсюда' }));
+    expect(window.location.hash).toBe('#/search/to');
+  });
+
+  it('если «Куда» уже выбрано, сразу на карту с маршрутом', async () => {
+    renderApp(<LiveStopScreen stopId="2" />, {
+      trip: { to: { label: 'Аура', point: { lat: 55.04, lon: 82.93 } } },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Проложить маршрут отсюда' }));
+    expect(window.location.hash).toBe('#/');
+  });
+
+  it('остановки нет: сообщение сервера', async () => {
+    const api = fakeApi({
+      getStopArrivals: () =>
+        Promise.reject(new ApiError(404, 'STOP_NOT_FOUND', 'Такой остановки нет.')),
+    });
+    renderApp(<LiveStopScreen stopId="zz" />, { api });
+    // Один повтор запроса перед ошибкой.
+    expect(
+      await screen.findByText('Такой остановки нет.', undefined, { timeout: 4000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('экран маршрута ведёт на остановку', async () => {
+    renderApp(<LiveRouteScreen lineId="bus-3" />);
+    expect(
+      await screen.findByRole('link', { name: 'Остановка «Цирк»: что подъезжает' }),
+    ).toHaveAttribute('href', '#/stop/2');
   });
 });

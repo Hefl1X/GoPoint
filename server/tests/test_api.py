@@ -44,12 +44,6 @@ def test_validation_error_does_not_echo_input() -> None:
     assert "999" not in response.text
 
 
-def test_not_ready_endpoints_say_so_in_russian() -> None:
-    response = client.get("/api/v1/live/vehicles/bus-3-1")
-    assert response.status_code == 501
-    assert response.json()["code"] == "NOT_IMPLEMENTED"
-
-
 def test_search_requires_three_characters() -> None:
     assert client.get("/api/v1/search", params={"q": "ле"}).status_code == 422
 

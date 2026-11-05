@@ -10,6 +10,7 @@ export type Route =
   | { readonly name: 'pick'; readonly end: Endpoint }
   | { readonly name: 'transport' }
   | { readonly name: 'line'; readonly lineId: string }
+  | { readonly name: 'stop'; readonly stopId: string }
   | { readonly name: 'settings' }
   | { readonly name: 'about' };
 
@@ -36,6 +37,10 @@ export function parseRoute(hash: string): Route {
       return second && decode(second)
         ? { name: 'line', lineId: decode(second) }
         : { name: 'transport' };
+    case 'stop':
+      return second && decode(second)
+        ? { name: 'stop', stopId: decode(second) }
+        : { name: 'transport' };
     case 'settings':
       return { name: 'settings' };
     case 'about':
@@ -57,6 +62,8 @@ export function routeHref(route: Route): string {
       return '#/transport';
     case 'line':
       return `#/transport/${encodeURIComponent(route.lineId)}`;
+    case 'stop':
+      return `#/stop/${encodeURIComponent(route.stopId)}`;
     case 'settings':
       return '#/settings';
     case 'about':

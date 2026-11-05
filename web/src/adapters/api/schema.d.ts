@@ -62,7 +62,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Live Stop Arrivals */
+        /**
+         * Live Stop Arrivals
+         * @description Что подъезжает к остановке: машины на линии с временем прихода.
+         *
+         *     lowFloorOnly = true: только машины с низким полом (yes); false: любые с пометкой.
+         */
         get: operations["live_stop_arrivals_api_v1_live_stops__stop_id__arrivals_get"];
         put?: never;
         post?: never;
@@ -96,7 +101,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Live Vehicle */
+        /**
+         * Live Vehicle
+         * @description Машина на линии и когда она придёт на остановки впереди (карточка машины).
+         */
         get: operations["live_vehicle_api_v1_live_vehicles__vehicle_id__get"];
         put?: never;
         post?: never;
@@ -252,15 +260,14 @@ export interface components {
             /** Message */
             message: string;
         };
-        /** Arrival */
-        Arrival: {
-            eta: components["schemas"]["Eta"];
-            vehicle: components["schemas"]["Vehicle"];
-        };
         /** ArrivalsResponse */
         ArrivalsResponse: {
-            /** Arrivals */
-            arrivals: components["schemas"]["Arrival"][];
+            /**
+             * Arrivals
+             * @description Что подъезжает, по времени прихода
+             */
+            arrivals: components["schemas"]["StopArrival"][];
+            diagnostics: components["schemas"]["SnapshotDiagnostics"];
             stop: components["schemas"]["Stop"];
         };
         /**
@@ -277,20 +284,6 @@ export interface components {
          * @enum {string}
          */
         Direction: "A" | "B";
-        /**
-         * Eta
-         * @description Когда машина придёт на остановку.
-         */
-        Eta: {
-            /**
-             * Arriveat
-             * Format: date-time
-             */
-            arriveAt: string;
-            diagnostics: components["schemas"]["EtaDiagnostics"];
-            /** Stopid */
-            stopId: string;
-        };
         /**
          * EtaDiagnostics
          * @description Служебные сведения о расчёте: для логов и тестов, не для экрана.
@@ -435,6 +428,19 @@ export interface components {
             version: string;
         };
         /**
+         * NextStop
+         * @description Остановка впереди машины и когда машина на неё придёт (карточка машины).
+         */
+        NextStop: {
+            /**
+             * Arriveat
+             * Format: date-time
+             */
+            arriveAt: string;
+            diagnostics: components["schemas"]["EtaDiagnostics"];
+            stop: components["schemas"]["Stop"];
+        };
+        /**
          * Place
          * @description Точка А или Б: адрес, место или точка, выбранная на карте.
          */
@@ -567,6 +573,29 @@ export interface components {
             point: components["schemas"]["LatLon"];
         };
         /**
+         * StopArrival
+         * @description Машина подъезжает к остановке (экран остановки).
+         */
+        StopArrival: {
+            /**
+             * Arriveat
+             * Format: date-time
+             */
+            arriveAt: string;
+            diagnostics: components["schemas"]["EtaDiagnostics"];
+            /**
+             * Stopsaway
+             * @description Сколько остановок машине осталось до этой (0: эта следующая)
+             */
+            stopsAway: number;
+            /**
+             * Toward
+             * @description Конечная, куда едет машина; null у кольцевых
+             */
+            toward?: string | null;
+            vehicle: components["schemas"]["Vehicle"];
+        };
+        /**
          * TransitLeg
          * @description Поездка на конкретной машине.
          */
@@ -652,8 +681,17 @@ export interface components {
         };
         /** VehicleDetails */
         VehicleDetails: {
-            /** Nextstops */
-            nextStops: components["schemas"]["Eta"][];
+            diagnostics: components["schemas"]["SnapshotDiagnostics"];
+            /**
+             * Nextstops
+             * @description Остановки впереди по порядку; пусто, если машина в стороне от линии
+             */
+            nextStops: components["schemas"]["NextStop"][];
+            /**
+             * Toward
+             * @description Конечная, куда едет машина; null у кольцевых
+             */
+            toward?: string | null;
             vehicle: components["schemas"]["Vehicle"];
         };
         /** VehiclesResponse */

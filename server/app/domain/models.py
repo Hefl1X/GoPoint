@@ -195,6 +195,28 @@ class Eta(DomainModel):
     diagnostics: EtaDiagnostics
 
 
+class StopArrival(DomainModel):
+    """Машина подъезжает к остановке (экран остановки)."""
+
+    vehicle: Vehicle
+    toward: str | None = Field(
+        default=None, description="Конечная, куда едет машина; null у кольцевых"
+    )
+    stops_away: int = Field(
+        ge=0, description="Сколько остановок машине осталось до этой (0: эта следующая)"
+    )
+    arrive_at: datetime
+    diagnostics: EtaDiagnostics
+
+
+class NextStop(DomainModel):
+    """Остановка впереди машины и когда машина на неё придёт (карточка машины)."""
+
+    stop: Stop
+    arrive_at: datetime
+    diagnostics: EtaDiagnostics
+
+
 class WalkLeg(DomainModel):
     """Пеший участок по профилю коляски."""
 

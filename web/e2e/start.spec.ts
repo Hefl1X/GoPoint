@@ -92,6 +92,35 @@ test('«Транспорт»: список, маршрут, «Назад»', asy
   await expect(page.getByRole('heading', { name: 'Транспорт сейчас' })).toBeVisible();
 });
 
+test('остановка: что подъезжает, «Проложить маршрут отсюда»', async ({ page }) => {
+  await mockServer(page);
+  await page.goto('/?map=list#/transport/bus-3');
+  await page.getByRole('link', { name: 'Остановка «Цирк»: что подъезжает' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Цирк' })).toBeVisible();
+  await expect(page.getByText('Автобус 3 → Северный')).toBeVisible();
+  await expect(page.getByText('4 мин')).toBeVisible();
+  // Трамвай без отметки о низком поле при включённой настройке не показывается.
+  await expect(page.getByText(/Трамвай 13/)).toHaveCount(0);
+  await noHorizontalScroll(page);
+  await noAxeViolations(page);
+  const button = page.getByRole('button', { name: 'Проложить маршрут отсюда' });
+  const box = await button.boundingBox();
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await button.click();
+  await expect(page).toHaveURL(/#\/search\/to$/);
+  // Остановка стала точкой А, открыт поиск «Куда».
+  await expect(page.getByRole('searchbox', { name: /Куда/ })).toBeFocused();
+  await expect(page.getByText('Точка А: Цирк')).toBeAttached();
+});
+
+test('карточка машины: минуты до остановок', async ({ page }) => {
+  await mockServer(page);
+  await page.goto('/?map=list#/vehicle/bus-3-1');
+  await expect(page.getByText('Цирк · 2 мин')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Дальше по маршруту' })).toContainText('≈ 15 мин');
+  await noAxeViolations(page);
+});
+
 test('настройка «Низкопольный транспорт»: клавиатура, память, другой набор машин', async ({
   page,
 }) => {

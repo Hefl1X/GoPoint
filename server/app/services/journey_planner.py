@@ -18,7 +18,14 @@ from typing import Literal
 
 from app.domain.geo import distance_m
 from app.domain.journey_search import Plan, Ride, SearchParams, TransferWalk, Trip, search
-from app.domain.linear import EtaParams, LineGeometry, build_geometry, locate, stop_calls
+from app.domain.linear import (
+    EtaParams,
+    LineGeometry,
+    StopCall,
+    build_geometry,
+    locate,
+    stop_calls,
+)
 from app.domain.live import usable_vehicles
 from app.domain.models import (
     Direction,
@@ -29,9 +36,12 @@ from app.domain.models import (
     Line,
     LinePath,
     LiveVehicle,
+    NextStop,
     Place,
     Stop,
+    StopArrival,
     TransitLeg,
+    Vehicle,
     WalkLeg,
 )
 from app.ports import (
@@ -75,6 +85,27 @@ class RouteOutcome:
     journeys: list[Journey]
     status: Literal["ok", "no_transit"]
     snapshot: Snapshot
+
+
+@dataclass(frozen=True)
+class ArrivalsOutcome:
+    stop: Stop | None  # None: такой остановки нет ни на одном маршруте
+    arrivals: list[StopArrival]
+    snapshot: Snapshot
+
+
+@dataclass(frozen=True)
+class VehicleOutcome:
+    vehicle: Vehicle | None  # None: машины нет на линии (или положение устарело)
+    toward: str | None
+    next_stops: list[NextStop]
+    snapshot: Snapshot
+
+
+# Сколько ближайших машин одного маршрута и направления показывать на остановке.
+ARRIVALS_PER_LINE = 2
+# Сколько остановок впереди показывать в карточке машины.
+VEHICLE_NEXT_STOPS = 8
 
 
 CheckStatus = Literal["ok", "stopped", "late", "gone"]
@@ -193,20 +224,20 @@ class JourneyPlanner:
                         result.setdefault(a.id, []).append((b.id, seconds))
         return result
 
-    def _trips(
+    def _vehicle_calls(
         self,
         network: _Network,
         snap: Snapshot,
         now: datetime,
         low_floor_only: bool,
         ring_lines: frozenset[str],
-    ) -> dict[str, tuple[Trip, LiveVehicle]]:
+        horizon: datetime,
+    ) -> dict[str, tuple[list[StopCall], LiveVehicle]]:
+        """Машины на линии и время их прихода на остановки впереди (до horizon)."""
         usable = {
             v.id for v in usable_vehicles(snap.vehicles, now, self._s.stale_seconds, low_floor_only)
         }
-        trips: dict[str, tuple[Trip, LiveVehicle]] = {}
-        # Сесть нужно в пределах горизонта, а ехать можно дольше: остановки берём с запасом.
-        horizon = now + self._s.horizon + RIDE_EXTRA
+        result: dict[str, tuple[list[StopCall], LiveVehicle]] = {}
         for live in snap.vehicles:
             v = live.vehicle
             if v.id not in usable:
@@ -231,9 +262,37 @@ class JourneyPlanner:
                 params=self._s.eta,
                 ring=v.line_id in ring_lines,
             )
-            if len(calls) >= 2:
-                trips[v.id] = (Trip(v.id, calls), live)
-        return trips
+            result[v.id] = (calls, live)
+        return result
+
+    def _trips(
+        self,
+        network: _Network,
+        snap: Snapshot,
+        now: datetime,
+        low_floor_only: bool,
+        ring_lines: frozenset[str],
+    ) -> dict[str, tuple[Trip, LiveVehicle]]:
+        # Сесть нужно в пределах горизонта, а ехать можно дольше: остановки берём с запасом.
+        horizon = now + self._s.horizon + RIDE_EXTRA
+        return {
+            vid: (Trip(vid, calls), live)
+            for vid, (calls, live) in self._vehicle_calls(
+                network, snap, now, low_floor_only, ring_lines, horizon
+            ).items()
+            if len(calls) >= 2
+        }
+
+    @staticmethod
+    def _toward_of(v: Vehicle, lines: dict[str, Line], network: _Network) -> str | None:
+        """Конечная направления, куда едет машина. У кольцевых конечной нет."""
+        line = lines.get(v.line_id)
+        if line is not None and line.ring:
+            return None
+        geom = network.geometry.get((v.line_id, v.direction))
+        if geom is None or not geom.path.stops:
+            return None
+        return geom.path.stops[-1].stop.name
 
     async def _walks(
         self, network: _Network, point: LatLon, *, to_point: bool
@@ -308,6 +367,85 @@ class JourneyPlanner:
             if journey is not None:
                 journeys.append(journey)
         return RouteOutcome(journeys, "ok" if journeys else "no_transit", snap)
+
+    async def stop_arrivals(self, stop_id: str, *, low_floor_only: bool) -> ArrivalsOutcome:
+        """Что подъезжает к остановке в пределах горизонта, по времени прихода.
+
+        От каждого маршрута и направления не больше ARRIVALS_PER_LINE ближайших машин.
+        """
+        snap = await self._snapshot()
+        network = await self._load_network()
+        stop = network.stops.get(stop_id)
+        if stop is None:
+            return ArrivalsOutcome(None, [], snap)
+        lines = await self._lines()
+        ring_lines = frozenset(i for i, line in lines.items() if line.ring)
+        now = self._clock()
+        found: list[StopArrival] = []
+        for calls, live in self._vehicle_calls(
+            network, snap, now, low_floor_only, ring_lines, now + self._s.horizon
+        ).values():
+            for away, call in enumerate(calls):
+                if call.stop.id != stop_id:
+                    continue
+                v = live.vehicle
+                found.append(
+                    StopArrival(
+                        vehicle=v,
+                        toward=self._toward_of(v, lines, network),
+                        stops_away=away,
+                        arrive_at=call.arrive_at,
+                        diagnostics=EtaDiagnostics(
+                            method=call.method, position_observed_at=v.position_observed_at
+                        ),
+                    )
+                )
+                break  # у кольцевых та же остановка может встретиться дважды: берём ближнюю
+        found.sort(key=lambda a: a.arrive_at)
+        per_line: dict[tuple[str, Direction], int] = {}
+        arrivals: list[StopArrival] = []
+        for item in found:
+            key = (item.vehicle.line_id, item.vehicle.direction)
+            if per_line.get(key, 0) < ARRIVALS_PER_LINE:
+                per_line[key] = per_line.get(key, 0) + 1
+                arrivals.append(item)
+        return ArrivalsOutcome(stop, arrivals, snap)
+
+    async def vehicle_details(self, vehicle_id: str) -> VehicleOutcome:
+        """Машина и время её прихода на остановки впереди (для карточки машины).
+
+        Машину открывают нажатием на карте, поэтому настройка «Низкопольный транспорт»
+        здесь не фильтрует: правила «на линии» и «свежее положение» те же.
+        """
+        snap = await self._snapshot()
+        network = await self._load_network()
+        lines = await self._lines()
+        ring_lines = frozenset(i for i, line in lines.items() if line.ring)
+        now = self._clock()
+        usable = usable_vehicles(snap.vehicles, now, self._s.stale_seconds, False)
+        vehicle = next((v for v in usable if v.id == vehicle_id), None)
+        if vehicle is None:
+            return VehicleOutcome(None, None, [], snap)
+        calls, _ = self._vehicle_calls(
+            network, snap, now, False, ring_lines, now + self._s.horizon + RIDE_EXTRA
+        ).get(vehicle_id, ([], None))
+        next_stops = [
+            NextStop(
+                stop=call.stop,
+                arrive_at=call.arrive_at,
+                diagnostics=EtaDiagnostics(
+                    method=call.method, position_observed_at=vehicle.position_observed_at
+                ),
+            )
+            for call in calls[:VEHICLE_NEXT_STOPS]
+        ]
+        return VehicleOutcome(vehicle, self._toward_of(vehicle, lines, network), next_stops, snap)
+
+    async def _lines(self) -> dict[str, Line]:
+        try:
+            return {line.id: line for line in await self._live.lines()}
+        except TransitFeedError as exc:
+            raise TransitUnavailableError(str(exc)) from exc
 
     async def check(
         self,
@@ -411,18 +549,10 @@ class JourneyPlanner:
             low_floor_only=ctx.low_floor_only,
         )
 
-    @staticmethod
-    def _toward(ride: Ride, ctx: _Context) -> str | None:
-        """Конечная направления, куда едет машина. У кольцевых конечной нет."""
+    @classmethod
+    def _toward(cls, ride: Ride, ctx: _Context) -> str | None:
         _, live = ctx.trips[ride.trip.vehicle_id]
-        v = live.vehicle
-        line = ctx.lines.get(v.line_id)
-        if line is not None and line.ring:
-            return None
-        geom = ctx.network.geometry.get((v.line_id, v.direction))
-        if geom is None or not geom.path.stops:
-            return None
-        return geom.path.stops[-1].stop.name
+        return cls._toward_of(live.vehicle, ctx.lines, ctx.network)
 
     @staticmethod
     def _ride_path(ride: Ride, ctx: _Context) -> list[LatLon]:

@@ -11,8 +11,10 @@ import type {
   LineSummary,
   Meta,
   PlaceSuggestion,
+  StopArrivals,
   TripPoint,
   Vehicle,
+  VehicleDetails,
 } from './domain/types';
 import type { Geolocator } from './ports/Geolocation';
 import type { LiveApi } from './ports/LiveApi';
@@ -102,6 +104,35 @@ export const LINE_DETAILS: LineDetails = {
   ],
 };
 
+/** Остановка «Цирк»: автобус 3 через 4 мин, трамвай 13 (низкий пол не указан) через 12 мин. */
+export function stopArrivals(lowFloorOnly: boolean, start = Date.now()): StopArrivals {
+  const all = [
+    { vehicle: BUS_3_1, toward: 'Северный', stopsAway: 2, arriveAt: inMinutes(4, start) },
+    {
+      vehicle: VEHICLES[2] ?? BUS_3_1,
+      toward: 'Писарева',
+      stopsAway: 6,
+      arriveAt: inMinutes(12, start),
+    },
+  ];
+  return {
+    stop: stop('2', 'Цирк'),
+    arrivals: lowFloorOnly ? all.filter((a) => a.vehicle.lowFloor === 'yes') : all,
+  };
+}
+
+export function vehicleDetails(id = 'bus-3-1', start = Date.now()): VehicleDetails {
+  return {
+    vehicle: VEHICLES.find((v) => v.id === id) ?? BUS_3_1,
+    toward: 'Северный',
+    nextStops: [
+      { stop: stop('2', 'Цирк'), arriveAt: inMinutes(2, start) },
+      { stop: stop('3', 'Площадь Маркса'), arriveAt: inMinutes(9, start) },
+      { stop: stop('4', 'Северный'), arriveAt: inMinutes(20, start) },
+    ],
+  };
+}
+
 /** Через сколько минут от «сейчас» (для времени в ответах-заглушках). */
 export const inMinutes = (minutes: number, from = Date.now()) =>
   new Date(from + minutes * 60_000).toISOString();
@@ -161,6 +192,10 @@ export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
     ),
     getLines: vi.fn(() => Promise.resolve(LINES)),
     getLine: vi.fn(() => Promise.resolve(LINE_DETAILS)),
+    getStopArrivals: vi.fn((_stopId: string, lowFloorOnly: boolean) =>
+      Promise.resolve(stopArrivals(lowFloorOnly)),
+    ),
+    getVehicleDetails: vi.fn((id: string) => Promise.resolve(vehicleDetails(id))),
     planRoute: vi.fn((_points, lowFloorOnly: boolean): Promise<RoutePlan> =>
       Promise.resolve({ status: 'ok', journeys: [journey({ lowFloorOnly })] }),
     ),

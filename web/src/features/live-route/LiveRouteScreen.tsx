@@ -102,7 +102,13 @@ function LineView({ details, lowFloorOnly }: { details: LineDetails; lowFloorOnl
             {vehicleRows(byStop.get(order), `${ru.line.goesTo} «${stop.name}»`)}
             <li className="stop">
               <span className="stop__mark" aria-hidden="true" />
-              <span className="stop__name">{stop.name}</span>
+              <a
+                className="stop__name stop__link"
+                href={routeHref({ name: 'stop', stopId: stop.id })}
+                aria-label={ru.stop.open(stop.name)}
+              >
+                {stop.name}
+              </a>
             </li>
           </Fragment>
         ))}

@@ -96,3 +96,31 @@ export interface TripPoint {
   readonly label: string;
   readonly point: LatLon;
 }
+
+/** Машина подъезжает к остановке (экран остановки). */
+export interface StopArrival {
+  readonly vehicle: Vehicle;
+  /** Конечная, куда едет машина; null у кольцевых. */
+  readonly toward: string | null;
+  /** Сколько остановок машине осталось до этой (0: эта следующая). */
+  readonly stopsAway: number;
+  readonly arriveAt: string;
+}
+
+export interface StopArrivals {
+  readonly stop: Stop;
+  readonly arrivals: readonly StopArrival[];
+}
+
+/** Остановка впереди машины и когда машина на неё придёт. */
+export interface NextStop {
+  readonly stop: Stop;
+  readonly arriveAt: string;
+}
+
+export interface VehicleDetails {
+  readonly vehicle: Vehicle;
+  readonly toward: string | null;
+  /** Остановки впереди по порядку; пусто, если машина в стороне от линии. */
+  readonly nextStops: readonly NextStop[];
+}

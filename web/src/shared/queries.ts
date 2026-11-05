@@ -4,7 +4,14 @@
 import { onlineManager, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 import type { Journey, RouteCheck, RoutePlan, RoutePoints } from '../domain/journey';
-import type { LineDetails, LineSummary, Meta, Vehicle } from '../domain/types';
+import type {
+  LineDetails,
+  LineSummary,
+  Meta,
+  StopArrivals,
+  Vehicle,
+  VehicleDetails,
+} from '../domain/types';
 import { useServices } from './services';
 
 const DEFAULT_REFRESH_S = 30;
@@ -82,6 +89,29 @@ export function useLine(lineId: string | null, lowFloorOnly: boolean): LiveQuery
     queryKey: ['line', lineId, lowFloorOnly],
     queryFn: ({ signal }) => api.getLine(lineId ?? '', lowFloorOnly, signal),
     enabled: lineId !== null,
+    ...liveOptions(refreshMs),
+  });
+  return { query, data: freshData(query, staleMs) };
+}
+
+export function useStopArrivals(stopId: string, lowFloorOnly: boolean): LiveQuery<StopArrivals> {
+  const { api } = useServices();
+  const { refreshMs, staleMs } = useLiveTiming();
+  const query = useQuery({
+    queryKey: ['stop', stopId, lowFloorOnly],
+    queryFn: ({ signal }) => api.getStopArrivals(stopId, lowFloorOnly, signal),
+    ...liveOptions(refreshMs),
+  });
+  return { query, data: freshData(query, staleMs) };
+}
+
+export function useVehicleDetails(vehicleId: string | null): LiveQuery<VehicleDetails> {
+  const { api } = useServices();
+  const { refreshMs, staleMs } = useLiveTiming();
+  const query = useQuery({
+    queryKey: ['vehicle', vehicleId],
+    queryFn: ({ signal }) => api.getVehicleDetails(vehicleId ?? '', signal),
+    enabled: vehicleId !== null,
     ...liveOptions(refreshMs),
   });
   return { query, data: freshData(query, staleMs) };

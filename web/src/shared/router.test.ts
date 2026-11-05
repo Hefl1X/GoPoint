@@ -8,6 +8,8 @@ describe('адреса экранов', () => {
     ['#/vehicle/bus-3-1', { name: 'map', vehicleId: 'bus-3-1' }],
     ['#/transport', { name: 'transport' }],
     ['#/transport/minibus-30%D0%90', { name: 'line', lineId: 'minibus-30А' }],
+    ['#/stop/1418', { name: 'stop', stopId: '1418' }],
+    ['#/stop', { name: 'transport' }],
     ['#/settings', { name: 'settings' }],
     ['#/about', { name: 'about' }],
     ['#/search/from', { name: 'search', end: 'from' }],
@@ -25,6 +27,7 @@ describe('адреса экранов', () => {
       { name: 'map', vehicleId: 'tram-0013-4' },
       { name: 'line', lineId: 'minibus-30А' },
       { name: 'settings' },
+      { name: 'stop', stopId: 'ост 5' },
       { name: 'search', end: 'from' },
       { name: 'pick', end: 'to' },
     ];

@@ -43,32 +43,19 @@
         "title": "ApiError",
         "type": "object"
       },
-      "Arrival": {
-        "additionalProperties": false,
-        "properties": {
-          "eta": {
-            "$ref": "#/components/schemas/Eta"
-          },
-          "vehicle": {
-            "$ref": "#/components/schemas/Vehicle"
-          }
-        },
-        "required": [
-          "vehicle",
-          "eta"
-        ],
-        "title": "Arrival",
-        "type": "object"
-      },
       "ArrivalsResponse": {
         "additionalProperties": false,
         "properties": {
           "arrivals": {
+            "description": "Что подъезжает, по времени прихода",
             "items": {
-              "$ref": "#/components/schemas/Arrival"
+              "$ref": "#/components/schemas/StopArrival"
             },
             "title": "Arrivals",
             "type": "array"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/SnapshotDiagnostics"
           },
           "stop": {
             "$ref": "#/components/schemas/Stop"
@@ -76,7 +63,8 @@
         },
         "required": [
           "stop",
-          "arrivals"
+          "arrivals",
+          "diagnostics"
         ],
         "title": "ArrivalsResponse",
         "type": "object"
@@ -107,31 +95,6 @@
         ],
         "title": "Direction",
         "type": "string"
-      },
-      "Eta": {
-        "additionalProperties": false,
-        "description": "Когда машина придёт на остановку.",
-        "properties": {
-          "arriveAt": {
-            "format": "date-time",
-            "title": "Arriveat",
-            "type": "string"
-          },
-          "diagnostics": {
-            "$ref": "#/components/schemas/EtaDiagnostics"
-          },
-          "stopId": {
-            "title": "Stopid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "stopId",
-          "arriveAt",
-          "diagnostics"
-        ],
-        "title": "Eta",
-        "type": "object"
       },
       "EtaDiagnostics": {
         "additionalProperties": false,
@@ -461,6 +424,30 @@
           "staleSeconds"
         ],
         "title": "Meta",
+        "type": "object"
+      },
+      "NextStop": {
+        "additionalProperties": false,
+        "description": "Остановка впереди машины и когда машина на неё придёт (карточка машины).",
+        "properties": {
+          "arriveAt": {
+            "format": "date-time",
+            "title": "Arriveat",
+            "type": "string"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/EtaDiagnostics"
+          },
+          "stop": {
+            "$ref": "#/components/schemas/Stop"
+          }
+        },
+        "required": [
+          "stop",
+          "arriveAt",
+          "diagnostics"
+        ],
+        "title": "NextStop",
         "type": "object"
       },
       "Place": {
@@ -798,6 +785,49 @@
         "title": "Stop",
         "type": "object"
       },
+      "StopArrival": {
+        "additionalProperties": false,
+        "description": "Машина подъезжает к остановке (экран остановки).",
+        "properties": {
+          "arriveAt": {
+            "format": "date-time",
+            "title": "Arriveat",
+            "type": "string"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/EtaDiagnostics"
+          },
+          "stopsAway": {
+            "description": "Сколько остановок машине осталось до этой (0: эта следующая)",
+            "minimum": 0.0,
+            "title": "Stopsaway",
+            "type": "integer"
+          },
+          "toward": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Конечная, куда едет машина; null у кольцевых",
+            "title": "Toward"
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/Vehicle"
+          }
+        },
+        "required": [
+          "vehicle",
+          "stopsAway",
+          "arriveAt",
+          "diagnostics"
+        ],
+        "title": "StopArrival",
+        "type": "object"
+      },
       "TransitLeg": {
         "additionalProperties": false,
         "description": "Поездка на конкретной машине.",
@@ -978,12 +1008,28 @@
       "VehicleDetails": {
         "additionalProperties": false,
         "properties": {
+          "diagnostics": {
+            "$ref": "#/components/schemas/SnapshotDiagnostics"
+          },
           "nextStops": {
+            "description": "Остановки впереди по порядку; пусто, если машина в стороне от линии",
             "items": {
-              "$ref": "#/components/schemas/Eta"
+              "$ref": "#/components/schemas/NextStop"
             },
             "title": "Nextstops",
             "type": "array"
+          },
+          "toward": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Конечная, куда едет машина; null у кольцевых",
+            "title": "Toward"
           },
           "vehicle": {
             "$ref": "#/components/schemas/Vehicle"
@@ -991,7 +1037,8 @@
         },
         "required": [
           "vehicle",
-          "nextStops"
+          "nextStops",
+          "diagnostics"
         ],
         "title": "VehicleDetails",
         "type": "object"
@@ -1323,6 +1370,7 @@
     },
     "/api/v1/live/stops/{stop_id}/arrivals": {
       "get": {
+        "description": "Что подъезжает к остановке: машины на линии с временем прихода.\n\nlowFloorOnly = true: только машины с низким полом (yes); false: любые с пометкой.",
         "operationId": "live_stop_arrivals_api_v1_live_stops__stop_id__arrivals_get",
         "parameters": [
           {
@@ -1480,6 +1528,7 @@
     },
     "/api/v1/live/vehicles/{vehicle_id}": {
       "get": {
+        "description": "Машина на линии и когда она придёт на остановки впереди (карточка машины).",
         "operationId": "live_vehicle_api_v1_live_vehicles__vehicle_id__get",
         "parameters": [
           {

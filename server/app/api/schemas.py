@@ -11,12 +11,13 @@ from app.domain.models import (
     Bounds,
     Direction,
     DomainModel,
-    Eta,
     Journey,
     LatLon,
     Line,
+    NextStop,
     PlaceSuggestion,
     Stop,
+    StopArrival,
     Vehicle,
 )
 
@@ -125,16 +126,18 @@ class LineDetails(DomainModel):
     diagnostics: SnapshotDiagnostics
 
 
-class Arrival(DomainModel):
-    vehicle: Vehicle
-    eta: Eta
-
-
 class ArrivalsResponse(DomainModel):
     stop: Stop
-    arrivals: list[Arrival]
+    arrivals: list[StopArrival] = Field(description="Что подъезжает, по времени прихода")
+    diagnostics: SnapshotDiagnostics
 
 
 class VehicleDetails(DomainModel):
     vehicle: Vehicle
-    next_stops: list[Eta]
+    toward: str | None = Field(
+        default=None, description="Конечная, куда едет машина; null у кольцевых"
+    )
+    next_stops: list[NextStop] = Field(
+        description="Остановки впереди по порядку; пусто, если машина в стороне от линии"
+    )
+    diagnostics: SnapshotDiagnostics

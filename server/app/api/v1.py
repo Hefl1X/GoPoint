@@ -1,8 +1,8 @@
 """Адреса /api/v1 (раздел 9 docs/ARCHITECTURE.md).
 
-Работают: /health, /meta, /search, /search/reverse, /walk, /route, /route/check,
-/live/vehicles, /live/routes, /live/routes/{id}.
-Остальные уже описаны в контракте (OpenAPI) и отвечают 501 до своих задач.
+Работают все адреса: /health, /meta, /search, /search/reverse, /walk, /route,
+/route/check, /live/vehicles, /live/vehicles/{id}, /live/routes, /live/routes/{id},
+/live/stops/{id}/arrivals.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.errors import ERROR_RESPONSES, AppError, not_implemented
+from app.api.errors import ERROR_RESPONSES, AppError
 from app.api.schemas import (
     ArrivalsResponse,
     Health,
@@ -329,8 +329,20 @@ async def live_vehicles(
 
 
 @router.get("/live/vehicles/{vehicle_id}", tags=["live"])
-async def live_vehicle(vehicle_id: str) -> VehicleDetails:
-    raise not_implemented()
+async def live_vehicle(vehicle_id: str, planner: PlannerDep) -> VehicleDetails:
+    """Машина на линии и когда она придёт на остановки впереди (карточка машины)."""
+    try:
+        outcome = await planner.vehicle_details(vehicle_id)
+    except TransitUnavailableError as exc:
+        raise transit_unavailable() from exc
+    if outcome.vehicle is None:
+        raise AppError(404, "VEHICLE_NOT_FOUND", "Этой машины сейчас нет на линии.")
+    return VehicleDetails(
+        vehicle=outcome.vehicle,
+        toward=outcome.toward,
+        next_stops=outcome.next_stops,
+        diagnostics=_diagnostics(outcome.snapshot),
+    )
 
 
 @router.get("/live/routes", tags=["live"])
@@ -407,5 +419,21 @@ async def live_route(
 
 
 @router.get("/live/stops/{stop_id}/arrivals", tags=["live"])
-async def live_stop_arrivals(stop_id: str, low_floor_only: LowFloorOnly = True) -> ArrivalsResponse:
-    raise not_implemented()
+async def live_stop_arrivals(
+    stop_id: str, planner: PlannerDep, low_floor_only: LowFloorOnly = True
+) -> ArrivalsResponse:
+    """Что подъезжает к остановке: машины на линии с временем прихода.
+
+    lowFloorOnly = true: только машины с низким полом (yes); false: любые с пометкой.
+    """
+    try:
+        outcome = await planner.stop_arrivals(stop_id, low_floor_only=low_floor_only)
+    except TransitUnavailableError as exc:
+        raise transit_unavailable() from exc
+    if outcome.stop is None:
+        raise AppError(404, "STOP_NOT_FOUND", "Такой остановки нет.")
+    return ArrivalsResponse(
+        stop=outcome.stop,
+        arrivals=outcome.arrivals,
+        diagnostics=_diagnostics(outcome.snapshot),
+    )

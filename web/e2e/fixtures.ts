@@ -222,6 +222,62 @@ export async function mockServer(
         },
       });
     }
+    if (path === '/live/stops/2/arrivals') {
+      const tram = {
+        ...vehicle('tram-0013-4', 'unknown'),
+        lineId: 'tram-0013',
+        type: 'tram',
+        number: '13',
+      };
+      const arrivals = [
+        {
+          vehicle: ALL_VEHICLES[0],
+          toward: 'Северный',
+          stopsAway: 2,
+          arriveAt: inMin(4),
+          diagnostics: { method: 'distance', positionObservedAt: observed },
+        },
+        {
+          vehicle: tram,
+          toward: 'Писарева',
+          stopsAway: 6,
+          arriveAt: inMin(12),
+          diagnostics: { method: 'planned', positionObservedAt: observed },
+        },
+      ];
+      return route.fulfill({
+        json: {
+          stop: stop('2', 'Цирк'),
+          arrivals: lowFloorOnly ? arrivals.slice(0, 1) : arrivals,
+          diagnostics,
+        },
+      });
+    }
+    if (path.startsWith('/live/vehicles/')) {
+      const id = decodeURIComponent(path.slice('/live/vehicles/'.length));
+      const found = ALL_VEHICLES.find((v) => v.id === id);
+      if (!found) {
+        return route.fulfill({
+          status: 404,
+          json: { code: 'VEHICLE_NOT_FOUND', message: 'Этой машины сейчас нет на линии.' },
+        });
+      }
+      const eta = (m: number) => ({
+        arriveAt: inMin(m),
+        diagnostics: { method: 'distance', positionObservedAt: observed },
+      });
+      return route.fulfill({
+        json: {
+          vehicle: found,
+          toward: 'Северный',
+          nextStops: [
+            { stop: stop('2', 'Цирк'), ...eta(2) },
+            { stop: stop('3', 'Северный'), ...eta(15) },
+          ],
+          diagnostics,
+        },
+      });
+    }
     if (path === '/live/routes/bus-3') {
       return route.fulfill({
         json: {
