@@ -1,6 +1,6 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // В разработке запросы /api уходят на сервер (адрес берётся из окружения,
@@ -9,9 +9,37 @@ const apiTarget = process.env.GOPOINT_API_PROXY ?? 'http://127.0.0.1:8000';
 
 const GREEN = '#0f6b5c';
 
+/**
+ * Заставка из index.html видна сразу, не дожидаясь стилей сайта: ссылку на стили и скрипт
+ * сайта переносим в конец страницы (стили по-прежнему грузятся до запуска скрипта, поэтому
+ * сайт не мигает без оформления). На медленной сети заставка появляется на ~0,7 с раньше.
+ */
+function splashFirst(): Plugin {
+  return {
+    name: 'gopoint-splash-first',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        const moved: string[] = [];
+        const head = html.replace(
+          /\s*<(link rel="stylesheet"[^>]*|script type="module"[^>]*><\/script)>/g,
+          (tag) => {
+            moved.push(tag.trim());
+            return '';
+          },
+        );
+        // Стили раньше скрипта: скрипт ждёт загрузки стилей перед запуском.
+        moved.sort((a, b) => Number(a.startsWith('<script')) - Number(b.startsWith('<script')));
+        return head.replace('</body>', `${moved.join('\n')}\n</body>`);
+      },
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    splashFirst(),
     // PWA: манифест и service worker (docs/DESIGN.md, «Иконка и PWA»).
     // Без сети работают оболочка сайта и справочники (список маршрутов, остановки
     // открытых маршрутов). Положения машин и маршруты без сети не берутся: сайт
