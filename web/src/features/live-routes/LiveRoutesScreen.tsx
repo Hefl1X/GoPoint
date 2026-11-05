@@ -8,7 +8,7 @@ import {
   vehiclesOnLineText,
 } from '../../domain/transport';
 import type { TransportType } from '../../domain/types';
-import { LiveState, Pill, ScreenTitle, StatusBlock } from '../../shared/components';
+import { LiveState, OfflineNote, Pill, ScreenTitle, StatusBlock } from '../../shared/components';
 import { useLines, useOnline } from '../../shared/queries';
 import { routeHref } from '../../shared/router';
 import { ru } from '../../shared/ru';
@@ -58,9 +58,10 @@ export function LiveRoutesScreen() {
         query={lines.query}
         data={lines.data}
         online={online}
-        render={(all) => {
+        render={(list) => {
+          const all = list.lines;
           const shown = filterLines(all, { type, query, lowFloorOnly });
-          if (all.every((l) => l.vehiclesOnLine === 0)) {
+          if (list.live && all.every((l) => l.vehiclesOnLine === 0)) {
             return (
               <StatusBlock
                 title={ru.live.noneTitle}
@@ -74,24 +75,29 @@ export function LiveRoutesScreen() {
           }
           if (shown.length === 0) return <StatusBlock text={ru.transport.nothingFound} />;
           return (
-            <ul className="card-list">
-              {shown.map(({ line, vehiclesOnLine }) => (
-                <li key={line.id}>
-                  <a className="line-row" href={routeHref({ name: 'line', lineId: line.id })}>
-                    <Pill type={line.type} number={line.number} large />
-                    <span className="line-row__text">
-                      <span className="line-row__name">{lineName(line.type, line.number)}</span>
-                      <span className="muted">{line.title}</span>
-                    </span>
-                    {vehiclesOnLine > 0 ? (
-                      <span className="badge badge--yes">{vehiclesOnLineText(vehiclesOnLine)}</span>
-                    ) : (
-                      <span className="badge badge--grey">{ru.transport.notOnLine}</span>
-                    )}
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <>
+              {list.live ? null : <OfflineNote />}
+              <ul className="card-list">
+                {shown.map(({ line, vehiclesOnLine }) => (
+                  <li key={line.id}>
+                    <a className="line-row" href={routeHref({ name: 'line', lineId: line.id })}>
+                      <Pill type={line.type} number={line.number} large />
+                      <span className="line-row__text">
+                        <span className="line-row__name">{lineName(line.type, line.number)}</span>
+                        <span className="muted">{line.title}</span>
+                      </span>
+                      {vehiclesOnLine === null ? null : vehiclesOnLine > 0 ? (
+                        <span className="badge badge--yes">
+                          {vehiclesOnLineText(vehiclesOnLine)}
+                        </span>
+                      ) : (
+                        <span className="badge badge--grey">{ru.transport.notOnLine}</span>
+                      )}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
           );
         }}
       />

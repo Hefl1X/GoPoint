@@ -47,7 +47,16 @@ export interface Stop {
 
 export interface LineSummary {
   readonly line: Line;
-  readonly vehiclesOnLine: number;
+  /** Сколько машин на линии; null — неизвестно (нет связи, показан сохранённый список). */
+  readonly vehiclesOnLine: number | null;
+}
+
+/** Список маршрутов. live = false: ответ сохранён без сети, машины в нём не показываются. */
+export interface LinesList {
+  readonly lines: readonly LineSummary[];
+  readonly live: boolean;
+  /** Когда сервер получил данные о машинах (UTC). */
+  readonly snapshotAt: string;
 }
 
 export interface LineVehicle {
@@ -66,6 +75,10 @@ export interface LineDirection {
 export interface LineDetails {
   readonly line: Line;
   readonly directions: readonly LineDirection[];
+  /** false: ответ сохранён без сети, машины скрыты, видны только остановки. */
+  readonly live: boolean;
+  /** Когда сервер получил данные о машинах (UTC). */
+  readonly snapshotAt: string;
 }
 
 export interface Meta {

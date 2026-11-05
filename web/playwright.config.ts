@@ -9,7 +9,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
-  use: { baseURL: `http://127.0.0.1:${port}`, locale: 'ru-RU', timezoneId: 'Asia/Novosibirsk' },
+  use: {
+    baseURL: `http://127.0.0.1:${port}`,
+    locale: 'ru-RU',
+    timezoneId: 'Asia/Novosibirsk',
+    // Service worker перехватил бы запросы мимо подменённого сервера (page.route).
+    // Работа без сети проверяется отдельно: e2e/pwa.spec.ts включает его сам.
+    serviceWorkers: 'block',
+  },
   projects: [
     {
       name: 'phone-360x640',

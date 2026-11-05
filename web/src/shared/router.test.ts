@@ -12,6 +12,7 @@ describe('адреса экранов', () => {
     ['#/stop', { name: 'transport' }],
     ['#/settings', { name: 'settings' }],
     ['#/about', { name: 'about' }],
+    ['#/install', { name: 'install' }],
     ['#/search/from', { name: 'search', end: 'from' }],
     ['#/search/to', { name: 'search', end: 'to' }],
     ['#/pick/to', { name: 'pick', end: 'to' }],

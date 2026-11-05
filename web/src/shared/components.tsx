@@ -169,6 +169,11 @@ export function StatusBlock({
   );
 }
 
+/** Нет связи, показан сохранённый список: маршруты и остановки есть, машин нет. */
+export function OfflineNote() {
+  return <StatusBlock title={ru.errors.offlineTitle} text={ru.live.offlineReference} />;
+}
+
 /**
  * Состояния экрана с данными: загрузка, нет сети, ошибка. Если данные есть,
  * показывает их (render). Пустоту экран решает сам.

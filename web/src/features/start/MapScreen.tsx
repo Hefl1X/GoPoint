@@ -21,6 +21,7 @@ import { SearchPanel } from '../trip/SearchPanel';
 import { RoutePanel } from '../route/RoutePanel';
 import { TripCard } from '../trip/TripCard';
 import { VehicleCard } from '../vehicle/VehicleCard';
+import { InstallBanner } from '../install/InstallBanner';
 
 type MapRoute = Extract<Route, { name: 'map' | 'search' | 'pick' }>;
 
@@ -238,6 +239,7 @@ export function MapScreen({ route }: { route: MapRoute }) {
               />
             ) : (
               <>
+                {routePoints && journey ? <InstallBanner /> : null}
                 {routePoints ? (
                   <RoutePanel
                     points={routePoints}

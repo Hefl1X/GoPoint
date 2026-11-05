@@ -113,6 +113,20 @@ test('остановка: что подъезжает, «Проложить ма
   await expect(page.getByText('Точка А: Цирк')).toBeAttached();
 });
 
+test('инструкция установки на iPhone и «О приложении»', async ({ page }) => {
+  await mockServer(page);
+  await page.goto('/?map=list#/install');
+  await expect(page.getByRole('heading', { name: 'Установить на iPhone' })).toBeVisible();
+  await expect(page.getByText('Нажмите кнопку «Поделиться» внизу Safari')).toBeVisible();
+  await noHorizontalScroll(page);
+  await noAxeViolations(page);
+  await page.goto('/?map=list#/about');
+  await expect(page.getByText('GoPoint · Версия 0.1.0')).toBeVisible();
+  await expect(page.getByText(/ЦУГАЭТ/)).toBeVisible();
+  await expect(page.getByText(/© OpenStreetMap contributors/)).toBeVisible();
+  await noAxeViolations(page);
+});
+
 test('карточка машины: минуты до остановок', async ({ page }) => {
   await mockServer(page);
   await page.goto('/?map=list#/vehicle/bus-3-1');

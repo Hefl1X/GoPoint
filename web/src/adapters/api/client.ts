@@ -6,7 +6,7 @@ import { firstRide, type Journey, type JourneyStep } from '../../domain/journey'
 import type {
   LatLon,
   LineDetails,
-  LineSummary,
+  LinesList,
   Meta as DomainMeta,
   PlaceSuggestion,
   StopArrivals,
@@ -375,10 +375,10 @@ export const httpLiveApi: LiveApi = {
     return body.vehicles.map(toVehicle);
   },
 
-  async getLines(lowFloorOnly, signal): Promise<LineSummary[]> {
+  async getLines(lowFloorOnly, signal): Promise<LinesList> {
     const query = new URLSearchParams({ lowFloorOnly: String(lowFloorOnly) });
     const body = await getJson(`/live/routes?${query.toString()}`, linesSchema, signal);
-    return body.lines;
+    return { lines: body.lines, live: true, snapshotAt: body.diagnostics.fetchedAt };
   },
 
   async getLine(lineId, lowFloorOnly, signal): Promise<LineDetails> {
@@ -387,6 +387,8 @@ export const httpLiveApi: LiveApi = {
     const body = await getJson(path, lineDetailsSchema, signal);
     return {
       line: body.line,
+      live: true,
+      snapshotAt: body.diagnostics.fetchedAt,
       directions: body.directions.map((d) => ({
         ...d,
         vehicles: d.vehicles.map((item) => ({

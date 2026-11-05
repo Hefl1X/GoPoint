@@ -2,13 +2,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderResult } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { ListMapView } from './adapters/map-list/ListMapView';
 import { createMemoryStore } from './adapters/storage/localStore';
 import type { Journey, RouteCheck, RoutePlan } from './domain/journey';
 import type {
   LineDetails,
   LineSummary,
+  LinesList,
   Meta,
   PlaceSuggestion,
   StopArrivals,
@@ -17,6 +18,7 @@ import type {
   VehicleDetails,
 } from './domain/types';
 import type { Geolocator } from './ports/Geolocation';
+import type { InstallMode, Installer } from './ports/Installer';
 import type { LiveApi } from './ports/LiveApi';
 import type { PlaceSearch } from './ports/PlaceSearch';
 import type { KeyValueStore } from './ports/Storage';
@@ -78,10 +80,19 @@ export const LINES: LineSummary[] = [
   },
 ];
 
+export function linesList(snapshotAt = new Date().toISOString()): LinesList {
+  return { lines: LINES, live: true, snapshotAt };
+}
+
 const stop = (id: string, name: string) => ({ id, name, point: { lat: 55, lon: 82.9 } });
 
 export const LINE_DETAILS: LineDetails = {
   line: BUS_3_LINE,
+  live: true,
+  // Свежие данные: сохранённый без сети ответ проверяется отдельно.
+  get snapshotAt() {
+    return new Date().toISOString();
+  },
   directions: [
     {
       direction: 'A',
@@ -190,7 +201,7 @@ export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
     getVehicles: vi.fn((lowFloorOnly: boolean) =>
       Promise.resolve(lowFloorOnly ? VEHICLES.filter((v) => v.lowFloor === 'yes') : VEHICLES),
     ),
-    getLines: vi.fn(() => Promise.resolve(LINES)),
+    getLines: vi.fn(() => Promise.resolve(linesList())),
     getLine: vi.fn(() => Promise.resolve(LINE_DETAILS)),
     getStopArrivals: vi.fn((_stopId: string, lowFloorOnly: boolean) =>
       Promise.resolve(stopArrivals(lowFloorOnly)),
@@ -240,6 +251,31 @@ export function fakePlaces(overrides: Partial<PlaceSearch> = {}): PlaceSearch {
   };
 }
 
+/** Установка на экран телефона: заданный режим; после prompt() сайт «установлен». */
+export function fakeInstaller(
+  initial: InstallMode,
+  accept = true,
+): Installer & { readonly promptMock: Mock<() => Promise<boolean>> } {
+  let mode = initial;
+  const listeners = new Set<() => void>();
+  const promptMock = vi.fn(() => {
+    if (accept) mode = 'installed';
+    for (const l of listeners) l();
+    return Promise.resolve(accept);
+  });
+  return {
+    promptMock,
+    mode: () => mode,
+    subscribe(onChange) {
+      listeners.add(onChange);
+      return () => {
+        listeners.delete(onChange);
+      };
+    },
+    prompt: () => promptMock(),
+  };
+}
+
 export function renderApp(
   ui: ReactNode,
   options: {
@@ -249,6 +285,7 @@ export function renderApp(
     places?: PlaceSearch;
     mapCanPick?: boolean;
     trip?: { from?: TripPoint | null; to?: TripPoint | null };
+    installer?: Installer;
   } = {},
 ): RenderResult & { services: Services } {
   const services: Services = {
@@ -258,6 +295,7 @@ export function renderApp(
     MapView: ListMapView,
     mapCanPick: options.mapCanPick ?? false,
     places: options.places ?? fakePlaces(),
+    installer: options.installer ?? fakeInstaller('unsupported'),
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const result = render(

@@ -18,7 +18,13 @@ const vehicle = (id: string, lowFloor: 'yes' | 'no' | 'unknown', direction: 'A' 
   positionObservedAt: observed,
 });
 
-const diagnostics = { fetchedAt: observed, complete: true };
+// Снимок сервера свежий: старый снимок сайт считает сохранённым без сети и машины скрывает.
+const diagnostics = {
+  get fetchedAt() {
+    return new Date().toISOString();
+  },
+  complete: true,
+};
 const stop = (id: string, name: string) => ({ id, name, point: point(55.03, 82.92) });
 
 export const PLACES = [

@@ -3,11 +3,87 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#1f7a4d" />
+    <meta name="theme-color" content="#0f6b5c" />
+    <meta
+      name="description"
+      content="Транспорт Новосибирска на линии сейчас и маршрут по низкопольным машинам"
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="GoPoint" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>GoPoint</title>
+    <style>
+      /* Заставка: видна, пока грузится сайт; React заменяет её первым экраном. */
+      .splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #0f6b5c;
+        color: #ffffff;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+      }
+      .splash__name {
+        margin: 8px 0 0;
+        font-size: 32px;
+        font-weight: 800;
+      }
+      .splash__text {
+        margin: 0;
+        font-size: 16px;
+      }
+      .splash__bar {
+        width: 160px;
+        height: 6px;
+        margin-top: 16px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.3);
+        overflow: hidden;
+      }
+      .splash__bar::after {
+        content: '';
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: 3px;
+        background: #ffffff;
+        animation: splash-bar 1.2s ease-in-out infinite;
+      }
+      @keyframes splash-bar {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(250%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .splash__bar::after {
+          width: 100%;
+          animation: none;
+          opacity: 0.6;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="splash" role="status">
+        <img src="/icons/icon-192.png" width="96" height="96" alt="" />
+        <p class="splash__name">GoPoint</p>
+        <p class="splash__text">Маршруты по транспорту Новосибирска</p>
+        <p class="splash__text">Загружаем…</p>
+        <div class="splash__bar" aria-hidden="true"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

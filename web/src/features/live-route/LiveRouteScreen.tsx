@@ -2,7 +2,14 @@
 import { Fragment, useState } from 'react';
 import { lineName, towardStop, vehiclesOnLineText } from '../../domain/transport';
 import type { Direction, LineDetails, LineVehicle } from '../../domain/types';
-import { BackButton, LiveState, LowFloorBadge, Pill, StatusBlock } from '../../shared/components';
+import {
+  BackButton,
+  LiveState,
+  LowFloorBadge,
+  OfflineNote,
+  Pill,
+  StatusBlock,
+} from '../../shared/components';
 import { useLine, useOnline } from '../../shared/queries';
 import { routeHref } from '../../shared/router';
 import { ru } from '../../shared/ru';
@@ -89,13 +96,17 @@ function LineView({ details, lowFloorOnly }: { details: LineDetails; lowFloorOnl
           ))}
         </div>
       ) : null}
-      <p>
-        <span className={`badge ${direction.vehicles.length > 0 ? 'badge--yes' : 'badge--grey'}`}>
-          {direction.vehicles.length > 0
-            ? vehiclesOnLineText(direction.vehicles.length)
-            : ru.transport.notOnLine}
-        </span>
-      </p>
+      {details.live ? (
+        <p>
+          <span className={`badge ${direction.vehicles.length > 0 ? 'badge--yes' : 'badge--grey'}`}>
+            {direction.vehicles.length > 0
+              ? vehiclesOnLineText(direction.vehicles.length)
+              : ru.transport.notOnLine}
+          </span>
+        </p>
+      ) : (
+        <OfflineNote />
+      )}
       <ol className="stops" aria-label={ru.line.stopsLabel}>
         {direction.stops.map((stop, order) => (
           <Fragment key={`${stop.id}-${String(order)}`}>

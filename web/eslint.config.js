@@ -9,6 +9,10 @@ const adapterOnlyPackages = [
   { group: ['maplibre-gl', 'maplibre-gl/*'], message: 'Карта только в src/adapters/.' },
   { group: ['openapi-fetch', 'axios', 'ky'], message: 'Сеть только в src/adapters/.' },
   {
+    group: ['virtual:pwa-register', 'virtual:pwa-register/*', 'workbox-*'],
+    message: 'Service worker и установка только в src/adapters/pwa.',
+  },
+  {
     group: ['**/adapters/**/schema'],
     message: 'Сгенерированные типы API только в src/adapters/api.',
   },

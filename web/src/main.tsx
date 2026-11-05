@@ -9,6 +9,7 @@ import { httpLiveApi, httpPlaceSearch } from './adapters/api/client';
 import { browserGeolocator } from './adapters/geolocation/browserGeolocator';
 import { chooseMapView } from './adapters/map';
 import { ListMapView } from './adapters/map-list/ListMapView';
+import { createBrowserInstaller, registerServiceWorker } from './adapters/pwa/browserInstaller';
 import { createLocalStore } from './adapters/storage/localStore';
 import { App } from './App';
 import { ServicesProvider, type Services } from './shared/services';
@@ -24,7 +25,10 @@ const services: Services = {
   MapView,
   mapCanPick: MapView !== ListMapView,
   places: httpPlaceSearch,
+  installer: createBrowserInstaller(),
 };
+
+registerServiceWorker();
 
 const queryClient = new QueryClient();
 const root = document.getElementById('root');

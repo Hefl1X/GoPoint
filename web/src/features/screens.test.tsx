@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createMemoryStore } from '../adapters/storage/localStore';
 import { GeolocationError } from '../ports/Geolocation';
 import { ApiError } from '../ports/LiveApi';
-import { fakeApi, renderApp } from '../test-utils';
+import { fakeApi, fakeInstaller, linesList, renderApp } from '../test-utils';
 import { LiveRouteScreen } from './live-route/LiveRouteScreen';
 import { LiveRoutesScreen } from './live-routes/LiveRoutesScreen';
 import { LiveStopScreen } from './live-stop/LiveStopScreen';
@@ -319,5 +319,53 @@ describe('Остановка', () => {
     expect(
       await screen.findByRole('link', { name: 'Остановка «Цирк»: что подъезжает' }),
     ).toHaveAttribute('href', '#/stop/2');
+  });
+});
+
+describe('Без сети: сохранённый список маршрутов', () => {
+  it('маршруты видны без числа машин и с пояснением', async () => {
+    const old = new Date(Date.now() - 10 * 60_000).toISOString();
+    renderApp(<LiveRoutesScreen />, {
+      api: fakeApi({ getLines: () => Promise.resolve(linesList(old)) }),
+    });
+    expect(
+      await screen.findByText(
+        'Машины на линии сейчас не показываются. Маршруты и остановки доступны.',
+      ),
+    ).toBeInTheDocument();
+    // При включённой настройке видны все маршруты: сколько машин, неизвестно.
+    expect(screen.getByRole('link', { name: /Автобус 36/ })).toBeInTheDocument();
+    expect(screen.queryByText(/на линии: /)).not.toBeInTheDocument();
+    expect(screen.queryByText('Транспорта сейчас нет')).not.toBeInTheDocument();
+  });
+});
+
+describe('Установка на экран телефона', () => {
+  it('Android: пункт в «Настройках» открывает окно браузера', async () => {
+    const installer = fakeInstaller('prompt');
+    renderApp(<SettingsScreen />, { installer });
+    fireEvent.click(screen.getByRole('button', { name: 'Установить на экран телефона' }));
+    await waitFor(() => {
+      expect(installer.promptMock).toHaveBeenCalledTimes(1);
+    });
+    // Установлено: пункт пропадает.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Установить на экран телефона' }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('iPhone: пункт ведёт к инструкции', () => {
+    renderApp(<SettingsScreen />, { installer: fakeInstaller('ios') });
+    expect(screen.getByRole('link', { name: 'Установить на экран телефона' })).toHaveAttribute(
+      'href',
+      '#/install',
+    );
+  });
+
+  it('уже установлено или браузер не умеет: ничего не предлагаем', () => {
+    renderApp(<SettingsScreen />, { installer: fakeInstaller('installed') });
+    expect(screen.queryByText('Установить на экран телефона')).not.toBeInTheDocument();
   });
 });

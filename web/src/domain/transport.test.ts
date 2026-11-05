@@ -4,6 +4,9 @@ import {
   TYPE_COLOR,
   contrastRatio,
   filterLines,
+  hideOldLine,
+  hideOldLines,
+  isSnapshotOld,
   lineName,
   lowFloorLabel,
   onLineText,
@@ -11,7 +14,7 @@ import {
   towardStop,
   vehiclesOnLineText,
 } from './transport';
-import type { LineSummary } from './types';
+import type { LineDetails, LineSummary } from './types';
 
 describe('склонения', () => {
   it.each([
@@ -111,5 +114,69 @@ describe('список «Транспорт сейчас»', () => {
         vehicles: [],
       }),
     ).toBe('Северный');
+  });
+});
+
+describe('сохранённый без сети ответ: машины не показываются', () => {
+  const NOW = Date.parse('2026-11-05T10:00:00Z');
+  const STALE = 300_000;
+  const ago = (s: number) => new Date(NOW - s * 1000).toISOString();
+  const lines: LineSummary[] = [
+    { line: { id: 'bus-3', type: 'bus', number: '3', title: '' }, vehiclesOnLine: 2 },
+  ];
+  const details: LineDetails = {
+    line: { id: 'bus-3', type: 'bus', number: '3', title: '' },
+    live: true,
+    snapshotAt: ago(600),
+    directions: [
+      {
+        direction: 'A',
+        stops: [{ id: '1', name: 'Вокзал', point: { lat: 55, lon: 83 } }],
+        path: [],
+        vehicles: [
+          {
+            vehicle: {
+              id: 'v',
+              lineId: 'bus-3',
+              type: 'bus',
+              number: '3',
+              direction: 'A',
+              point: { lat: 55, lon: 83 },
+              lowFloor: 'yes',
+            },
+            nextStopOrder: 0,
+          },
+        ],
+      },
+    ],
+  };
+
+  it('порог свежести: 5 минут, битое время считается старым', () => {
+    expect(isSnapshotOld(ago(299), NOW, STALE)).toBe(false);
+    expect(isSnapshotOld(ago(301), NOW, STALE)).toBe(true);
+    expect(isSnapshotOld('вчера', NOW, STALE)).toBe(true);
+  });
+
+  it('свежий список не меняется', () => {
+    const list = { lines, live: true, snapshotAt: ago(30) };
+    expect(hideOldLines(list, NOW, STALE)).toBe(list);
+  });
+
+  it('старый список: число машин неизвестно, маршруты остаются', () => {
+    const list = hideOldLines({ lines, live: true, snapshotAt: ago(600) }, NOW, STALE);
+    expect(list.live).toBe(false);
+    expect(list.lines.map((l) => l.vehiclesOnLine)).toEqual([null]);
+  });
+
+  it('старый маршрут: остановки остаются, машин нет', () => {
+    const line = hideOldLine(details, NOW, STALE);
+    expect(line.live).toBe(false);
+    expect(line.directions[0]?.stops).toHaveLength(1);
+    expect(line.directions[0]?.vehicles).toEqual([]);
+  });
+
+  it('при включённой настройке маршрут с неизвестным числом машин не прячется', () => {
+    const unknown: LineSummary[] = lines.map((l) => ({ ...l, vehiclesOnLine: null }));
+    expect(filterLines(unknown, { type: 'all', query: '', lowFloorOnly: true })).toHaveLength(1);
   });
 });

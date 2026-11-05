@@ -6,12 +6,13 @@ import { useSyncExternalStore } from 'react';
 import type { Journey, RouteCheck, RoutePlan, RoutePoints } from '../domain/journey';
 import type {
   LineDetails,
-  LineSummary,
+  LinesList,
   Meta,
   StopArrivals,
   Vehicle,
   VehicleDetails,
 } from '../domain/types';
+import { hideOldLine, hideOldLines } from '../domain/transport';
 import { useServices } from './services';
 
 const DEFAULT_REFRESH_S = 30;
@@ -24,6 +25,8 @@ export function useMeta(): UseQueryResult<Meta> {
     queryFn: ({ signal }) => api.getMeta(signal),
     staleTime: Infinity,
     retry: 2,
+    // Без сети ответ может прийти из сохранённых (service worker).
+    networkMode: 'offlineFirst',
   });
 }
 
@@ -71,13 +74,19 @@ export function useVehicles(lowFloorOnly: boolean): LiveQuery<readonly Vehicle[]
   return { query, data: freshData(query, staleMs) };
 }
 
-export function useLines(lowFloorOnly: boolean): LiveQuery<readonly LineSummary[]> {
+/**
+ * Справочники (маршруты, остановки) работают и без сети: запрос всё равно уходит,
+ * service worker отвечает сохранённым. Машины из такого ответа скрываются (hideOld*).
+ */
+export function useLines(lowFloorOnly: boolean): LiveQuery<LinesList> {
   const { api } = useServices();
   const { refreshMs, staleMs } = useLiveTiming();
   const query = useQuery({
     queryKey: ['lines', lowFloorOnly],
-    queryFn: ({ signal }) => api.getLines(lowFloorOnly, signal),
+    queryFn: async ({ signal }) =>
+      hideOldLines(await api.getLines(lowFloorOnly, signal), Date.now(), staleMs),
     ...liveOptions(refreshMs),
+    networkMode: 'offlineFirst',
   });
   return { query, data: freshData(query, staleMs) };
 }
@@ -87,9 +96,11 @@ export function useLine(lineId: string | null, lowFloorOnly: boolean): LiveQuery
   const { refreshMs, staleMs } = useLiveTiming();
   const query = useQuery({
     queryKey: ['line', lineId, lowFloorOnly],
-    queryFn: ({ signal }) => api.getLine(lineId ?? '', lowFloorOnly, signal),
+    queryFn: async ({ signal }) =>
+      hideOldLine(await api.getLine(lineId ?? '', lowFloorOnly, signal), Date.now(), staleMs),
     enabled: lineId !== null,
     ...liveOptions(refreshMs),
+    networkMode: 'offlineFirst',
   });
   return { query, data: freshData(query, staleMs) };
 }

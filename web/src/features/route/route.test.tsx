@@ -3,7 +3,8 @@ import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Journey, RouteCheck } from '../../domain/journey';
 import { ApiError } from '../../ports/LiveApi';
-import { fakeApi, inMinutes, journey, renderApp } from '../../test-utils';
+import { createMemoryStore } from '../../adapters/storage/localStore';
+import { fakeApi, fakeInstaller, inMinutes, journey, renderApp } from '../../test-utils';
 import { MapScreen } from '../start/MapScreen';
 
 const TRIP = {
@@ -209,5 +210,47 @@ describe('пересчёт', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Оставить прежний' }));
     expect(screen.queryByText('Маршрут изменился')).toBeNull();
     expect(screen.getByRole('heading', { name: /^Автобус 3 · / })).toBeVisible();
+  });
+});
+
+describe('предложение установить после первого маршрута', () => {
+  it('нет маршрута — нет предложения', () => {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
+      installer: fakeInstaller('prompt'),
+    });
+    expect(screen.queryByText('Установить «GoPoint»')).not.toBeInTheDocument();
+  });
+
+  it('Android: «Установить» открывает окно браузера', async () => {
+    const installer = fakeInstaller('prompt');
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, { trip: TRIP, installer });
+    await screen.findByRole('region', { name: 'Маршрут' });
+    const banner = screen.getByRole('region', { name: 'Установить «GoPoint»' });
+    fireEvent.click(within(banner).getByRole('button', { name: 'Установить' }));
+    expect(installer.promptMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('iPhone: «Как установить» и «Не сейчас» запоминается', async () => {
+    const store = createMemoryStore();
+    const first = renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
+      trip: TRIP,
+      installer: fakeInstaller('ios'),
+      store,
+    });
+    const banner = await screen.findByRole('region', { name: 'Установить «GoPoint»' });
+    expect(within(banner).getByRole('link', { name: 'Как установить' })).toHaveAttribute(
+      'href',
+      '#/install',
+    );
+    fireEvent.click(within(banner).getByRole('button', { name: 'Не сейчас' }));
+    expect(screen.queryByRole('region', { name: 'Установить «GoPoint»' })).not.toBeInTheDocument();
+    first.unmount();
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
+      trip: TRIP,
+      installer: fakeInstaller('ios'),
+      store,
+    });
+    await screen.findByRole('region', { name: 'Маршрут' });
+    expect(screen.queryByText('Установить «GoPoint»')).not.toBeInTheDocument();
   });
 });

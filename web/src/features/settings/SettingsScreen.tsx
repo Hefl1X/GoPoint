@@ -1,11 +1,15 @@
 // Настройки: первой строкой «Низкопольный транспорт».
 import { Pill, ScreenTitle } from '../../shared/components';
+import { useInstallMode } from '../../shared/install';
 import { routeHref } from '../../shared/router';
 import { ru } from '../../shared/ru';
+import { useServices } from '../../shared/services';
 import { useSettings } from '../../shared/settings';
 
 export function SettingsScreen() {
   const { lowFloorOnly, setLowFloorOnly } = useSettings();
+  const { installer } = useServices();
+  const installMode = useInstallMode();
   return (
     <main className="screen">
       <ScreenTitle>{ru.settings.title}</ScreenTitle>
@@ -48,6 +52,22 @@ export function SettingsScreen() {
         </ul>
         <p className="muted">{ru.settings.legendHint}</p>
       </section>
+      {installMode === 'prompt' ? (
+        <button
+          type="button"
+          className="card card--link"
+          onClick={() => {
+            void installer.prompt();
+          }}
+        >
+          {ru.install.settingsItem}
+        </button>
+      ) : null}
+      {installMode === 'ios' ? (
+        <a className="card card--link" href={routeHref({ name: 'install' })}>
+          {ru.install.settingsItem}
+        </a>
+      ) : null}
       <a className="card card--link" href={routeHref({ name: 'about' })}>
         {ru.settings.about}
       </a>

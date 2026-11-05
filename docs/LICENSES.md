@@ -31,6 +31,7 @@
 | @tanstack/react-query | MIT | запросы к серверу, обновление раз в 30 с |
 | zod | MIT | проверка ответов сервера |
 | Vite, @vitejs/plugin-react, Vitest | MIT | сборка и тесты сайта |
+| vite-plugin-pwa 2.0.0, workbox-build и workbox-window 7.4.1 | MIT | установка на экран телефона и работа без сети (проверено 2026-11-05) |
 | TypeScript, Playwright | Apache-2.0 | типы, e2e-тесты |
 | ESLint, typescript-eslint, eslint-plugin-react-hooks, eslint-plugin-jsx-a11y, Prettier | MIT | проверки кода сайта |
 | @axe-core/playwright | MPL-2.0 | автоматическая проверка доступности (только в тестах) |

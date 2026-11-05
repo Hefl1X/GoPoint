@@ -12,7 +12,8 @@ export type Route =
   | { readonly name: 'line'; readonly lineId: string }
   | { readonly name: 'stop'; readonly stopId: string }
   | { readonly name: 'settings' }
-  | { readonly name: 'about' };
+  | { readonly name: 'about' }
+  | { readonly name: 'install' };
 
 export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, '').replace(/^\//, '');
@@ -45,6 +46,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'settings' };
     case 'about':
       return { name: 'about' };
+    case 'install':
+      return { name: 'install' };
     default:
       return { name: 'map', vehicleId: null };
   }
@@ -68,6 +71,8 @@ export function routeHref(route: Route): string {
       return '#/settings';
     case 'about':
       return '#/about';
+    case 'install':
+      return '#/install';
   }
 }
 

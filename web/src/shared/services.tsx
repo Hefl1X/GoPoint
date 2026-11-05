@@ -2,6 +2,7 @@
 // тесты подставляют заглушки.
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Geolocator } from '../ports/Geolocation';
+import type { Installer } from '../ports/Installer';
 import type { LiveApi } from '../ports/LiveApi';
 import type { MapView } from '../ports/MapView';
 import type { PlaceSearch } from '../ports/PlaceSearch';
@@ -15,6 +16,7 @@ export interface Services {
   /** Карта двигается пальцем (нет, если вместо карты список): тогда можно «Выбрать на карте». */
   readonly mapCanPick: boolean;
   readonly places: PlaceSearch;
+  readonly installer: Installer;
 }
 
 const ServicesContext = createContext<Services | null>(null);

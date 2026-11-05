@@ -1,5 +1,12 @@
 // Правила показа транспорта: названия видов, цвета, пометки, склонения.
-import type { Accessibility, LineDirection, LineSummary, TransportType } from './types';
+import type {
+  Accessibility,
+  LineDetails,
+  LineDirection,
+  LineSummary,
+  LinesList,
+  TransportType,
+} from './types';
 
 export const TRANSPORT_TYPES: readonly TransportType[] = ['bus', 'trolleybus', 'tram', 'minibus'];
 
@@ -87,8 +94,36 @@ export function filterLines(
     (item) =>
       (options.type === 'all' || item.line.type === options.type) &&
       (query === '' || item.line.number.toLowerCase().startsWith(query)) &&
-      (!options.lowFloorOnly || item.vehiclesOnLine > 0),
+      // Число машин неизвестно (нет связи): маршрут не прячем.
+      (!options.lowFloorOnly || item.vehiclesOnLine === null || item.vehiclesOnLine > 0),
   );
+}
+
+/**
+ * Ответ сервера старше порога свежести (например, сохранённый для работы без сети):
+ * положения машин в нём устарели и не показываются, остаются только маршруты и остановки.
+ */
+export function isSnapshotOld(snapshotAt: string, now: number, staleMs: number): boolean {
+  const at = Date.parse(snapshotAt);
+  return Number.isNaN(at) || now - at > staleMs;
+}
+
+export function hideOldLines(list: LinesList, now: number, staleMs: number): LinesList {
+  if (!isSnapshotOld(list.snapshotAt, now, staleMs)) return list;
+  return {
+    ...list,
+    live: false,
+    lines: list.lines.map((item) => ({ ...item, vehiclesOnLine: null })),
+  };
+}
+
+export function hideOldLine(details: LineDetails, now: number, staleMs: number): LineDetails {
+  if (!isSnapshotOld(details.snapshotAt, now, staleMs)) return details;
+  return {
+    ...details,
+    live: false,
+    directions: details.directions.map((d) => ({ ...d, vehicles: [] })),
+  };
 }
 
 /** Куда едет направление: последняя остановка на линии. */
