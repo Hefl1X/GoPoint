@@ -45,6 +45,12 @@ describe('Настройки', () => {
     expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
   });
 
+  it('нажатие на подпись тоже переключает настройку', () => {
+    renderApp(<SettingsScreen />);
+    fireEvent.click(screen.getByText('Низкопольный транспорт'));
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('испорченное значение в памяти: настройка включена', () => {
     renderApp(<SettingsScreen />, { store: createMemoryStore({ 'gopoint.lowFloorOnly': '??' }) });
     expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');

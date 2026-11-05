@@ -11,7 +11,8 @@ export function ListMapView({
   selectedVehicleId,
   tripPoints,
   onVehicleSelect,
-}: MapViewProps) {
+  note = 'Карта недоступна на этом устройстве.',
+}: MapViewProps & { readonly note?: string }) {
   const sorted = [...vehicles].sort(
     (a, b) =>
       Number(a.muted) - Number(b.muted) ||
@@ -20,7 +21,9 @@ export function ListMapView({
   );
   return (
     <section className="map-list" aria-label={label} data-testid="map-list">
-      <p className="map-list__note">Карта недоступна на этом устройстве.</p>
+      <p className="map-list__note" role="status">
+        {note}
+      </p>
       {tripPoints.length > 0 ? (
         <ul className="map-list__trip">
           {tripPoints.map((p) => (

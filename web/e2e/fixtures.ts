@@ -102,6 +102,12 @@ export function journeyBody(number = '3', vehicleId = 'bus-3-1', lowFloor = 'yes
   };
 }
 
+const MAP_STYLE = {
+  version: 8,
+  sources: {},
+  layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#e4f1ee' } }],
+};
+
 export const ALL_VEHICLES = [vehicle('bus-3-1', 'yes'), vehicle('bus-3-2', 'no', 'B')];
 
 export async function mockServer(
@@ -115,11 +121,19 @@ export async function mockServer(
     routeDelayMs?: number;
     /** Первая машина маршрута встала: пересчёт предлагает другой автобус. */
     vehicleStopped?: boolean;
+    /** Сервер карты (OpenFreeMap) недоступен: не отдаёт даже стиль. */
+    mapDown?: boolean;
+    /** Ошибка расчёта маршрута в форме ответа сервера. */
+    routeError?: { status: number; code: string; message: string };
   } = {},
 ): Promise<{ vehicleCalls: () => number; searchQueries: () => string[] }> {
   let vehicleCalls = 0;
   const searchQueries: string[] = [];
-  await page.route('https://tiles.openfreemap.org/**', (route) => route.abort());
+  // Карта: простой стиль без тайлов (сеть наружу в тестах не используется).
+  await page.route('https://tiles.openfreemap.org/**', (route) => {
+    if (options.mapDown || !route.request().url().includes('/styles/')) return route.abort();
+    return route.fulfill({ json: MAP_STYLE });
+  });
   await page.route('**/api/v1/**', async (route: Route) => {
     const url = new URL(route.request().url());
     const lowFloorOnly = url.searchParams.get('lowFloorOnly') !== 'false';
@@ -155,6 +169,10 @@ export async function mockServer(
     }
     if (path === '/search/reverse') {
       return route.fulfill({ json: { place: PLACES[1] } });
+    }
+    if (path === '/route' && options.routeError) {
+      const { status, code, message } = options.routeError;
+      return route.fulfill({ status, json: { code, message } });
     }
     if (path === '/route') {
       if (options.routeDelayMs) await new Promise((r) => setTimeout(r, options.routeDelayMs));

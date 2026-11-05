@@ -15,9 +15,10 @@ export function SettingsScreen() {
       <ScreenTitle>{ru.settings.title}</ScreenTitle>
       <div className="card setting">
         <div>
-          <p className="setting__label" id="low-floor-label">
+          {/* Нажатие на подпись тоже переключает (label связан с кнопкой). */}
+          <label className="setting__label" id="low-floor-label" htmlFor="low-floor-switch">
             {ru.settings.lowFloor}
-          </p>
+          </label>
           <p className="muted" id="low-floor-hint">
             {ru.settings.lowFloorHint}
           </p>
@@ -25,6 +26,7 @@ export function SettingsScreen() {
         <button
           type="button"
           role="switch"
+          id="low-floor-switch"
           className="switch"
           aria-checked={lowFloorOnly}
           aria-labelledby="low-floor-label"

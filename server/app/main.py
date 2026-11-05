@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import v1
 from app.api.errors import install_error_handlers
+from app.api.rate_limit import RateLimitMiddleware
 from app.api.schemas import Health
 from app.config import APP_NAME, APP_VERSION, Settings, get_settings
 from app.domain.journey_search import SearchParams
@@ -31,6 +32,10 @@ from app.wiring import (
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# httpx пишет в журнал полный адрес каждого запроса, а в адресах к Photon есть координаты
+# и текст поиска человека. Их в журнал не пишем (CLAUDE.md, «Безопасность»): только ошибки.
+for _noisy in ("httpx", "httpcore"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 
 def create_app(
@@ -114,6 +119,7 @@ def create_app(
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
     )
+    app.add_middleware(RateLimitMiddleware, per_minute=settings.rate_limit_per_min, clock=clock)
     install_error_handlers(app)
     app.include_router(v1.router)
 

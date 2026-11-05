@@ -1,14 +1,15 @@
 import asyncio
 from collections.abc import Sequence
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 
 from app.adapters.fake.feed import FakeTransitFeed
-from app.domain.models import Direction, LiveVehicle
+from app.domain.models import Direction, Line, LinePath, LiveVehicle
 from app.ports import TransitFeedError
 from app.services.live_snapshot import LiveSnapshotService
-from tests.conftest import ManualClock
+from tests.conftest import SAMPLES, ManualClock
 
 
 def service(feed: FakeTransitFeed, clock: ManualClock) -> LiveSnapshotService:
@@ -136,3 +137,75 @@ async def test_line_path_cached(fake_feed: FakeTransitFeed, clock: ManualClock) 
     path = await svc.line_path("bus-3", Direction.A)
     fake_feed.fail = True
     assert await svc.line_path("bus-3", Direction.A) is path
+
+
+class CountingFeed(FakeTransitFeed):
+    """Считает все запросы к источнику: машины, список маршрутов, линии."""
+
+    def __init__(self, samples_dir: Path) -> None:
+        super().__init__(samples_dir)
+        self.calls = 0
+
+    async def lines(self) -> list[Line]:
+        self.calls += 1
+        return await super().lines()
+
+    async def line_path(self, line_id: str, direction: Direction) -> LinePath:
+        self.calls += 1
+        return await super().line_path(line_id, direction)
+
+    async def line_paths(
+        self, line_ids: Sequence[str], direction: Direction
+    ) -> dict[str, LinePath]:
+        self.calls += 1
+        return await super().line_paths(line_ids, direction)
+
+    async def vehicles(self, line_ids: Sequence[str]) -> list[LiveVehicle]:
+        self.calls += 1
+        return await super().vehicles(line_ids)
+
+
+async def _hour_of_users(users: int) -> tuple[int, int, int]:
+    """Час работы: каждые 30 с фоновый опрос (как run_poller), а каждый пользователь
+    обновляет карту, список и строит маршрут. Потом 10 минут никого.
+    Возвращает (запросов за час, за первые 2 минуты после ухода, за следующие 8 минут)."""
+    feed = CountingFeed(SAMPLES)
+    clock = ManualClock()
+    svc = service(feed, clock)
+
+    async def poller_tick() -> None:
+        if svc.is_active():
+            await svc.refresh()
+
+    for _ in range(120):  # 120 × 30 с = 1 час
+        await poller_tick()
+        await asyncio.gather(
+            *(svc.snapshot() for _ in range(users)),
+            *(svc.lines() for _ in range(users)),
+            *(svc.network() for _ in range(users)),
+        )
+        clock.advance(30)
+    during = feed.calls
+    for _ in range(4):  # 2 минуты: окно активности ещё открыто
+        await poller_tick()
+        clock.advance(30)
+    tail = feed.calls - during
+    for _ in range(16):  # ещё 8 минут: опроса нет
+        await poller_tick()
+        clock.advance(30)
+    return during, tail, feed.calls - during - tail
+
+
+async def test_load_on_source_same_for_one_and_hundred_users() -> None:
+    """Запрос 9, пункт 4: нагрузка на ЦУГАЭТ не зависит от числа пользователей,
+    а без пользователей опрос через 2 минуты останавливается."""
+    one = await _hour_of_users(1)
+    hundred = await _hour_of_users(100)
+    assert one == hundred
+    during, tail, idle = one
+    # В образце список из 104 маршрутов, как на сайте ЦУГАЭТ: 18 пачек по 6 на опрос,
+    # 120 опросов в час; список маршрутов 1 раз в сутки; линии 2 направления пачками.
+    batches = -(-104 // 6)
+    assert 120 * batches < during <= 120 * batches + 1 + 2 * batches
+    assert tail <= 4 * batches  # окно активности 2 минуты
+    assert idle == 0

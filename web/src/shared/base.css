@@ -1084,8 +1084,10 @@ h1:focus {
 }
 
 .setting__label {
+  display: block;
   font-size: 16px;
   font-weight: 800;
+  cursor: pointer;
 }
 
 .switch {

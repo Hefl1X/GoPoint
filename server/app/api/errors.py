@@ -40,6 +40,11 @@ _HTTP_MESSAGES: dict[int, tuple[str, str]] = {
 }
 
 
+def api_error_response(status_code: int, code: str, message: str) -> JSONResponse:
+    """Ответ с ошибкой в едином формате (для middleware, где исключения не ловятся)."""
+    return _response(status_code, ApiError(code=code, message=message, details=None))
+
+
 def _response(status_code: int, error: ApiError) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,

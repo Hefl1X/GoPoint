@@ -9,7 +9,8 @@ import {
 } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ListMapView } from '../map-list/ListMapView';
 import { MUTED_COLOR, TYPE_COLOR } from '../../domain/transport';
 import type { Endpoint, LatLon, TransportType } from '../../domain/types';
 import type { MapJourneyLine, MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
@@ -195,7 +196,13 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// Если стиль карты не загрузился за это время (сервер карты недоступен), показываем
+// машины списком, а не пустой экран.
+const STYLE_TIMEOUT_MS = 30_000;
+const FAILED_NOTE = 'Карта сейчас не загружается. Транспорт на линии — списком ниже.';
+
 export function MaplibreMapView(props: MapViewProps) {
+  const [failed, setFailed] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const loaded = useRef(false);
@@ -227,6 +234,24 @@ export function MaplibreMapView(props: MapViewProps) {
     });
     map.touchZoomRotate.disableRotation();
     mapRef.current = map;
+
+    let styleLoaded = false;
+    const giveUp = () => {
+      if (styleLoaded) return;
+      mapRef.current = null;
+      map.remove();
+      setFailed(true);
+    };
+    const timer = window.setTimeout(giveUp, STYLE_TIMEOUT_MS);
+    map.on('style.load', () => {
+      styleLoaded = true;
+      window.clearTimeout(timer);
+    });
+    // Ошибка до загрузки стиля: стиль карты не получен. Ошибки отдельных тайлов
+    // после загрузки не мешают: машины и маршрут рисуются поверх фона.
+    map.on('error', () => {
+      if (!styleLoaded) giveUp();
+    });
 
     map.on('load', () => {
       addPillImages(map);
@@ -346,10 +371,13 @@ export function MaplibreMapView(props: MapViewProps) {
 
     const tripMarkers = markers.current;
     return () => {
+      window.clearTimeout(timer);
       loaded.current = false;
-      mapRef.current = null;
       tripMarkers.clear();
-      map.remove();
+      if (mapRef.current === map) {
+        mapRef.current = null;
+        map.remove();
+      }
     };
   }, []);
 
@@ -422,6 +450,8 @@ export function MaplibreMapView(props: MapViewProps) {
     const zoom = Math.max(map.getZoom(), 14);
     moveTo(map, center, zoom);
   }, [selectedVehicleId, selectedVisible]);
+
+  if (failed) return <ListMapView {...props} note={FAILED_NOTE} />;
 
   return (
     <>

@@ -37,6 +37,19 @@ test('главный экран: карта, число машин, подпис
   await noAxeViolations(page);
 });
 
+test('сервер карты недоступен: машины списком с пояснением, а не пустой экран', async ({
+  page,
+}) => {
+  await mockServer(page, { mapDown: true });
+  await page.goto('/');
+  await expect(
+    page.getByText('Карта сейчас не загружается. Транспорт на линии — списком ниже.'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: /Автобус 3/ })).toBeVisible();
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
+  await noAxeViolations(page);
+});
+
 test('панель сворачивается движением вниз и открывает карту', async ({ page }) => {
   await mockServer(page);
   await page.goto('/');
