@@ -88,7 +88,11 @@ function StopView({ data, lowFloorOnly }: { data: StopArrivals; lowFloorOnly: bo
                   <span className="muted">{stopsAwayText(a.stopsAway)}</span>
                   {lowFloorOnly ? null : <LowFloorBadge value={a.vehicle.lowFloor} />}
                 </span>
-                <span className="arrival__time">{etaText(a.arriveAt, now)}</span>
+                <span
+                  className={`arrival__time${Date.parse(a.arriveAt) - now < 30_000 ? ' arrival__time--now' : ''}`}
+                >
+                  {etaText(a.arriveAt, now)}
+                </span>
               </a>
             </li>
           ))}

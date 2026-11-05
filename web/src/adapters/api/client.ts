@@ -20,7 +20,8 @@ import type { components } from './schema';
 const API_BASE = '/api/v1';
 // На слабом интернете не ждём бесконечно.
 const TIMEOUT_MS = 15_000;
-// Первый расчёт маршрута после запуска сервера идёт до ~25 с (грузятся линии).
+// Первый расчёт маршрута, остановки или карточки машины после запуска сервера
+// идёт до ~25 с (грузятся линии всех маршрутов).
 const ROUTE_TIMEOUT_MS = 45_000;
 
 type Schemas = components['schemas'];
@@ -224,8 +225,13 @@ function withTimeout(
   };
 }
 
-export function getJson<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
-  return requestJson(path, schema, signal);
+export function getJson<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  signal?: AbortSignal,
+  timeoutMs: number = TIMEOUT_MS,
+): Promise<T> {
+  return requestJson(path, schema, signal, { method: 'GET', timeoutMs });
 }
 
 async function requestJson<T>(
@@ -402,7 +408,7 @@ export const httpLiveApi: LiveApi = {
   async getStopArrivals(stopId, lowFloorOnly, signal): Promise<StopArrivals> {
     const query = new URLSearchParams({ lowFloorOnly: String(lowFloorOnly) });
     const path = `/live/stops/${encodeURIComponent(stopId)}/arrivals?${query.toString()}`;
-    const body = await getJson(path, arrivalsSchema, signal);
+    const body = await getJson(path, arrivalsSchema, signal, ROUTE_TIMEOUT_MS);
     return {
       stop: body.stop,
       arrivals: body.arrivals.map((a) => ({
@@ -416,7 +422,7 @@ export const httpLiveApi: LiveApi = {
 
   async getVehicleDetails(vehicleId, signal): Promise<VehicleDetails> {
     const path = `/live/vehicles/${encodeURIComponent(vehicleId)}`;
-    const body = await getJson(path, vehicleDetailsSchema, signal);
+    const body = await getJson(path, vehicleDetailsSchema, signal, ROUTE_TIMEOUT_MS);
     return {
       vehicle: toVehicle(body.vehicle),
       toward: body.toward,

@@ -1474,3 +1474,8 @@ h1:focus {
   color: #ffffff;
   font-weight: 800;
 }
+
+/* «подъезжает» длиннее минут: мельче, чтобы не теснить название. */
+.arrival__time--now {
+  font-size: 14px;
+}
