@@ -60,27 +60,29 @@ export function LiveRoutesScreen() {
         online={online}
         render={(list) => {
           const all = list.lines;
-          const shown = filterLines(all, { type, query, lowFloorOnly });
-          if (list.live && all.every((l) => l.vehiclesOnLine === 0)) {
-            return (
-              <StatusBlock
-                title={ru.live.noneTitle}
-                text={lowFloorOnly ? ru.live.noneLowFloor : ru.live.noneAny}
-              >
-                {lowFloorOnly ? (
-                  <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a>
-                ) : null}
-              </StatusBlock>
-            );
-          }
+          const shown = filterLines(all, { type, query });
+          const noneNow = list.live && all.every((l) => l.vehiclesOnLine === 0);
           if (shown.length === 0) return <StatusBlock text={ru.transport.nothingFound} />;
           return (
             <>
               {list.live ? null : <OfflineNote />}
+              {noneNow ? (
+                <StatusBlock
+                  title={ru.live.noneTitle}
+                  text={lowFloorOnly ? ru.live.noneLowFloor : ru.live.noneAny}
+                >
+                  {lowFloorOnly ? (
+                    <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a>
+                  ) : null}
+                </StatusBlock>
+              ) : null}
               <ul className="card-list">
                 {shown.map(({ line, vehiclesOnLine }) => (
                   <li key={line.id}>
-                    <a className="line-row" href={routeHref({ name: 'line', lineId: line.id })}>
+                    <a
+                      className={`line-row${vehiclesOnLine === 0 ? ' line-row--idle' : ''}`}
+                      href={routeHref({ name: 'line', lineId: line.id })}
+                    >
                       <Pill type={line.type} number={line.number} large />
                       <span className="line-row__text">
                         <span className="line-row__name">{lineName(line.type, line.number)}</span>

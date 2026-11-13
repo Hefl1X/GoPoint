@@ -363,6 +363,7 @@ async def live_routes(
     except TransitFeedError as exc:
         raise transit_unavailable() from exc
     now: datetime = clock()
+    hide_after = timedelta(seconds=settings.line_hide_after_s)
     summaries = [
         LineSummary(
             line=line,
@@ -373,7 +374,7 @@ async def live_routes(
             ),
         )
         for line in sorted(lines, key=line_sort_key)
-        if type is None or line.type is type
+        if (type is None or line.type is type) and live.line_is_listed(line.id, hide_after)
     ]
     return LinesResponse(lines=summaries, diagnostics=_diagnostics(snap))
 

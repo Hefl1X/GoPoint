@@ -195,14 +195,15 @@ describe('Главный экран', () => {
 });
 
 describe('Транспорт сейчас', () => {
-  it('при включённой настройке только маршруты с машинами', async () => {
+  it('маршруты без машин остаются в списке серой меткой, при любой настройке', async () => {
     renderApp(<LiveRoutesScreen />);
     expect(await screen.findByText('Автобус 3')).toBeInTheDocument();
     expect(screen.getByText('на линии: 2 машины')).toBeInTheDocument();
-    expect(screen.queryByText('Автобус 36')).not.toBeInTheDocument();
+    expect(screen.getByText('Автобус 36')).toBeInTheDocument();
+    expect(screen.getAllByText('сейчас нет на линии').length).toBeGreaterThan(0);
   });
 
-  it('при выключенной видны и маршруты без машин, серой меткой', async () => {
+  it('при выключенной настройке то же самое', async () => {
     renderApp(<LiveRoutesScreen />, {
       store: createMemoryStore({ 'gopoint.lowFloorOnly': 'false' }),
     });
@@ -223,7 +224,7 @@ describe('Транспорт сейчас', () => {
 
   it('строка ведёт на экран маршрута', async () => {
     renderApp(<LiveRoutesScreen />);
-    expect(await screen.findByRole('link', { name: /Автобус 3/ })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /^Автобус 3\b(?!6)/ })).toHaveAttribute(
       'href',
       '#/transport/bus-3',
     );

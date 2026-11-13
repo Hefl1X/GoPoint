@@ -84,18 +84,17 @@ export function vehiclesOnLineText(count: number): string {
   return `на линии: ${String(count)} ${plural(count, 'машина', 'машины', 'машин')}`;
 }
 
-/** Список «Транспорт сейчас»: фильтр по виду и номеру, при lowFloorOnly только где есть машины. */
+/** Список «Транспорт сейчас»: фильтр по виду и номеру. Маршруты без машин остаются (серым):
+ * по ним можно смотреть линию и остановки; пропадают только после двух суток без выезда (сервер). */
 export function filterLines(
   lines: readonly LineSummary[],
-  options: { type: TransportType | 'all'; query: string; lowFloorOnly: boolean },
+  options: { type: TransportType | 'all'; query: string },
 ): LineSummary[] {
   const query = options.query.trim().toLowerCase();
   return lines.filter(
     (item) =>
       (options.type === 'all' || item.line.type === options.type) &&
-      (query === '' || item.line.number.toLowerCase().startsWith(query)) &&
-      // Число машин неизвестно (нет связи): маршрут не прячем.
-      (!options.lowFloorOnly || item.vehiclesOnLine === null || item.vehiclesOnLine > 0),
+      (query === '' || item.line.number.toLowerCase().startsWith(query)),
   );
 }
 

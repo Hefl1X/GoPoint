@@ -84,24 +84,18 @@ const lines: LineSummary[] = [
 ];
 
 describe('список «Транспорт сейчас»', () => {
-  it('при включённой настройке только маршруты с машинами', () => {
-    const ids = filterLines(lines, { type: 'all', query: '', lowFloorOnly: true }).map(
-      (l) => l.line.id,
-    );
-    expect(ids).toEqual(['bus-3', 'tram-0013', 'minibus-45']);
-  });
-
-  it('при выключенной все, в том числе без машин', () => {
-    expect(filterLines(lines, { type: 'all', query: '', lowFloorOnly: false })).toHaveLength(4);
+  it('маршруты без машин остаются в списке (их показывают серыми)', () => {
+    expect(filterLines(lines, { type: 'all', query: '' })).toHaveLength(4);
   });
 
   it('фильтр по виду и поиск по началу номера, без учёта регистра', () => {
-    expect(
-      filterLines(lines, { type: 'bus', query: '3', lowFloorOnly: false }).map((l) => l.line.id),
-    ).toEqual(['bus-3', 'bus-36']);
-    expect(
-      filterLines(lines, { type: 'all', query: '45к', lowFloorOnly: false }).map((l) => l.line.id),
-    ).toEqual(['minibus-45']);
+    expect(filterLines(lines, { type: 'bus', query: '3' }).map((l) => l.line.id)).toEqual([
+      'bus-3',
+      'bus-36',
+    ]);
+    expect(filterLines(lines, { type: 'all', query: '45к' }).map((l) => l.line.id)).toEqual([
+      'minibus-45',
+    ]);
   });
 
   it('направление ведёт к последней остановке', () => {
@@ -173,10 +167,5 @@ describe('сохранённый без сети ответ: машины не �
     expect(line.live).toBe(false);
     expect(line.directions[0]?.stops).toHaveLength(1);
     expect(line.directions[0]?.vehicles).toEqual([]);
-  });
-
-  it('при включённой настройке маршрут с неизвестным числом машин не прячется', () => {
-    const unknown: LineSummary[] = lines.map((l) => ({ ...l, vehiclesOnLine: null }));
-    expect(filterLines(unknown, { type: 'all', query: '', lowFloorOnly: true })).toHaveLength(1);
   });
 });
