@@ -7,6 +7,7 @@ import type { LiveApi } from '../ports/LiveApi';
 import type { MapView } from '../ports/MapView';
 import type { PlaceSearch } from '../ports/PlaceSearch';
 import type { KeyValueStore } from '../ports/Storage';
+import type { StreetImagery } from '../ports/StreetImagery';
 
 export interface Services {
   readonly api: LiveApi;
@@ -17,6 +18,7 @@ export interface Services {
   readonly mapCanPick: boolean;
   readonly places: PlaceSearch;
   readonly installer: Installer;
+  readonly streetImagery: StreetImagery;
 }
 
 const ServicesContext = createContext<Services | null>(null);

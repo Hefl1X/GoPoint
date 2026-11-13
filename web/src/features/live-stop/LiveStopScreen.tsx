@@ -8,6 +8,7 @@ import { BackButton, LiveState, LowFloorBadge, Pill, StatusBlock } from '../../s
 import { useOnline, useStopArrivals } from '../../shared/queries';
 import { navigate, routeHref } from '../../shared/router';
 import { ru } from '../../shared/ru';
+import { useServices } from '../../shared/services';
 import { useSettings } from '../../shared/settings';
 import { useTrip } from '../../shared/trip';
 import { useNow } from '../../shared/useNow';
@@ -35,6 +36,7 @@ export function LiveStopScreen({ stopId }: { stopId: string }) {
 
 function StopView({ data, lowFloorOnly }: { data: StopArrivals; lowFloorOnly: boolean }) {
   const now = useNow();
+  const { streetImagery } = useServices();
   const { to, setPoint } = useTrip();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -101,6 +103,15 @@ function StopView({ data, lowFloorOnly }: { data: StopArrivals; lowFloorOnly: bo
       <button type="button" className="button button--primary" onClick={routeFromHere}>
         {ru.stop.routeFrom}
       </button>
+      <a
+        className="button button--outline"
+        href={streetImagery.panoramaUrl(data.stop.point)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {ru.stop.panorama}
+      </a>
+      <p className="route__note">{ru.stop.panoramaNote}</p>
       <p className="route__note">{ru.stop.note}</p>
     </>
   );
