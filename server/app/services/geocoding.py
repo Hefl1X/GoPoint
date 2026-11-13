@@ -12,12 +12,19 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Protocol
 
 from app.domain.area import CityArea
-from app.domain.models import LatLon, PlaceSuggestion
+from app.domain.models import LatLon, PlaceKind, PlaceSuggestion
 from app.domain.search import cache_point, clean_suggestions, is_searchable, normalize_query
-from app.ports import Geocoder
+from app.ports import Geocoder, GeocoderError
 from app.services.cache import Monotonic, TtlCache
+
+
+class LocalPlaces(Protocol):
+    """Свои подсказки (синонимы, остановки): быстрые, без сети, не кэшируются."""
+
+    async def search(self, query: str, near: LatLon) -> list[PlaceSuggestion]: ...
 
 
 @dataclass(frozen=True)
@@ -56,6 +63,10 @@ class GeocodingService:
         self._lock = asyncio.Lock()
         self._last_request = -1e9
         self.requests_made = 0  # для проверки нагрузки на сервис поиска
+        self._local: LocalPlaces | None = None
+
+    def set_local(self, local: LocalPlaces) -> None:
+        self._local = local
 
     @property
     def area(self) -> CityArea:
@@ -74,10 +85,27 @@ class GeocodingService:
                 self._last_request = self._now()
 
     async def search(self, query: str) -> list[PlaceSuggestion]:
-        """Подсказки в границах города. Короткий запрос (меньше 3 букв) даёт пустой список."""
+        """Подсказки в границах города. Короткий запрос (меньше 3 букв) даёт пустой список.
+
+        Порядок: синонимы, первые подсказки Photon, остановки, остальное от Photon.
+        Если Photon не отвечает, а свои подсказки есть, показываем их.
+        """
         if not is_searchable(query):
             return []
         key = normalize_query(query)
+        local = await self._local.search(key, self._near) if self._local else []
+        aliases = [p for p in local if p.kind is not PlaceKind.STOP]
+        stops = [p for p in local if p.kind is PlaceKind.STOP]
+        try:
+            remote = await self._remote(key)
+        except GeocoderError:
+            if not local:
+                raise
+            remote = []
+        merged = [*aliases, *remote[:3], *stops, *remote[3:]]
+        return clean_suggestions(merged, self._bounds, self._limit)
+
+    async def _remote(self, key: str) -> list[PlaceSuggestion]:
         hit, cached = self._search_cache.get(key)
         if hit and cached is not None:
             return cached

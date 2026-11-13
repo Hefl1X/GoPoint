@@ -27,6 +27,7 @@ from app.services.walking import WalkingService
 from app.wiring import (
     build_city_area,
     build_geocoder,
+    build_local_places,
     build_transit_feed,
     build_walk_planner,
 )
@@ -104,6 +105,7 @@ def create_app(
     app.state.settings = settings
     app.state.city = city
     app.state.live = live
+    geocoding.set_local(build_local_places(live.known_stops))
     app.state.geocoding = geocoding
     app.state.walking = walking
     app.state.planner = JourneyPlanner(

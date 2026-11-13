@@ -10,12 +10,14 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from app.adapters.fake.feed import FakeTransitFeed
+from app.adapters.local_places import LocalPlacesProvider
 from app.adapters.osm_boundary.load import DEFAULT_FILE, load_polygons
 from app.adapters.otp.walk import OtpWalkPlanner
 from app.adapters.photon.geocoder import PhotonGeocoder
 from app.adapters.tsugaet.feed import TsugaetFeed
 from app.config import Settings
 from app.domain.area import CityArea
+from app.domain.models import Stop
 from app.ports import Geocoder, TransitFeed, WalkPlanner
 
 
@@ -49,6 +51,11 @@ def build_geocoder(settings: Settings) -> tuple[Geocoder, Callable[[], Awaitable
         timeout_s=settings.photon_timeout_s,
     )
     return geocoder, geocoder.aclose
+
+
+def build_local_places(known_stops: Callable[[], list[Stop]]) -> LocalPlacesProvider:
+    """Свои подсказки поиска: синонимы из файла и остановки ЦУГАЭТ."""
+    return LocalPlacesProvider(known_stops)
 
 
 def build_walk_planner(settings: Settings) -> tuple[WalkPlanner, Callable[[], Awaitable[None]]]:

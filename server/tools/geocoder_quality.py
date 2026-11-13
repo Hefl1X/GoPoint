@@ -32,6 +32,7 @@ from app.domain.area import CityArea
 from app.domain.geo import distance_m
 from app.domain.models import LatLon, PlaceSuggestion
 from app.services.geocoding import GeocodingService
+from app.wiring import build_local_places
 
 PLACES_CSV = Path(__file__).resolve().parents[2] / "data" / "geocoder" / "places_nsk.csv"
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
@@ -120,6 +121,7 @@ async def main() -> None:
         limit=settings.search_limit,
         min_interval_s=PAUSE_S,
     )
+    service.set_local(build_local_places(lambda: []))  # синонимы; остановок без сервера нет
     results: list[Result] = []
     async with httpx.AsyncClient(headers={"User-Agent": settings.user_agent}, timeout=15) as client:
         for row in load_rows():
