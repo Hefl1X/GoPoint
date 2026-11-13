@@ -280,6 +280,15 @@ describe('Остановка', () => {
     expect(screen.queryByText(/Трамвай 13/)).not.toBeInTheDocument();
   });
 
+  it('панорама: ссылка на сервис в новой вкладке, с точкой остановки', async () => {
+    renderApp(<LiveStopScreen stopId="2" />);
+    const link = await screen.findByRole('link', { name: 'Посмотреть остановку на панораме' });
+    expect(link).toHaveAttribute('href', expect.stringContaining('https://panorama.test/?point='));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    expect(screen.getByText('Откроется в Яндекс Картах. Снимок может быть старым.')).toBeVisible();
+  });
+
   it('при выключенной настройке любой транспорт с пометкой и «≈» для дальних', async () => {
     renderApp(<LiveStopScreen stopId="2" />, {
       store: createMemoryStore({ 'gopoint.lowFloorOnly': 'false' }),

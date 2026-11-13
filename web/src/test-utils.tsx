@@ -298,6 +298,9 @@ export function renderApp(
     mapCanPick: options.mapCanPick ?? false,
     places: options.places ?? fakePlaces(),
     installer: options.installer ?? fakeInstaller('unsupported'),
+    streetImagery: {
+      panoramaUrl: (p) => `https://panorama.test/?point=${String(p.lon)},${String(p.lat)}`,
+    },
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const result = render(
