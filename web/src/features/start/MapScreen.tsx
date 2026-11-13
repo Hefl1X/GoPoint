@@ -21,6 +21,7 @@ import {
   useLine,
   useMeta,
   useOnline,
+  useStopArrivals,
   useStops,
   useVehicleDetails,
   useVehicles,
@@ -35,10 +36,11 @@ import { CenterPin, PickHint, PickPanel } from '../trip/PickOnMap';
 import { SearchPanel } from '../trip/SearchPanel';
 import { RoutePanel } from '../route/RoutePanel';
 import { TripCard } from '../trip/TripCard';
+import { StopCard } from '../live-stop/StopCard';
 import { VehicleCard } from '../vehicle/VehicleCard';
 import { InstallBanner } from '../install/InstallBanner';
 
-type MapRoute = Extract<Route, { name: 'map' | 'search' | 'pick' }>;
+type MapRoute = Extract<Route, { name: 'map' | 'search' | 'pick' | 'stop' }>;
 
 /** Сдвинуть карту к точке, которую только что выбрали (а не при каждом рендере). */
 function useFocusOnNewPoint(point: TripPoint | null, focus: (p: LatLon) => void): void {
@@ -47,6 +49,15 @@ function useFocusOnNewPoint(point: TripPoint | null, focus: (p: LatLon) => void)
     if (point && point !== previous.current) focus(point.point);
     previous.current = point;
   }, [point, focus]);
+}
+
+/** Остановку выбрали (на карте или по ссылке): карта показывает её, один раз на остановку. */
+function useFocusOnStop(id: string | null, point: LatLon | null, focus: (p: LatLon) => void): void {
+  const shown = useRef<string | null>(null);
+  useEffect(() => {
+    if (id !== null && point && shown.current !== id) focus(point);
+    shown.current = id;
+  }, [id, point, focus]);
 }
 
 const geoMessage: Record<GeolocationError['reason'], string> = {
@@ -58,6 +69,7 @@ const geoMessage: Record<GeolocationError['reason'], string> = {
 
 export function MapScreen({ route }: { route: MapRoute }) {
   const vehicleId = route.name === 'map' ? route.vehicleId : null;
+  const stopId = route.name === 'stop' ? route.stopId : null;
   const pickingEnd: Endpoint | null = route.name === 'pick' ? route.end : null;
   const { MapView, geolocator, mapCanPick } = useServices();
   const trip = useTrip();
@@ -71,12 +83,20 @@ export function MapScreen({ route }: { route: MapRoute }) {
 
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   const stops = useStops(stopsArea(viewport));
-  const mapStops = useMemo<MapStop[]>(
-    () => (stopsArea(viewport) ? [...(stops.data ?? [])] : []),
-    [stops.data, viewport],
-  );
+  const stopArrivals = useStopArrivals(stopId, lowFloorOnly);
+  const selectedStop = stopArrivals.query.data?.stop ?? null;
+  const mapStops = useMemo<MapStop[]>(() => {
+    const list: MapStop[] = stopsArea(viewport) ? [...(stops.data ?? [])] : [];
+    // Выбранная остановка видна всегда, даже если карта далеко или её нет в списке области.
+    if (selectedStop && !list.some((s) => s.id === selectedStop.id)) list.push(selectedStop);
+    return list;
+  }, [stops.data, viewport, selectedStop]);
   const [userLocation, setUserLocation] = useState<LatLon | null>(null);
   const [focus, setFocus] = useState<MapViewProps['focus']>(null);
+  const showStop = useCallback((p: LatLon) => {
+    setFocus({ point: p });
+  }, []);
+  useFocusOnStop(selectedStop?.id ?? null, selectedStop?.point ?? null, showStop);
   const [geoState, setGeoState] = useState<'idle' | 'busy' | GeolocationError['reason']>('idle');
   const [center, setCenter] = useState<LatLon | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
@@ -204,6 +224,7 @@ export function MapScreen({ route }: { route: MapRoute }) {
               tripPoints={tripPoints}
               picking={pickingEnd !== null}
               stops={mapStops}
+              selectedStopId={stopId}
               onStopSelect={(id) => {
                 navigate({ name: 'stop', stopId: id });
               }}
@@ -225,7 +246,7 @@ export function MapScreen({ route }: { route: MapRoute }) {
           <PickHint end={pickingEnd} />
           <PickPanel end={pickingEnd} center={center} />
         </>
-      ) : route.name === 'map' ? (
+      ) : route.name === 'map' || route.name === 'stop' ? (
         <>
           <TripCard />
           <button
@@ -252,8 +273,13 @@ export function MapScreen({ route }: { route: MapRoute }) {
             </svg>
           </button>
           {/* Новый ключ при выборе машины: панель снова раскрывается. */}
-          <Sheet key={vehicleId ?? 'start'} label={vehicleId ? undefined : ru.tagline}>
-            {vehicleId ? (
+          <Sheet
+            key={stopId ? `stop-${stopId}` : (vehicleId ?? 'start')}
+            label={vehicleId || stopId ? undefined : ru.tagline}
+          >
+            {stopId ? (
+              <StopCard arrivals={stopArrivals} />
+            ) : vehicleId ? (
               <VehicleCard
                 vehicle={selected}
                 loading={vehicles.data === undefined}

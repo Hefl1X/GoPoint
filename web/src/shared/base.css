@@ -1547,3 +1547,12 @@ h1:focus {
 .line-row--idle .line-row__name {
   color: var(--text-muted, #5b6470);
 }
+
+/* Остановка в нижней панели: заголовок получает фокус для читалки, рамка не нужна. */
+.stop-card__title {
+  margin: 0;
+}
+
+.stop-card__title:focus {
+  outline: none;
+}

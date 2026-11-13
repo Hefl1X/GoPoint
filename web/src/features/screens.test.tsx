@@ -6,7 +6,6 @@ import { ApiError } from '../ports/LiveApi';
 import { fakeApi, fakeInstaller, linesList, renderApp } from '../test-utils';
 import { LiveRouteScreen } from './live-route/LiveRouteScreen';
 import { LiveRoutesScreen } from './live-routes/LiveRoutesScreen';
-import { LiveStopScreen } from './live-stop/LiveStopScreen';
 import { SettingsScreen } from './settings/SettingsScreen';
 import { MapScreen } from './start/MapScreen';
 
@@ -273,7 +272,7 @@ describe('Маршрут на линии', () => {
 
 describe('Остановка', () => {
   it('что подъезжает: номер, куда, минуты; только низкопольные при включённой настройке', async () => {
-    renderApp(<LiveStopScreen stopId="2" />);
+    renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />);
     expect(await screen.findByRole('heading', { name: 'Цирк' })).toBeInTheDocument();
     expect(screen.getByText('Автобус 3 → Северный')).toBeInTheDocument();
     expect(screen.getByText('4 мин')).toBeInTheDocument();
@@ -282,7 +281,7 @@ describe('Остановка', () => {
   });
 
   it('панорама: ссылка на сервис в новой вкладке, с точкой остановки', async () => {
-    renderApp(<LiveStopScreen stopId="2" />);
+    renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />);
     const link = await screen.findByRole('link', { name: 'Посмотреть остановку на панораме' });
     expect(link).toHaveAttribute('href', expect.stringContaining('https://panorama.test/?point='));
     expect(link).toHaveAttribute('target', '_blank');
@@ -291,7 +290,7 @@ describe('Остановка', () => {
   });
 
   it('при выключенной настройке любой транспорт с пометкой и «≈» для дальних', async () => {
-    renderApp(<LiveStopScreen stopId="2" />, {
+    renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />, {
       store: createMemoryStore({ 'gopoint.lowFloorOnly': 'false' }),
     });
     expect(await screen.findByText('Трамвай 13 → Писарева')).toBeInTheDocument();
@@ -307,7 +306,7 @@ describe('Остановка', () => {
           arrivals: [],
         }),
     });
-    renderApp(<LiveStopScreen stopId="2" />, { api });
+    renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />, { api });
     expect(await screen.findByText('Транспорта сейчас нет')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Показать любой транспорт' })).toHaveAttribute(
       'href',
@@ -316,13 +315,13 @@ describe('Остановка', () => {
   });
 
   it('«Проложить маршрут отсюда» ставит точку А и просит выбрать «Куда»', async () => {
-    renderApp(<LiveStopScreen stopId="2" />);
+    renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Проложить маршрут отсюда' }));
     expect(window.location.hash).toBe('#/search/to');
   });
 
   it('если «Куда» уже выбрано, сразу на карту с маршрутом', async () => {
-    renderApp(<LiveStopScreen stopId="2" />, {
+    renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />, {
       trip: { to: { label: 'Аура', point: { lat: 55.04, lon: 82.93 } } },
     });
     fireEvent.click(await screen.findByRole('button', { name: 'Проложить маршрут отсюда' }));
@@ -334,7 +333,7 @@ describe('Остановка', () => {
       getStopArrivals: () =>
         Promise.reject(new ApiError(404, 'STOP_NOT_FOUND', 'Такой остановки нет.')),
     });
-    renderApp(<LiveStopScreen stopId="zz" />, { api });
+    renderApp(<MapScreen route={{ name: 'stop', stopId: 'zz' }} />, { api });
     // Один повтор запроса перед ошибкой.
     expect(
       await screen.findByText('Такой остановки нет.', undefined, { timeout: 4000 }),
