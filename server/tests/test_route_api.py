@@ -27,9 +27,13 @@ WALK_SPEED = 0.8
 class StraightWalker:
     def __init__(self) -> None:
         self.fail_from: LatLon | None = None
+        # Нет пути без лестниц прямо от точки до точки (без остановок на концах).
+        self.fail_direct = False
 
     async def walk(self, origin: Place, destination: Place) -> WalkLeg:
         if self.fail_from is not None and origin.point == self.fail_from:
+            raise NoAccessibleWalkError("только лестница")
+        if self.fail_direct and origin.name is None and destination.name is None:
             raise NoAccessibleWalkError("только лестница")
         d = distance_m(origin.point, destination.point) * 1.3
         return WalkLeg(
@@ -182,6 +186,41 @@ def test_no_suitable_vehicle(client: TestClient) -> None:
     if body["status"] == "no_transit":
         assert body["journeys"] == []
         assert body["message"] == "Транспорта сейчас нет"
+
+
+def test_walk_option_when_points_are_close(client: TestClient) -> None:
+    """Точки через дорогу: рядом с транспортом есть путь пешком (выбирает человек)."""
+    body = route(client, True, origin=shifted(ORIGIN, 40), destination=shifted(ORIGIN, -60))
+    walk = body["walk"]
+    assert walk is not None
+    assert walk["kind"] == "walk"
+    assert 0 < walk["durationS"] < 600
+    assert walk["distanceM"] > 0
+
+
+def test_walk_option_hidden_when_much_longer_than_transit(client: TestClient) -> None:
+    body = route(client, True)
+    assert body["status"] == "ok"
+    fastest = min(j["durationS"] for j in body["journeys"])
+    # От Лермонтова до Северной короны пешком намного дольше автобуса.
+    assert body["walk"] is None or body["walk"]["durationS"] <= fastest + 600
+
+
+def test_walk_option_also_when_no_transit(client: TestClient, clock: ManualClock) -> None:
+    clock.advance(3600)  # свежих машин нет
+    body = route(client, True, origin=shifted(ORIGIN, 40), destination=shifted(ORIGIN, -60))
+    assert body["status"] == "no_transit"
+    assert body["message"] == "Транспорта сейчас нет"
+    assert body["walk"] is not None  # отдельный выбор, маршрут им не подменяется
+
+
+def test_no_accessible_direct_walk_does_not_break_route(
+    client: TestClient, walker: StraightWalker
+) -> None:
+    walker.fail_direct = True
+    body = route(client, True)
+    assert body["status"] == "ok"
+    assert body["walk"] is None
 
 
 def test_outside_city(client: TestClient) -> None:

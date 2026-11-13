@@ -156,6 +156,19 @@
             "title": "Durations",
             "type": "integer"
           },
+          "labels": {
+            "description": "Чем вариант лучше других: fastest — быстрее всего, fewest_transfers — меньше пересадок, least_walking — меньше пешком; пусто у запасного варианта",
+            "items": {
+              "enum": [
+                "fastest",
+                "fewest_transfers",
+                "least_walking"
+              ],
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
           "legs": {
             "items": {
               "discriminator": {
@@ -713,6 +726,17 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "walk": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WalkLeg"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Путь пешком от А до Б по профилю коляски: отдельный выбор рядом с транспортом (если он не намного дольше транспорта); null — не показывать"
           }
         },
         "required": [

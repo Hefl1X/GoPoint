@@ -261,6 +261,10 @@ class TransitLeg(DomainModel):
 Leg = Annotated[WalkLeg | TransitLeg, Field(discriminator="kind")]
 
 
+# Чем вариант лучше других (экран показывает до трёх вариантов с такими пометками).
+VariantLabel = Literal["fastest", "fewest_transfers", "least_walking"]
+
+
 class Journey(DomainModel):
     """Один вариант маршрута от А до Б с разбивкой по шагам."""
 
@@ -270,6 +274,13 @@ class Journey(DomainModel):
     duration_s: int = Field(ge=0)
     transfers: int = Field(ge=0)
     low_floor_only: bool
+    labels: list[VariantLabel] = Field(
+        default_factory=list,
+        description=(
+            "Чем вариант лучше других: fastest — быстрее всего, fewest_transfers — меньше "
+            "пересадок, least_walking — меньше пешком; пусто у запасного варианта"
+        ),
+    )
 
 
 class ApiError(DomainModel):

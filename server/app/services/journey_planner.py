@@ -78,6 +78,8 @@ class PlannerSettings:
     horizon: timedelta
     walk_speed_mps: float
     snapshot_max_age: timedelta
+    walk_option_extra: timedelta = timedelta(minutes=10)
+    walk_option_max: timedelta = timedelta(minutes=20)
 
 
 @dataclass(frozen=True)
@@ -85,6 +87,8 @@ class RouteOutcome:
     journeys: list[Journey]
     status: Literal["ok", "no_transit"]
     snapshot: Snapshot
+    # Путь пешком от А до Б: отдельный выбор рядом с транспортом, маршрут им не подменяется.
+    walk: WalkLeg | None = None
 
 
 @dataclass(frozen=True)
@@ -339,9 +343,10 @@ class JourneyPlanner:
         ring_lines = frozenset(i for i, line in lines.items() if line.ring)
         now = self._clock()
 
-        (access, a_err), (egress, b_err) = await asyncio.gather(
+        (access, a_err), (egress, b_err), direct = await asyncio.gather(
             self._walks(network, origin, to_point=False),
             self._walks(network, destination, to_point=True),
+            self._direct_walk(origin, destination),
         )
         for legs, errors in ((access, a_err), (egress, b_err)):
             if not legs and errors:
@@ -366,7 +371,30 @@ class JourneyPlanner:
             journey = await self._journey(plan, ctx)
             if journey is not None:
                 journeys.append(journey)
-        return RouteOutcome(journeys, "ok" if journeys else "no_transit", snap)
+        return RouteOutcome(
+            journeys,
+            "ok" if journeys else "no_transit",
+            snap,
+            walk=self._walk_option(direct, journeys),
+        )
+
+    async def _direct_walk(self, origin: LatLon, destination: LatLon) -> WalkLeg | None:
+        """Путь пешком прямо от А до Б; None, если пути без лестниц нет или OTP не ответил."""
+        try:
+            return await self._walking.walk(Place(point=origin), Place(point=destination))
+        except WalkPlannerError:
+            return None
+
+    def _walk_option(self, walk: WalkLeg | None, journeys: list[Journey]) -> WalkLeg | None:
+        """Показывать ли путь пешком рядом с транспортом (пороги в настройках)."""
+        if walk is None:
+            return None
+        limit = (
+            min(j.duration_s for j in journeys) + self._s.walk_option_extra.total_seconds()
+            if journeys
+            else self._s.walk_option_max.total_seconds()
+        )
+        return walk if walk.duration_s <= limit else None
 
     async def stop_arrivals(self, stop_id: str, *, low_floor_only: bool) -> ArrivalsOutcome:
         """Что подъезжает к остановке в пределах горизонта, по времени прихода.
@@ -547,6 +575,7 @@ class JourneyPlanner:
             duration_s=round((arrive - ctx.now).total_seconds()),
             transfers=max(0, rides - 1),
             low_floor_only=ctx.low_floor_only,
+            labels=list(plan.labels),
         )
 
     @classmethod

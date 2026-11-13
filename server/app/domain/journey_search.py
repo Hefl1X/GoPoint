@@ -16,10 +16,11 @@ RAPTOR: круг k — лучшее время на остановках пос�
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
 from app.domain.linear import StopCall
+from app.domain.models import VariantLabel
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,8 @@ class Plan:
     steps: tuple[Ride | TransferWalk, ...]
     egress_stop: str
     arrive_at: datetime  # у цели
+    walk_s: int = 0  # всего пешком: до остановки, на пересадках, от остановки
+    labels: tuple[VariantLabel, ...] = ()
 
     @property
     def rides(self) -> list[Ride]:
@@ -118,10 +121,11 @@ def search(
     if not found:
         return []
     if first_vehicle is not None:
-        return found[:1]
-    best = found[0]
-    limit = best.arrive_at + timedelta(seconds=params.max_extra_s)
-    chosen = found
+        return [replace(found[0], labels=("fastest",))]
+    chosen = _label_variants(found, params)
+    # Добираем запасные варианты на других машинах: если первая машина не придёт,
+    # у человека будет вариант без неё.
+    limit = chosen[0].arrive_at + timedelta(seconds=params.max_extra_s)
     excluded: set[str] = set()
     while len(chosen) <= params.max_alternatives:
         excluded |= {p.vehicle_ids[0] for p in chosen}
@@ -136,6 +140,31 @@ def search(
             break
         chosen = [*chosen, new[0]]
     return chosen[: params.max_alternatives + 1]
+
+
+def _label_variants(plans: list[Plan], params: SearchParams) -> list[Plan]:
+    """Быстрее всего, меньше пересадок, меньше пешком: до трёх разных вариантов с ярлыками.
+
+    Все — не позже самого быстрого больше чем на max_extra_s. Один вариант может
+    получить несколько ярлыков.
+    """
+    fastest = min(plans, key=lambda p: (p.arrive_at, len(p.rides), p.walk_s))
+    limit = fastest.arrive_at + timedelta(seconds=params.max_extra_s)
+    near = [p for p in plans if p.arrive_at <= limit]
+    picks: list[tuple[VariantLabel, Plan]] = [
+        ("fastest", fastest),
+        ("fewest_transfers", min(near, key=lambda p: (len(p.rides), p.arrive_at, p.walk_s))),
+        ("least_walking", min(near, key=lambda p: (p.walk_s, p.arrive_at, len(p.rides)))),
+    ]
+    result: list[Plan] = []
+    for label, plan in picks:
+        for i, existing in enumerate(result):
+            if existing.vehicle_ids == plan.vehicle_ids:
+                result[i] = replace(existing, labels=(*existing.labels, label))
+                break
+        else:
+            result.append(replace(plan, labels=(label,)))
+    return result
 
 
 def _search_once(
@@ -172,7 +201,7 @@ def _search_once(
         _add_transfers(current, transfers)
         rounds.append(current)
 
-    return _choose(_collect(rounds, egress), params)
+    return _choose(_collect(rounds, access, egress), params)
 
 
 def _scan_trip(
@@ -235,19 +264,23 @@ def _reconstruct(rounds: list[_Round], k: int, stop: str) -> tuple[str, list[Rid
     return stop, steps
 
 
-def _collect(rounds: list[_Round], egress: Mapping[str, int]) -> list[Plan]:
+def _collect(
+    rounds: list[_Round], access: Mapping[str, int], egress: Mapping[str, int]
+) -> list[Plan]:
     plans: list[Plan] = []
     for k in range(1, len(rounds)):
         for stop, label in rounds[k].rides.items():
             if stop not in egress:
                 continue
             access_stop, steps = _reconstruct(rounds, k, stop)
+            transfers_s = sum(s.duration_s for s in steps if isinstance(s, TransferWalk))
             plans.append(
                 Plan(
                     access_stop=access_stop,
                     steps=tuple(steps),
                     egress_stop=stop,
                     arrive_at=label.time + timedelta(seconds=egress[stop]),
+                    walk_s=access.get(access_stop, 0) + transfers_s + egress[stop],
                 )
             )
     return plans
