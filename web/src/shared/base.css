@@ -1529,3 +1529,16 @@ h1:focus {
 .variant__summary {
   font-size: 13px;
 }
+
+/* ---------- названия остановок-ссылки в карточке машины */
+.stop-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.further .stop-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}

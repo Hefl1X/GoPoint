@@ -7,9 +7,24 @@ import { nextEndpoint } from '../../domain/places';
 import { TYPE_COLOR, onLineText } from '../../domain/transport';
 import type { Endpoint, LatLon, TripPoint } from '../../domain/types';
 import { GeolocationError } from '../../ports/Geolocation';
-import type { MapJourneyLine, MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
+import { stopsArea } from '../../domain/stops';
+import type {
+  MapJourneyLine,
+  MapStop,
+  MapTripPoint,
+  MapVehicle,
+  MapViewport,
+  MapViewProps,
+} from '../../ports/MapView';
 import { LiveState, StatusBlock } from '../../shared/components';
-import { useLine, useMeta, useOnline, useVehicleDetails, useVehicles } from '../../shared/queries';
+import {
+  useLine,
+  useMeta,
+  useOnline,
+  useStops,
+  useVehicleDetails,
+  useVehicles,
+} from '../../shared/queries';
 import { navigate, routeHref, type Route } from '../../shared/router';
 import { ru } from '../../shared/ru';
 import { useServices } from '../../shared/services';
@@ -54,6 +69,12 @@ export function MapScreen({ route }: { route: MapRoute }) {
   const line = useLine(selected?.lineId ?? null, lowFloorOnly);
   const details = useVehicleDetails(selected?.id ?? null);
 
+  const [viewport, setViewport] = useState<MapViewport | null>(null);
+  const stops = useStops(stopsArea(viewport));
+  const mapStops = useMemo<MapStop[]>(
+    () => (stopsArea(viewport) ? [...(stops.data ?? [])] : []),
+    [stops.data, viewport],
+  );
   const [userLocation, setUserLocation] = useState<LatLon | null>(null);
   const [focus, setFocus] = useState<MapViewProps['focus']>(null);
   const [geoState, setGeoState] = useState<'idle' | 'busy' | GeolocationError['reason']>('idle');
@@ -182,6 +203,11 @@ export function MapScreen({ route }: { route: MapRoute }) {
               focus={focus}
               tripPoints={tripPoints}
               picking={pickingEnd !== null}
+              stops={mapStops}
+              onStopSelect={(id) => {
+                navigate({ name: 'stop', stopId: id });
+              }}
+              onViewportChange={setViewport}
               onCenterChange={setCenter}
               onVehicleSelect={(id) => {
                 navigate({ name: 'map', vehicleId: id });

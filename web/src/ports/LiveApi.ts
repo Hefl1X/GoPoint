@@ -1,9 +1,11 @@
 // Порт сервера GoPoint. Реализация: adapters/api.
 import type { Journey, RouteCheck, RoutePlan, RoutePoints } from '../domain/journey';
 import type {
+  Bounds,
   LineDetails,
   LinesList,
   Meta,
+  Stop,
   StopArrivals,
   Vehicle,
   VehicleDetails,
@@ -14,6 +16,8 @@ export interface LiveApi {
   getVehicles(lowFloorOnly: boolean, signal?: AbortSignal): Promise<readonly Vehicle[]>;
   getLines(lowFloorOnly: boolean, signal?: AbortSignal): Promise<LinesList>;
   getLine(lineId: string, lowFloorOnly: boolean, signal?: AbortSignal): Promise<LineDetails>;
+  /** Остановки в области карты (без повторов). */
+  getStops(area: Bounds, signal?: AbortSignal): Promise<readonly Stop[]>;
   /** Что подъезжает к остановке; набор машин зависит от настройки «Низкопольный транспорт». */
   getStopArrivals(
     stopId: string,

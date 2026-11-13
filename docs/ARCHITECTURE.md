@@ -204,6 +204,7 @@ nsk-transit/
 | GET | `/live/vehicles?bbox=&lowFloorOnly=` | машины на линии для карты |
 | GET | `/live/routes?lowFloorOnly=` | маршруты с числом машин на линии, фильтр по виду |
 | GET | `/live/routes/{id}` | остановки по порядку и машины между ними |
+| GET | `/live/stops?bbox=` | остановки в видимой области карты (область не больше ~15 км, иначе `BAD_BBOX`) |
 | GET | `/live/stops/{id}/arrivals` | что подъезжает к остановке |
 | GET | `/live/vehicles/{id}` | карточка машины |
 | GET | `/health` | проверка работы |

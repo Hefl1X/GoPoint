@@ -63,6 +63,10 @@ const lineSchema = z.object({
 
 const stopSchema = z.object({ id: z.string(), name: z.string(), point: latLon });
 
+const stopsSchema = z.object({
+  stops: z.array(stopSchema),
+}) satisfies z.ZodType<Schemas['StopsResponse']>;
+
 const diagnostics = z.object({ fetchedAt: z.string(), complete: z.boolean() });
 
 const vehiclesSchema = z.object({
@@ -414,6 +418,16 @@ export const httpLiveApi: LiveApi = {
         })),
       })),
     };
+  },
+
+  async getStops(area, signal) {
+    const query = new URLSearchParams({
+      bbox: [area.southWest.lat, area.southWest.lon, area.northEast.lat, area.northEast.lon].join(
+        ',',
+      ),
+    });
+    const body = await getJson(`/live/stops?${query.toString()}`, stopsSchema, signal);
+    return body.stops;
   },
 
   async getStopArrivals(stopId, lowFloorOnly, signal): Promise<StopArrivals> {

@@ -122,6 +122,25 @@ async def test_poller_polls_only_while_someone_uses_api(
         task.cancel()
 
 
+async def test_poller_preloads_network_once_someone_uses_api(
+    fake_feed: FakeTransitFeed, clock: ManualClock
+) -> None:
+    """Линии всех маршрутов грузятся заранее: первый маршрут не ждёт ~25 с."""
+    svc = service(fake_feed, clock)
+    task = asyncio.create_task(svc.run_poller(tick_s=0.001))
+    try:
+        await asyncio.sleep(0.02)
+        assert fake_feed.path_requests == 0  # никого нет: ничего не грузим
+        svc.touch()
+        await asyncio.sleep(0.05)
+        loaded = fake_feed.path_requests
+        assert loaded > 0
+        await asyncio.sleep(0.02)
+        assert fake_feed.path_requests == loaded  # один раз, не на каждый такт
+    finally:
+        task.cancel()
+
+
 async def test_lines_cached_for_a_day(fake_feed: FakeTransitFeed, clock: ManualClock) -> None:
     svc = service(fake_feed, clock)
     first = await svc.lines()

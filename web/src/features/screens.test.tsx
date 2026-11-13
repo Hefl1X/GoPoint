@@ -140,11 +140,22 @@ describe('Главный экран', () => {
 
   it('карточка машины: минуты до следующей остановки и дальше по маршруту', async () => {
     renderApp(<MapScreen route={{ name: 'map', vehicleId: 'bus-3-1' }} />);
-    expect(await screen.findByText('Цирк · 2 мин')).toBeInTheDocument();
+    const next = await screen.findByRole('link', { name: 'Цирк' });
+    expect(next.parentElement).toHaveTextContent('Цирк · 2 мин');
     const further = screen.getByRole('region', { name: 'Дальше по маршруту' });
     expect(further).toHaveTextContent('Площадь Маркса');
     expect(further).toHaveTextContent('9 мин');
     expect(further).toHaveTextContent('≈ 20 мин');
+  });
+
+  it('карточка машины: названия остановок ведут на экран остановки', async () => {
+    renderApp(<MapScreen route={{ name: 'map', vehicleId: 'bus-3-1' }} />);
+    expect(await screen.findByRole('link', { name: 'Цирк' })).toHaveAttribute('href', '#/stop/2');
+    const further = screen.getByRole('region', { name: 'Дальше по маршруту' });
+    expect(within(further).getByRole('link', { name: 'Площадь Маркса' })).toHaveAttribute(
+      'href',
+      '#/stop/3',
+    );
   });
 
   it('минут нет (сервер не ответил): карточка показывает остановку по линии', async () => {

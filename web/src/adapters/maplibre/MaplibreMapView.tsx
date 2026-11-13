@@ -13,7 +13,14 @@ import { useEffect, useRef, useState } from 'react';
 import { ListMapView } from '../map-list/ListMapView';
 import { MUTED_COLOR, TYPE_COLOR } from '../../domain/transport';
 import type { Endpoint, LatLon, TransportType } from '../../domain/types';
-import type { MapJourneyLine, MapTripPoint, MapVehicle, MapViewProps } from '../../ports/MapView';
+import type {
+  MapJourneyLine,
+  MapStop,
+  MapTripPoint,
+  MapVehicle,
+  MapViewProps,
+} from '../../ports/MapView';
+import { MIN_STOPS_ZOOM } from '../../domain/stops';
 import { STYLE_URL } from './config';
 
 setWorkerUrl(workerUrl);
@@ -73,6 +80,17 @@ function addPillImages(map: MapLibreMap): void {
       });
     }
   }
+}
+
+function stopsGeoJson(stops: readonly MapStop[] | undefined) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: (stops ?? []).map((s) => ({
+      type: 'Feature' as const,
+      properties: { id: s.id, name: s.name },
+      geometry: { type: 'Point' as const, coordinates: toLngLat(s.point) },
+    })),
+  };
 }
 
 function vehiclesGeoJson(vehicles: readonly MapVehicle[], selectedId: string | null) {
@@ -292,6 +310,55 @@ export function MaplibreMapView(props: MapViewProps) {
           'circle-stroke-color': '#ffffff',
         },
       });
+      // Остановки под машинами: белый кружок с тёмной обводкой, название с большего масштаба.
+      map.addSource('stops', { type: 'geojson', data: stopsGeoJson([]) });
+      map.addLayer({
+        id: 'stops',
+        type: 'circle',
+        source: 'stops',
+        minzoom: MIN_STOPS_ZOOM,
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], MIN_STOPS_ZOOM, 5, 18, 8],
+          'circle-color': '#ffffff',
+          'circle-stroke-color': '#1f2a37',
+          'circle-stroke-width': 2,
+        },
+      });
+      map.addLayer({
+        id: 'stop-names',
+        type: 'symbol',
+        source: 'stops',
+        minzoom: MIN_STOPS_ZOOM + 1,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 12,
+          'text-offset': [0, 1.1],
+          'text-anchor': 'top',
+          'text-max-width': 8,
+        },
+        paint: {
+          'text-color': '#1f2a37',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5,
+        },
+      });
+      map.on('click', 'stops', (event) => {
+        if (latest.current.picking) return;
+        // Машина важнее остановки под ней.
+        const onVehicle = map.queryRenderedFeatures(event.point, {
+          layers: ['vehicles', 'vehicle-dots', 'vehicle-selected'],
+        });
+        if (onVehicle.length > 0) return;
+        const id: unknown = event.features?.[0]?.properties.id;
+        if (typeof id === 'string') latest.current.onStopSelect?.(id);
+      });
+      map.on('mouseenter', 'stops', () => {
+        if (!latest.current.picking) map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'stops', () => {
+        map.getCanvas().style.cursor = '';
+      });
       map.addSource('vehicles', { type: 'geojson', data: vehiclesGeoJson([], null) });
       // Точка под каждой машиной: видна всегда, даже если номеру не хватило места.
       map.addLayer({
@@ -363,6 +430,18 @@ export function MaplibreMapView(props: MapViewProps) {
       if (!latest.current.picking) return;
       map.easeTo({ center: event.lngLat, duration: prefersReducedMotion() ? 0 : 300 });
     });
+    const reportViewport = () => {
+      const b = map.getBounds();
+      latest.current.onViewportChange?.({
+        bounds: {
+          southWest: { lat: b.getSouth(), lon: b.getWest() },
+          northEast: { lat: b.getNorth(), lon: b.getEast() },
+        },
+        zoom: map.getZoom(),
+      });
+    };
+    map.on('load', reportViewport);
+    map.on('moveend', reportViewport);
     map.on('moveend', () => {
       if (!latest.current.picking) return;
       const c = map.getCenter();
@@ -492,6 +571,7 @@ function sync(map: MapLibreMap, props: MapViewProps): void {
   void map
     .getSource<GeoJSONSource>('vehicles')
     ?.setData(vehiclesGeoJson(props.vehicles, props.selectedVehicleId));
+  void map.getSource<GeoJSONSource>('stops')?.setData(stopsGeoJson(props.stops));
   void map.getSource<GeoJSONSource>('route')?.setData(lineGeoJson(props.routeLine));
   void map.getSource<GeoJSONSource>('user')?.setData(pointGeoJson(props.userLocation));
   void map.getSource<GeoJSONSource>('journey')?.setData(journeyGeoJson(props.journeyLines));
