@@ -21,6 +21,7 @@ import type {
   MapViewProps,
 } from '../../ports/MapView';
 import { MIN_STOPS_ZOOM } from '../../domain/stops';
+import { blendPoint, motionProgress } from '../../domain/motion';
 import { STYLE_URL } from './config';
 
 setWorkerUrl(workerUrl);
@@ -226,6 +227,7 @@ export function MaplibreMapView(props: MapViewProps) {
   const loaded = useRef(false);
   const markers = useRef(new Map<Endpoint, Marker>());
   const latest = useRef(props);
+  const motion = useRef<VehicleMotion>({ frame: 0, shown: new Map() });
   useEffect(() => {
     latest.current = props;
   });
@@ -439,6 +441,7 @@ export function MaplibreMapView(props: MapViewProps) {
       }
       loaded.current = true;
       sync(map, latest.current);
+      startVehicleMotion(map, latest.current, motion.current);
     });
 
     // Выбор точки: нажатие переносит центр карты, центр сообщается после движения.
@@ -465,9 +468,11 @@ export function MaplibreMapView(props: MapViewProps) {
     });
 
     const tripMarkers = markers.current;
+    const vehicleMotion = motion.current;
     return () => {
       window.clearTimeout(timer);
       loaded.current = false;
+      window.cancelAnimationFrame(vehicleMotion.frame);
       tripMarkers.clear();
       if (mapRef.current === map) {
         mapRef.current = null;
@@ -491,6 +496,13 @@ export function MaplibreMapView(props: MapViewProps) {
     const c = map.getCenter();
     latest.current.onCenterChange?.({ lat: c.lat, lon: c.lng });
   }, [picking]);
+
+  // Машины: переезд к новым положениям.
+  const { vehicles, selectedVehicleId: selectedId } = props;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && loaded.current) startVehicleMotion(map, latest.current, motion.current);
+  }, [vehicles, selectedId]);
 
   // Данные обновляются без пересоздания карты.
   useEffect(() => {
@@ -583,10 +595,60 @@ function moveTo(map: MapLibreMap, center: [number, number], zoom: number, lift =
   map.easeTo({ center, zoom, offset, duration: prefersReducedMotion() ? 0 : 600 });
 }
 
+/** Что сейчас нарисовано и идёт ли переезд к новым положениям машин. */
+interface VehicleMotion {
+  frame: number;
+  shown: Map<string, LatLon>;
+}
+
+const FRAME_MS = 33;
+
+/**
+ * Машины плавно переезжают от нарисованных положений к присланным (не дальше присланных).
+ * Новый снимок посреди переезда: едем из того места, где машина сейчас.
+ * При «уменьшить движение» и до загрузки карты — сразу на место.
+ */
+function startVehicleMotion(map: MapLibreMap, props: MapViewProps, motion: VehicleMotion): void {
+  window.cancelAnimationFrame(motion.frame);
+  const source = map.getSource<GeoJSONSource>('vehicles');
+  if (!source) return;
+  const from = new Map(motion.shown);
+  const targets = props.vehicles;
+  const draw = (t: number) => {
+    const moved = targets.map((v) => ({
+      ...v,
+      point: blendPoint(from.get(v.id) ?? null, v.point, t),
+    }));
+    motion.shown = new Map(moved.map((v) => [v.id, v.point]));
+    void source.setData(vehiclesGeoJson(moved, props.selectedVehicleId));
+  };
+  const needsMotion = targets.some((v) => {
+    const was = from.get(v.id);
+    return was !== undefined && (was.lat !== v.point.lat || was.lon !== v.point.lon);
+  });
+  if (prefersReducedMotion() || !needsMotion) {
+    draw(1);
+    return;
+  }
+  const started = performance.now();
+  let last = 0;
+  const step = (now: number) => {
+    const elapsed = now - started;
+    const t = motionProgress(elapsed);
+    if (t >= 1) {
+      draw(1);
+      return;
+    }
+    if (now - last >= FRAME_MS) {
+      last = now;
+      draw(t);
+    }
+    motion.frame = window.requestAnimationFrame(step);
+  };
+  motion.frame = window.requestAnimationFrame(step);
+}
+
 function sync(map: MapLibreMap, props: MapViewProps): void {
-  void map
-    .getSource<GeoJSONSource>('vehicles')
-    ?.setData(vehiclesGeoJson(props.vehicles, props.selectedVehicleId));
   void map
     .getSource<GeoJSONSource>('stops')
     ?.setData(stopsGeoJson(props.stops, props.selectedStopId ?? null));
