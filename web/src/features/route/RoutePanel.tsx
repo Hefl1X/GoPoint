@@ -111,7 +111,7 @@ export function RoutePanel({
         </StatusBlock>
       );
     }
-    if (error?.code === 'NO_ACCESSIBLE_WALK' || error?.code === 'NO_WALK_ROUTE') {
+    if (error?.code === 'NO_WALK_ROUTE') {
       return (
         <StatusBlock title={ru.route.noWalkTitle} text={error.message}>
           <button type="button" className="button button--outline" onClick={chooseOtherPoints}>

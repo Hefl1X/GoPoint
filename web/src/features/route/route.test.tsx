@@ -129,10 +129,9 @@ describe('нет маршрута и ошибки', () => {
     expect(screen.getByRole('button', { name: 'Выбрать другую точку' })).toBeVisible();
   });
 
-  it('к точке только по лестнице: сообщение сервера и выбор других точек', async () => {
-    const message =
-      'Отсюда нашёлся путь только по лестнице или эскалатору. Выберите точку ближе к улице.';
-    const planRoute = vi.fn(() => Promise.reject(new ApiError(422, 'NO_ACCESSIBLE_WALK', message)));
+  it('нет пути по улицам: сообщение сервера и выбор других точек', async () => {
+    const message = 'Не нашли путь по улицам между этими точками.';
+    const planRoute = vi.fn(() => Promise.reject(new ApiError(422, 'NO_WALK_ROUTE', message)));
     renderRoute(fakeApi({ planRoute }));
     expect(await screen.findByText(message)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Выбрать другие точки' })).toBeVisible();

@@ -10,7 +10,6 @@ from app.adapters.otp.parse import decode_polyline, parse_walk
 from app.adapters.otp.walk import GRAPHQL_PATH, OtpWalkPlanner
 from app.domain.models import LatLon, Place
 from app.ports import (
-    NoAccessibleWalkError,
     NoWalkRouteError,
     PointNotOnStreetError,
     WalkPlannerError,
@@ -110,7 +109,7 @@ def test_broken_itinerary() -> None:
         parse_walk(plan([node(duration="много")]), A, B)
 
 
-async def test_adapter_sends_wheelchair_walk_only_request() -> None:
+async def test_adapter_sends_plain_walk_only_request() -> None:
     seen: list[dict[str, Any]] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -125,8 +124,10 @@ async def test_adapter_sends_wheelchair_walk_only_request() -> None:
     await planner.aclose()
     assert leg.duration_s == 754
     query, variables = seen[0]["query"], seen[0]["variables"]
-    # Профиль коляски включён на сервере жёстко, только пешком, без транспорта.
-    assert "wheelchair: { enabled: true }" in query
+    # Обычный пешеход (решение владельца 14.11): режим коляски выключен явно, чтобы
+    # на него не влияли настройки по умолчанию в router-config.json. Только пешком.
+    assert "wheelchair: { enabled: false }" in query
+    assert "enabled: true" not in query
     assert "directOnly: true, direct: [WALK]" in query
     assert variables["speed"] == 0.8
     assert variables["from"]["location"]["coordinate"] == {"latitude": 55.03, "longitude": 82.92}
@@ -156,31 +157,20 @@ async def test_adapter_timeout() -> None:
     await planner.aclose()
 
 
-async def test_only_stairs_route_is_reported_as_not_accessible() -> None:
+async def test_no_route_at_all_asks_once() -> None:
+    answer = plan([], ["NO_DIRECT_MODE_CONNECTION"])
+    calls: list[httpx.Request] = []
+
     def handle(request: httpx.Request) -> httpx.Response:
-        query = json.loads(request.content)["query"]
-        if "enabled: true" in query:
-            return httpx.Response(200, json=plan([], ["NO_DIRECT_MODE_CONNECTION"]))
-        return httpx.Response(200, json=plan([node()]))
+        calls.append(request)
+        return httpx.Response(200, json=answer)
 
     planner = OtpWalkPlanner(
         base_url="http://otp.test", speed_mps=0.8, transport=httpx.MockTransport(handle)
     )
-    with pytest.raises(NoAccessibleWalkError):
+    with pytest.raises(NoWalkRouteError):
         await planner.walk(A, B)
-    await planner.aclose()
-
-
-async def test_no_route_at_all() -> None:
-    answer = plan([], ["NO_DIRECT_MODE_CONNECTION"])
-    planner = OtpWalkPlanner(
-        base_url="http://otp.test",
-        speed_mps=0.8,
-        transport=httpx.MockTransport(lambda _r: httpx.Response(200, json=answer)),
-    )
-    with pytest.raises(NoWalkRouteError) as info:
-        await planner.walk(A, B)
-    assert not isinstance(info.value, NoAccessibleWalkError)
+    assert len(calls) == 1  # повторного запроса «для пешехода» больше нет
     await planner.aclose()
 
 

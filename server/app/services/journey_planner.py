@@ -45,7 +45,6 @@ from app.domain.models import (
     WalkLeg,
 )
 from app.ports import (
-    NoAccessibleWalkError,
     PointNotOnStreetError,
     TransitFeedError,
     WalkPlannerError,
@@ -378,7 +377,7 @@ class JourneyPlanner:
         )
 
     async def _direct_walk(self, origin: LatLon, destination: LatLon) -> WalkLeg | None:
-        """Путь пешком прямо от А до Б; None, если пути без лестниц нет или OTP не ответил."""
+        """Путь пешком прямо от А до Б; None, если пути по улицам нет или OTP не ответил."""
         try:
             return await self._walking.walk(Place(point=origin), Place(point=destination))
         except WalkPlannerError:
@@ -546,7 +545,7 @@ class JourneyPlanner:
                         Place(name=a.name, point=a.point), Place(name=b.name, point=b.point)
                     )
                 except WalkPlannerError:
-                    return None  # на пересадке нет доступного пути
+                    return None  # на пересадке нет пути по улицам
                 legs.append(walk)
                 ready += timedelta(seconds=walk.duration_s)
                 continue
@@ -641,8 +640,7 @@ class JourneyPlanner:
 
 def _most_telling(errors: list[WalkPlannerError]) -> WalkPlannerError:
     """Какую ошибку показать человеку, если ни до одной остановки не дойти."""
-    for kind in (PointNotOnStreetError, NoAccessibleWalkError):
-        for e in errors:
-            if isinstance(e, kind):
-                return e
+    for e in errors:
+        if isinstance(e, PointNotOnStreetError):
+            return e
     return errors[0]

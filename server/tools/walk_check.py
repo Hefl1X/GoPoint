@@ -7,8 +7,8 @@
     docker cp $C:/tmp/walk/. data/walk/
 
 Точки заданы координатами (взяты из поиска адресов), маршрут строится дважды:
-по профилю коляски (как в приложении) и обычным пешеходом (для сравнения: если
-путь для коляски длиннее, значит OTP обходит лестницы, бордюры или крутые места).
+обычным пешеходом (как в приложении с 14.11.2026) и, для сравнения, с прежним режимом
+коляски OTP (обход лестниц и высоких бордюров): видно, где путь приложения идёт по ступеням.
 Пишет walk_check.md (таблица) и walk_check.html (карта).
 """
 
@@ -79,7 +79,6 @@ PAIRS: list[tuple[str, Point, Point]] = [
 ]
 
 ERROR_TEXT = {
-    "NoAccessibleWalkError": "путь только по лестнице или эскалатору",
     "NoWalkRouteError": "пути по улицам нет",
     "PointNotOnStreetError": "точка не у улицы",
 }
@@ -99,7 +98,7 @@ COLORS = [
 
 
 async def walk(client: httpx.AsyncClient, a: Place, b: Place, wheelchair: bool) -> WalkLeg:
-    query = QUERY if wheelchair else QUERY.replace("enabled: true", "enabled: false")
+    query = QUERY.replace("enabled: false", "enabled: true") if wheelchair else QUERY
 
     def loc(p: Place) -> dict[str, Any]:
         return {"location": {"coordinate": {"latitude": p.point.lat, "longitude": p.point.lon}}}
@@ -125,24 +124,33 @@ async def main() -> None:
             a = Place(name=name_a, point=LatLon(lat=lat_a, lon=lon_a))
             b = Place(name=name_b, point=LatLon(lat=lat_b, lon=lon_b))
             try:
-                chair = await walk(client, a, b, wheelchair=True)
                 plain = await walk(client, a, b, wheelchair=False)
+                try:
+                    chair: WalkLeg | None = await walk(client, a, b, wheelchair=True)
+                except Exception:  # noqa: BLE001  для сравнения: пути в режиме коляски может не быть
+                    chair = None
             except Exception as exc:  # noqa: BLE001  отчёт должен дойти до конца
                 error = ERROR_TEXT.get(type(exc).__name__, type(exc).__name__)
                 rows.append(f"| {i} | {title} | {name_a} → {name_b} | ошибка: {error} | | | | | |")
                 continue
-            speed = chair.distance_m / chair.duration_s if chair.duration_s else 0
-            detour = chair.distance_m - plain.distance_m
+            speed = plain.distance_m / plain.duration_s if plain.duration_s else 0
+            if chair is None:
+                compare = "пути нет"
+                chair_stairs = "—"
+            else:
+                detour = chair.distance_m - plain.distance_m
+                compare = f"{chair.distance_m} ({'+' if detour >= 0 else ''}{detour})"
+                chair_stairs = "да" if chair.has_stairs else "нет"
             rows.append(
-                f"| {i} | {title} | {name_a} → {name_b} | {chair.distance_m} | "
-                f"{minutes(chair.duration_s)} | {speed:.2f} | "
-                f"{chair.climb_m if chair.climb_m is not None else '—'} / "
-                f"{chair.descent_m if chair.descent_m is not None else '—'} | "
-                f"{plain.distance_m} ({'+' if detour >= 0 else ''}{detour}) | "
-                f"{'да' if chair.has_stairs else 'нет'} / {'да' if plain.has_stairs else 'нет'} |"
+                f"| {i} | {title} | {name_a} → {name_b} | {plain.distance_m} | "
+                f"{minutes(plain.duration_s)} | {speed:.2f} | "
+                f"{plain.climb_m if plain.climb_m is not None else '—'} / "
+                f"{plain.descent_m if plain.descent_m is not None else '—'} | "
+                f"{compare} | {'да' if plain.has_stairs else 'нет'} / {chair_stairs} |"
             )
             color = COLORS[(i - 1) % len(COLORS)]
-            for leg, kind in ((chair, "коляска"), (plain, "пешеход")):
+            legs = [(plain, "приложение")] + ([(chair, "обход лестниц")] if chair else [])
+            for leg, kind in legs:
                 features.append(
                     {
                         "type": "Feature",
@@ -164,9 +172,9 @@ async def main() -> None:
                 )
 
     table = [
-        "| № | Что проверяем | Откуда → куда | Метров (коляска) | Минут "
-        "| Средняя скорость, м/с | Подъём / спуск, м | Обычный пешеход, м (разница) "
-        "| Лестница: коляска / пешеход |",
+        "| № | Что проверяем | Откуда → куда | Метров (приложение) | Минут "
+        "| Средняя скорость, м/с | Подъём / спуск, м | С обходом лестниц, м (разница) "
+        "| Ступени: приложение / с обходом |",
         "|---|---|---|---|---|---|---|---|---|",
         *rows,
     ]

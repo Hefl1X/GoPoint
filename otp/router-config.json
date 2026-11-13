@@ -2,14 +2,5 @@
   "server": {
     "apiProcessingTimeout": "10s"
   },
-  "routingDefaults": {
-    "wheelchairAccessibility": {
-      "enabled": true,
-      "inaccessibleStreetReluctance": 25,
-      "maxSlope": 0.083,
-      "slopeExceededReluctance": 1,
-      "stairsReluctance": 100
-    }
-  },
   "updaters": []
 }

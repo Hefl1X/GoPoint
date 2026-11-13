@@ -18,7 +18,7 @@ from app.config import Settings
 from app.domain.geo import distance_m
 from app.domain.models import Direction, LatLon, Place, WalkLeg
 from app.main import create_app
-from app.ports import NoAccessibleWalkError
+from app.ports import NoWalkRouteError
 from tests.conftest import SAMPLES, ManualClock
 
 WALK_SPEED = 0.8
@@ -27,14 +27,14 @@ WALK_SPEED = 0.8
 class StraightWalker:
     def __init__(self) -> None:
         self.fail_from: LatLon | None = None
-        # Нет пути без лестниц прямо от точки до точки (без остановок на концах).
+        # Нет пути по улицам прямо от точки до точки (без остановок на концах).
         self.fail_direct = False
 
     async def walk(self, origin: Place, destination: Place) -> WalkLeg:
         if self.fail_from is not None and origin.point == self.fail_from:
-            raise NoAccessibleWalkError("только лестница")
+            raise NoWalkRouteError("нет пути")
         if self.fail_direct and origin.name is None and destination.name is None:
-            raise NoAccessibleWalkError("только лестница")
+            raise NoWalkRouteError("нет пути")
         d = distance_m(origin.point, destination.point) * 1.3
         return WalkLeg(
             origin=origin,
@@ -221,9 +221,7 @@ def test_walk_option_also_when_no_transit(client: TestClient, clock: ManualClock
     assert body["walk"] is not None  # отдельный выбор, маршрут им не подменяется
 
 
-def test_no_accessible_direct_walk_does_not_break_route(
-    client: TestClient, walker: StraightWalker
-) -> None:
+def test_no_direct_walk_does_not_break_route(client: TestClient, walker: StraightWalker) -> None:
     walker.fail_direct = True
     body = route(client, True)
     assert body["status"] == "ok"
@@ -239,14 +237,14 @@ def test_outside_city(client: TestClient) -> None:
     assert response.json()["code"] == "OUTSIDE_CITY"
 
 
-def test_origin_only_reachable_by_stairs(client: TestClient, walker: StraightWalker) -> None:
+def test_origin_without_street_path(client: TestClient, walker: StraightWalker) -> None:
     origin = shifted(ORIGIN, 40)
     walker.fail_from = LatLon(lat=origin["lat"], lon=origin["lon"])
     response = client.post(
         "/api/v1/route", json={"origin": origin, "destination": shifted(DEST, -40)}
     )
     assert response.status_code == 422
-    assert response.json()["code"] == "NO_ACCESSIBLE_WALK"
+    assert response.json()["code"] == "NO_WALK_ROUTE"
 
 
 def test_source_down_uses_previous_snapshot(client: TestClient) -> None:

@@ -218,7 +218,7 @@ class NextStop(DomainModel):
 
 
 class WalkLeg(DomainModel):
-    """Пеший участок по профилю коляски."""
+    """Пеший участок по улицам и тротуарам."""
 
     kind: Literal["walk"] = "walk"
     origin: Place
