@@ -78,8 +78,7 @@ class PlannerSettings:
     horizon: timedelta
     walk_speed_mps: float
     snapshot_max_age: timedelta
-    walk_option_extra: timedelta = timedelta(minutes=10)
-    walk_option_max: timedelta = timedelta(minutes=20)
+    walk_option_max_m: float = 2000.0
 
 
 @dataclass(frozen=True)
@@ -375,7 +374,7 @@ class JourneyPlanner:
             journeys,
             "ok" if journeys else "no_transit",
             snap,
-            walk=self._walk_option(direct, journeys),
+            walk=self._walk_option(direct),
         )
 
     async def _direct_walk(self, origin: LatLon, destination: LatLon) -> WalkLeg | None:
@@ -385,16 +384,11 @@ class JourneyPlanner:
         except WalkPlannerError:
             return None
 
-    def _walk_option(self, walk: WalkLeg | None, journeys: list[Journey]) -> WalkLeg | None:
-        """Показывать ли путь пешком рядом с транспортом (пороги в настройках)."""
+    def _walk_option(self, walk: WalkLeg | None) -> WalkLeg | None:
+        """Показывать ли путь пешком рядом с транспортом: если он не длиннее порога в метрах."""
         if walk is None:
             return None
-        limit = (
-            min(j.duration_s for j in journeys) + self._s.walk_option_extra.total_seconds()
-            if journeys
-            else self._s.walk_option_max.total_seconds()
-        )
-        return walk if walk.duration_s <= limit else None
+        return walk if walk.distance_m <= self._s.walk_option_max_m else None
 
     async def stop_arrivals(self, stop_id: str, *, low_floor_only: bool) -> ArrivalsOutcome:
         """Что подъезжает к остановке в пределах горизонта, по времени прихода.

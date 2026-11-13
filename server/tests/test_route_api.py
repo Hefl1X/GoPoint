@@ -198,12 +198,19 @@ def test_walk_option_when_points_are_close(client: TestClient) -> None:
     assert walk["distanceM"] > 0
 
 
-def test_walk_option_hidden_when_much_longer_than_transit(client: TestClient) -> None:
-    body = route(client, True)
-    assert body["status"] == "ok"
-    fastest = min(j["durationS"] for j in body["journeys"])
-    # От Лермонтова до Северной короны пешком намного дольше автобуса.
-    assert body["walk"] is None or body["walk"]["durationS"] <= fastest + 600
+def test_walk_option_up_to_two_km_even_if_transit_is_faster(client: TestClient) -> None:
+    """Решение владельца 14.11: карточка «Пешком» есть всегда, если путь до 2 км."""
+    # По прямой 1400 м, по улицам заглушки ×1,3 = 1820 м.
+    body = route(client, True, origin=shifted(ORIGIN, 0), destination=shifted(ORIGIN, 1400))
+    walk = body["walk"]
+    assert walk is not None
+    assert walk["distanceM"] <= 2000
+
+
+def test_walk_option_hidden_beyond_two_km(client: TestClient) -> None:
+    # По прямой 1700 м, по улицам заглушки 2210 м.
+    body = route(client, True, origin=shifted(ORIGIN, 0), destination=shifted(ORIGIN, 1700))
+    assert body["walk"] is None
 
 
 def test_walk_option_also_when_no_transit(client: TestClient, clock: ManualClock) -> None:

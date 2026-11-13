@@ -149,8 +149,7 @@ def planner_settings(settings: Settings) -> PlannerSettings:
         horizon=timedelta(minutes=settings.horizon_min),
         walk_speed_mps=settings.walk_speed_mps,
         snapshot_max_age=timedelta(seconds=settings.snapshot_max_age_s),
-        walk_option_extra=timedelta(seconds=settings.walk_option_extra_s),
-        walk_option_max=timedelta(seconds=settings.walk_option_max_s),
+        walk_option_max_m=settings.walk_option_max_m,
     )
 
 

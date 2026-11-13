@@ -97,3 +97,19 @@ test('машина встала: «Маршрут изменился», реша
   await expect(page.getByRole('heading', { name: /^Автобус 36 · / })).toBeVisible();
   await expect(page.getByText('Маршрут изменился')).toHaveCount(0);
 });
+
+test('точки рядом: карточки «транспорт» и «Пешком», выбирает человек', async ({ page }) => {
+  await mockServer(page, { walkOption: true });
+  await setPoints(page);
+  const group = page.getByRole('group', { name: 'Варианты маршрута' });
+  await expect(group.getByRole('button')).toHaveCount(2);
+  const walk = group.getByRole('button', { name: /Пешком/ });
+  await expect(walk).toContainText('5 мин · ≈ 210 м');
+  await expect(page.getByRole('heading', { name: /^Автобус 3/ })).toBeVisible();
+  await walk.click();
+  await expect(page.getByRole('heading', { name: 'Пешком · 5 мин' })).toBeVisible();
+  await expect(walk).toHaveAttribute('aria-pressed', 'true');
+  const box = await walk.boundingBox();
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await noAxeViolations(page);
+});

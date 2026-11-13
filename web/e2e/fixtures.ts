@@ -99,8 +99,20 @@ export function journeyBody(number = '3', vehicleId = 'bus-3-1', lowFloor = 'yes
     durationS: arrive * 60,
     transfers: 0,
     lowFloorOnly: lowFloor === 'yes',
+    labels: ['fastest', 'fewest_transfers', 'least_walking'],
   };
 }
+
+/** Путь пешком от А до Б (поле walk в ответе /route). */
+export const WALK_BODY = {
+  kind: 'walk',
+  origin: { name: null, point: point(55.0287, 82.9366) },
+  destination: { name: null, point: point(55.0287, 82.9395) },
+  distanceM: 210,
+  durationS: 280,
+  geometry: [point(55.0287, 82.9366), point(55.0287, 82.9395)],
+  hasStairs: false,
+};
 
 const MAP_STYLE = {
   version: 8,
@@ -123,6 +135,8 @@ export async function mockServer(
     vehicleStopped?: boolean;
     /** Сервер карты (OpenFreeMap) недоступен: не отдаёт даже стиль. */
     mapDown?: boolean;
+    /** Точки рядом: сервер присылает и путь пешком. */
+    walkOption?: boolean;
     /** Ошибка расчёта маршрута в форме ответа сервера. */
     routeError?: { status: number; code: string; message: string };
   } = {},
@@ -182,6 +196,7 @@ export async function mockServer(
             journeys: [],
             status: 'no_transit',
             message: 'Транспорта сейчас нет',
+            walk: options.walkOption ? WALK_BODY : null,
             diagnostics,
           },
         });
@@ -192,6 +207,7 @@ export async function mockServer(
           journeys: [journeyBody('3', 'bus-3-1', body.lowFloorOnly ? 'yes' : 'no')],
           status: 'ok',
           message: null,
+          walk: options.walkOption ? WALK_BODY : null,
           diagnostics,
         },
       });

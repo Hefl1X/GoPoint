@@ -1481,3 +1481,51 @@ h1:focus {
 .arrival__time--now {
   font-size: 14px;
 }
+
+/* ---------- варианты маршрута: быстрее, меньше пересадок, меньше пешком, пешком */
+.variants {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scroll-snap-type: x proximity;
+}
+
+.variant {
+  flex: 0 0 auto;
+  width: min(220px, 70vw);
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 2px solid var(--grey-bg);
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.variant[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--yes-bg);
+  color: var(--yes-text);
+}
+
+.variant__title {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.variant__arrive {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.variant__summary {
+  font-size: 13px;
+}

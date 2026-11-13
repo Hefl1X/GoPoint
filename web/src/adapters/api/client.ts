@@ -2,7 +2,7 @@
 // в клиенте не зашит, поэтому один и тот же код работает на Mac и на сервере.
 // Каждый ответ проверяется схемой zod: повреждённые данные не ломают интерфейс.
 import { z } from 'zod';
-import { firstRide, type Journey, type JourneyStep } from '../../domain/journey';
+import { firstRide, type Journey, type JourneyStep, type WalkStep } from '../../domain/journey';
 import type {
   LatLon,
   LineDetails,
@@ -168,12 +168,14 @@ const journeySchema = z.object({
   durationS: z.number().int().min(0),
   transfers: z.number().int().min(0),
   lowFloorOnly: z.boolean(),
+  labels: z.array(z.enum(['fastest', 'fewest_transfers', 'least_walking'])).default([]),
 });
 
 const routeSchema = z.object({
   journeys: z.array(journeySchema).max(3),
   status: z.enum(['ok', 'no_transit']),
   message: z.string().nullable().optional(),
+  walk: walkLegSchema.nullable().default(null),
   diagnostics,
 });
 
@@ -290,19 +292,23 @@ function toVehicle(v: z.infer<typeof vehicleSchema>): DomainVehicle {
 
 type JourneyBody = z.infer<typeof journeySchema>;
 
+function toWalkStep(leg: z.infer<typeof walkLegSchema>): WalkStep {
+  return {
+    kind: 'walk',
+    fromName: leg.origin.name,
+    toName: leg.destination.name,
+    distanceM: leg.distanceM,
+    durationS: leg.durationS,
+    geometry: leg.geometry,
+    hasStairs: leg.hasStairs,
+  };
+}
+
 function toJourney(j: JourneyBody): Journey {
   // Служебные поля (способ расчёта, время снимка) сайту не нужны и не показываются.
   const steps: JourneyStep[] = j.legs.map((leg) =>
     leg.kind === 'walk'
-      ? {
-          kind: 'walk',
-          fromName: leg.origin.name,
-          toName: leg.destination.name,
-          distanceM: leg.distanceM,
-          durationS: leg.durationS,
-          geometry: leg.geometry,
-          hasStairs: leg.hasStairs,
-        }
+      ? toWalkStep(leg)
       : {
           kind: 'ride',
           vehicleId: leg.vehicleId,
@@ -326,6 +332,7 @@ function toJourney(j: JourneyBody): Journey {
     durationS: j.durationS,
     transfers: j.transfers,
     lowFloorOnly: j.lowFloorOnly,
+    labels: j.labels,
   };
 }
 
@@ -346,7 +353,11 @@ const routeApi: Pick<LiveApi, 'planRoute' | 'checkRoute'> = {
       },
       timeoutMs: ROUTE_TIMEOUT_MS,
     });
-    return { status: body.status, journeys: body.journeys.map(toJourney) };
+    return {
+      status: body.status,
+      journeys: body.journeys.map(toJourney),
+      walk: body.walk ? toWalkStep(body.walk) : null,
+    };
   },
 
   async checkRoute(points, lowFloorOnly, journey, plannedArriveAt, signal) {

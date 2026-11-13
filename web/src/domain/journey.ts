@@ -33,6 +33,9 @@ export interface RideStep {
 
 export type JourneyStep = WalkStep | RideStep;
 
+/** Чем вариант лучше других: быстрее всего, меньше пересадок, меньше пешком. */
+export type VariantLabel = 'fastest' | 'fewest_transfers' | 'least_walking';
+
 export interface Journey {
   readonly steps: readonly JourneyStep[];
   readonly departAt: string;
@@ -40,11 +43,15 @@ export interface Journey {
   readonly durationS: number;
   readonly transfers: number;
   readonly lowFloorOnly: boolean;
+  /** Пусто у запасного варианта на другой машине. */
+  readonly labels: readonly VariantLabel[];
 }
 
 export interface RoutePlan {
   readonly status: 'ok' | 'no_transit';
   readonly journeys: readonly Journey[];
+  /** Путь пешком от А до Б: отдельный выбор рядом с транспортом; null — не предлагать. */
+  readonly walk: WalkStep | null;
 }
 
 export type CheckStatus = 'ok' | 'stopped' | 'late' | 'gone';
@@ -203,6 +210,39 @@ export function transferSlackS(journey: Journey, ride: RideStep): number | null 
   }
   if (clock === null) return null;
   return Math.max(0, Math.round((Date.parse(ride.departAt) - clock) / 1000));
+}
+
+/** Путь пешком как маршрут из одного шага (для шкалы, шагов и карты). */
+export function walkJourney(walk: WalkStep, departAt: string): Journey {
+  return {
+    steps: [walk],
+    departAt,
+    arriveAt: new Date(Date.parse(departAt) + walk.durationS * 1000).toISOString(),
+    durationS: walk.durationS,
+    transfers: 0,
+    lowFloorOnly: false,
+    labels: [],
+  };
+}
+
+/** Сколько всего метров пешком в маршруте. */
+export function walkingMetres(journey: Journey): number {
+  return journey.steps.reduce((sum, s) => (s.kind === 'walk' ? sum + s.distanceM : sum), 0);
+}
+
+/** «≈ 640 м», «≈ 1,2 км»: округлено, чтобы не обещать лишней точности. */
+export function metresText(metres: number): string {
+  if (metres < 1000) return `≈ ${String(Math.round(metres / 10) * 10)} м`;
+  return `≈ ${(Math.round(metres / 100) / 10).toLocaleString('ru-RU')} км`;
+}
+
+/** Строка карточки варианта: «41 минута · 1 пересадка · пешком ≈ 640 м». */
+export function variantSummary(journey: Journey): string {
+  const transfers =
+    journey.transfers === 0
+      ? 'без пересадок'
+      : `${String(journey.transfers)} ${plural(journey.transfers, 'пересадка', 'пересадки', 'пересадок')}`;
+  return `${durationText(journey.durationS)} · ${transfers} · пешком ${metresText(walkingMetres(journey))}`;
 }
 
 /** Набор машин маршрута: по нему понятно, тот же это маршрут или другой. */
