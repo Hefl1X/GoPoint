@@ -80,6 +80,8 @@ class LiveSnapshotService:
         self._warming: asyncio.Task[None] | None = None
         self._warm_retry_at: datetime | None = None
         self._still: dict[str, _Still] = {}
+        self._line_seen: dict[str, datetime] = {}
+        self._first_poll_at: datetime | None = None
 
     # ------------------------------------------------------------ активность
 
@@ -154,6 +156,15 @@ class LiveSnapshotService:
             for key, path in value.items():
                 self._paths[key] = _Cached(path, now)
             return value
+
+    def line_is_listed(self, line_id: str, hide_after: timedelta) -> bool:
+        """Показывать ли маршрут в списке: его машины были не позже hide_after назад.
+
+        Маршрут, у которого с начала наблюдения машин не было, считается «виденным» в момент
+        первого опроса (после перезапуска сервера отсчёт начинается заново).
+        """
+        seen = self._line_seen.get(line_id) or self._first_poll_at
+        return seen is None or self._clock() - seen <= hide_after
 
     def known_stops(self) -> list[Stop]:
         """Остановки из загруженных линий, без запросов к источнику (пока нет линий — пусто)."""
@@ -238,6 +249,11 @@ class LiveSnapshotService:
             if batches and failed == len(batches):
                 raise TransitFeedError("Источник не ответил ни на одну пачку")
             vehicles = [v for group in by_line.values() for v in group]
+            if self._first_poll_at is None:
+                self._first_poll_at = started
+            for line_id, group in by_line.items():
+                if group:
+                    self._line_seen[line_id] = started
             self._track_still(vehicles)
             self._snapshot = Snapshot(
                 vehicles=vehicles, fetched_at=started, complete=failed == 0, by_line=by_line

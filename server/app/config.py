@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     active_window_s: int = Field(default=120, ge=30)
     # Список маршрутов и линии хранятся сутки.
     lines_ttl_s: int = Field(default=86_400, ge=3_600)
+    # Маршрут без единой машины дольше этого времени убираем из списка «Транспорт сейчас».
+    line_hide_after_s: int = Field(default=172_800, ge=3_600)
     # Какие виды транспорта берём, через запятую (маршрутки включены решением владельца 04.11.2026).
     transport_types: str = "bus,trolleybus,tram,minibus"
 

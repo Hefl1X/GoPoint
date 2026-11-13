@@ -93,11 +93,12 @@ test('«Транспорт»: список, маршрут, «Назад»', asy
   await page.goto('/?map=list');
   await page.getByRole('link', { name: 'Транспорт' }).click();
   await expect(page.getByRole('heading', { name: 'Транспорт сейчас' })).toBeVisible();
-  // Трамвая 13 нет: низкопольных на нём сейчас нет.
-  await expect(page.getByText('Трамвай 13')).toHaveCount(0);
+  // Трамвая 13 с низким полом сейчас нет, но маршрут остаётся в списке серой меткой.
+  await expect(page.getByText('Трамвай 13')).toBeVisible();
+  await expect(page.getByText('сейчас нет на линии').first()).toBeVisible();
   await noHorizontalScroll(page);
   await noAxeViolations(page);
-  await page.getByRole('link', { name: /Автобус 3/ }).click();
+  await page.getByRole('link', { name: /^Автобус 3(?!\d)/ }).click();
   await expect(page.getByRole('heading', { name: 'Автобус 3' })).toBeVisible();
   await expect(page.getByText('едет к «Цирк»')).toBeVisible();
   await noAxeViolations(page);

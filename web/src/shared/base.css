@@ -1542,3 +1542,8 @@ h1:focus {
   align-items: center;
   min-height: 44px;
 }
+
+/* Маршрут без машин на линии: серый, но открывается (можно смотреть линию и остановки). */
+.line-row--idle .line-row__name {
+  color: var(--text-muted, #5b6470);
+}

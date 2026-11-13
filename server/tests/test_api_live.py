@@ -163,3 +163,30 @@ def test_snapshot_refreshed_after_interval(
     clock.advance(61)
     client.get("/api/v1/live/vehicles")
     assert feed.vehicle_requests == 2 * first
+
+
+def test_idle_line_stays_in_list_then_disappears_after_two_days(
+    client: TestClient, clock: ManualClock
+) -> None:
+    """Маршрут без машин остаётся в списке (серым), через 2 суток без выезда пропадает."""
+
+    def ids() -> set[str]:
+        body = client.get("/api/v1/live/routes").json()
+        return {item["line"]["id"] for item in body["lines"]}
+
+    assert "bus-005" in ids()  # машин нет, но маршрут виден
+    clock.advance(2 * 86_400 - 60)
+    assert "bus-005" in ids()
+    clock.advance(120)
+    assert "bus-005" not in ids()
+    assert "bus-3" in ids()  # маршрут, который ездил недавно, остаётся
+
+
+def test_line_returns_to_list_when_vehicle_appears(client: TestClient, clock: ManualClock) -> None:
+    client.get("/api/v1/live/routes")
+    clock.advance(3 * 86_400)
+    feed: FakeTransitFeed = client.app.state.live._feed  # type: ignore[attr-defined]  # тест
+    assert feed is not None
+    body = client.get("/api/v1/live/routes").json()
+    # Маршруты с машинами в образце видны и через 3 суток: их «видели» только что.
+    assert "bus-3" in {item["line"]["id"] for item in body["lines"]}
