@@ -191,6 +191,7 @@ export function journey(overrides: Partial<Journey> = {}, start = Date.now()): J
     durationS: 26 * 60,
     transfers: 0,
     lowFloorOnly: true,
+    labels: ['fastest', 'fewest_transfers', 'least_walking'],
     ...overrides,
   };
 }
@@ -208,7 +209,7 @@ export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
     ),
     getVehicleDetails: vi.fn((id: string) => Promise.resolve(vehicleDetails(id))),
     planRoute: vi.fn((_points, lowFloorOnly: boolean): Promise<RoutePlan> =>
-      Promise.resolve({ status: 'ok', journeys: [journey({ lowFloorOnly })] }),
+      Promise.resolve({ status: 'ok', journeys: [journey({ lowFloorOnly })], walk: null }),
     ),
     checkRoute: vi.fn((_points, _low, current: Journey): Promise<RouteCheck> =>
       Promise.resolve({ status: 'ok', stoppedForS: null, current, alternative: null }),

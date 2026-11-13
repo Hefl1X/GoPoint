@@ -2,7 +2,7 @@
 // FriendlyNoRoute, FriendlyOffline, FriendlyRerouted, OutsideCity). Маршрут не заменяется
 // молча: при пересчёте решает человек.
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   arrivalText,
   firstRide,
@@ -12,14 +12,19 @@ import {
   journeyKey,
   minutesOf,
   minutesUntil,
+  metresText,
   segmentLabel,
   stopsText,
   timeline,
   transferSlackS,
+  variantSummary,
+  walkJourney,
   type Journey,
   type JourneyStep,
   type RideStep,
+  type RoutePlan,
   type RoutePoints,
+  type VariantLabel,
   type WalkStep,
 } from '../../domain/journey';
 import { lineName, TYPE_COLOR, typeName } from '../../domain/transport';
@@ -126,35 +131,194 @@ export function RoutePanel({
 
   const data = plan.data;
   if (!data) return null;
-  const best = data.journeys[0];
-  if (data.status === 'no_transit' || !best) {
-    return (
-      <StatusBlock
-        title={ru.route.noneTitle}
-        text={lowFloorOnly ? ru.route.noneLowFloor : ru.route.noneAny}
-      >
-        <div className="button-row">
-          <button type="button" className="button button--outline" onClick={retry}>
-            {ru.route.refresh}
-          </button>
-          <button type="button" className="button button--outline" onClick={chooseOtherPoints}>
-            {ru.route.otherPoints}
-          </button>
-        </div>
-        {lowFloorOnly ? <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a> : null}
-      </StatusBlock>
-    );
-  }
   return (
-    <JourneyView
-      // Новый расчёт: начинаем с нового маршрута.
+    <RouteOptions
+      // Новый расчёт: начинаем с нового набора вариантов.
       key={plan.dataUpdatedAt}
-      initial={best}
+      data={data}
+      plannedAt={new Date(plan.dataUpdatedAt).toISOString()}
       points={points}
       lowFloorOnly={lowFloorOnly}
       onJourney={onJourney}
       onPlanAgain={retry}
     />
+  );
+}
+
+type Option =
+  | { readonly id: string; readonly kind: 'journey'; readonly journey: Journey }
+  | {
+      readonly id: 'walk';
+      readonly kind: 'walk';
+      readonly journey: Journey;
+      readonly walk: WalkStep;
+    };
+
+/**
+ * До трёх вариантов на транспорте (быстрее всего, меньше пересадок, меньше пешком)
+ * и путь пешком отдельной карточкой. Пешком никогда не подменяет транспорт: это выбор человека.
+ */
+function RouteOptions({
+  data,
+  plannedAt,
+  points,
+  lowFloorOnly,
+  onJourney,
+  onPlanAgain,
+}: {
+  data: RoutePlan;
+  plannedAt: string;
+  points: RoutePoints;
+  lowFloorOnly: boolean;
+  onJourney: (journey: Journey | null) => void;
+  onPlanAgain: () => void;
+}) {
+  // Один и тот же набор объектов на весь расчёт: карта получает маршрут без лишних перерисовок.
+  const options = useMemo(() => {
+    const list: Option[] = data.journeys.map((journey, i) => ({
+      id: `journey-${String(i)}`,
+      kind: 'journey' as const,
+      journey,
+    }));
+    if (data.walk) {
+      list.push({
+        id: 'walk',
+        kind: 'walk',
+        walk: data.walk,
+        journey: walkJourney(data.walk, plannedAt),
+      });
+    }
+    return list;
+  }, [data, plannedAt]);
+  const noTransit = data.status === 'no_transit' || data.journeys.length === 0;
+  // Когда транспорта нет, путь пешком не открывается сам: человек выбирает его кнопкой.
+  const [selectedId, setSelectedId] = useState<string | null>(noTransit ? null : 'journey-0');
+  const selected = options.find((o) => o.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!selected) onJourney(null);
+  }, [selected, onJourney]);
+
+  return (
+    <>
+      {noTransit ? (
+        <StatusBlock
+          title={ru.route.noneTitle}
+          text={lowFloorOnly ? ru.route.noneLowFloor : ru.route.noneAny}
+        >
+          <div className="button-row">
+            <button type="button" className="button button--outline" onClick={onPlanAgain}>
+              {ru.route.refresh}
+            </button>
+            <button type="button" className="button button--outline" onClick={chooseOtherPoints}>
+              {ru.route.otherPoints}
+            </button>
+          </div>
+          {lowFloorOnly ? <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a> : null}
+        </StatusBlock>
+      ) : null}
+      {options.length > 1 || (noTransit && options.length > 0) ? (
+        <Variants options={options} selectedId={selectedId} onSelect={setSelectedId} />
+      ) : null}
+      {selected?.kind === 'journey' ? (
+        <JourneyView
+          key={selected.id}
+          initial={selected.journey}
+          points={points}
+          lowFloorOnly={lowFloorOnly}
+          onJourney={onJourney}
+          onPlanAgain={onPlanAgain}
+        />
+      ) : null}
+      {selected?.kind === 'walk' ? (
+        <WalkView walk={selected.walk} journey={selected.journey} onJourney={onJourney} />
+      ) : null}
+    </>
+  );
+}
+
+const LABEL_TEXT: Record<VariantLabel, string> = {
+  fastest: ru.route.variantFastest,
+  fewest_transfers: ru.route.variantFewestTransfers,
+  least_walking: ru.route.variantLeastWalking,
+};
+
+function Variants({
+  options,
+  selectedId,
+  onSelect,
+}: {
+  options: readonly Option[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="variants" role="group" aria-label={ru.route.variantsLabel}>
+      {options.map((o) => {
+        const title =
+          o.kind === 'walk'
+            ? ru.route.variantWalk
+            : o.journey.labels.length > 0
+              ? o.journey.labels.map((l) => LABEL_TEXT[l]).join(' · ')
+              : ru.route.variantOther;
+        const summary =
+          o.kind === 'walk'
+            ? `${ru.route.walkMinutes(minutesOf(o.walk.durationS))} · ${metresText(o.walk.distanceM)}${
+                o.walk.hasStairs ? ` · ${ru.route.stairs}` : ''
+              }`
+            : variantSummary(o.journey);
+        return (
+          <button
+            key={o.id}
+            type="button"
+            className="variant"
+            aria-pressed={o.id === selectedId}
+            onClick={() => {
+              onSelect(o.id);
+            }}
+          >
+            <span className="variant__title">{title}</span>
+            <span className="variant__arrive">
+              {ru.route.arriveAt(formatTime(o.journey.arriveAt))}
+            </span>
+            <span className="variant__summary">{summary}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WalkView({
+  walk,
+  journey,
+  onJourney,
+}: {
+  walk: WalkStep;
+  journey: Journey;
+  onJourney: (journey: Journey | null) => void;
+}) {
+  const now = useNow();
+  useEffect(() => {
+    onJourney(journey);
+  }, [journey, onJourney]);
+  return (
+    <section className="route" aria-label={ru.route.label}>
+      <div className="route-hero">
+        <p className="route-hero__leave">{ru.route.leaveNow(formatTime(journey.departAt))}</p>
+        <h2 className="route-hero__main">{ru.route.walkHeadline(minutesOf(walk.durationS))}</h2>
+        <p className="route-hero__arrive">
+          {ru.route.arriveAt(formatTime(journey.arriveAt))} · {metresText(walk.distanceM)}
+        </p>
+        {walk.hasStairs ? (
+          <p className="route-hero__plaque route-hero__plaque--warn">{ru.route.stairsWarn}</p>
+        ) : null}
+      </div>
+      <Timeline journey={journey} />
+      <Steps journey={journey} now={now} />
+      <p className="route__note">{ru.route.walkNote}</p>
+      <p className="route__note">{ru.map.attribution}</p>
+    </section>
   );
 }
 

@@ -115,3 +115,35 @@ def test_boarding_must_be_within_horizon_but_ride_may_be_longer() -> None:
     assert plan.arrive_at == minutes(120)
     too_late = trip("bus-2", ("s0", 70), ("s3", 80))
     assert search(NOW, [too_late], {"s0": 0}, {"s3": 0}, {}, P) == []
+
+
+def test_variants_fastest_fewest_transfers_least_walking() -> None:
+    """Запрос владельца 13.11: 2–3 варианта — быстрее всего, меньше пересадок, меньше пешком."""
+    # Быстрее всего: с пересадкой.
+    a1 = trip("bus-1", ("s0", 12), ("s2", 17))
+    a2 = trip("bus-2", ("s2", 23), ("s9", 27))
+    # Без пересадки, но позже.
+    direct = trip("bus-3", ("s0", 13), ("s9", 35))
+    # Меньше пешком: от ближней остановки s1 (1 мин пешком против 8), ещё позже.
+    near = trip("bus-4", ("s1", 4), ("s8", 40))
+    plans = search(NOW, [a1, a2, direct, near], {"s0": 480, "s1": 60}, {"s9": 120, "s8": 60}, {}, P)
+    by_label = {label: p for p in plans for label in p.labels}
+    assert by_label["fastest"].vehicle_ids == ("bus-1", "bus-2")
+    assert by_label["fewest_transfers"].vehicle_ids == ("bus-3",)
+    assert by_label["least_walking"].vehicle_ids == ("bus-4",)
+    assert plans[0].labels[0] == "fastest"
+    assert len(plans) == 3
+    assert by_label["least_walking"].walk_s == 60 + 60
+
+
+def test_one_plan_can_be_fastest_and_least_walking() -> None:
+    only = trip("bus-1", ("s0", 5), ("s3", 15))
+    [plan] = search(NOW, [only], {"s0": 60}, {"s3": 0}, {}, P)
+    assert set(plan.labels) == {"fastest", "fewest_transfers", "least_walking"}
+
+
+def test_variants_not_much_later_than_fastest() -> None:
+    fast = trip("bus-1", ("s0", 5), ("s3", 15))
+    too_slow = trip("bus-2", ("s1", 6), ("s4", 90))  # на 75 мин позже: не показываем
+    plans = search(NOW, [fast, too_slow], {"s0": 60, "s1": 0}, {"s3": 0, "s4": 0}, {}, P)
+    assert [p.vehicle_ids for p in plans] == [("bus-1",)]

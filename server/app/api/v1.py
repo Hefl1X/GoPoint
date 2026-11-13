@@ -274,6 +274,7 @@ async def route(body: RouteRequest, city: CityDep, planner: PlannerDep) -> Route
         journeys=outcome.journeys,
         status=outcome.status,
         message=NO_TRANSIT_MESSAGE if outcome.status == "no_transit" else None,
+        walk=outcome.walk,
         diagnostics=_diagnostics(outcome.snapshot),
     )
 

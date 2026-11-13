@@ -67,6 +67,7 @@ const JOURNEY: Journey = {
   durationS: 43 * 60,
   transfers: 1,
   lowFloorOnly: false,
+  labels: [],
 };
 
 const NOW = Date.parse('2026-11-04T06:10:00Z');

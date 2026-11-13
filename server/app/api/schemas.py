@@ -19,6 +19,7 @@ from app.domain.models import (
     Stop,
     StopArrival,
     Vehicle,
+    WalkLeg,
 )
 
 
@@ -69,6 +70,13 @@ class RouteResponse(DomainModel):
         description="no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем)"
     )
     message: str | None = Field(default=None, description="Что сказать человеку, по-русски")
+    walk: WalkLeg | None = Field(
+        default=None,
+        description=(
+            "Путь пешком от А до Б по профилю коляски: отдельный выбор рядом с транспортом "
+            "(если он не намного дольше транспорта); null — не показывать"
+        ),
+    )
     diagnostics: SnapshotDiagnostics
 
 

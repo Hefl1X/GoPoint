@@ -327,6 +327,11 @@ export interface components {
             departAt: string;
             /** Durations */
             durationS: number;
+            /**
+             * Labels
+             * @description Чем вариант лучше других: fastest — быстрее всего, fewest_transfers — меньше пересадок, least_walking — меньше пешком; пусто у запасного варианта
+             */
+            labels?: ("fastest" | "fewest_transfers" | "least_walking")[];
             /** Legs */
             legs: (components["schemas"]["WalkLeg"] | components["schemas"]["TransitLeg"])[];
             /** Lowflooronly */
@@ -542,6 +547,8 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "no_transit";
+            /** @description Путь пешком от А до Б по профилю коляски: отдельный выбор рядом с транспортом (если он не намного дольше транспорта); null — не показывать */
+            walk?: components["schemas"]["WalkLeg"] | null;
         };
         /** SearchResponse */
         SearchResponse: {

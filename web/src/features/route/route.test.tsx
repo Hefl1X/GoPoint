@@ -59,7 +59,7 @@ describe('маршрут найден', () => {
         const steps = j.steps.map((s) =>
           s.kind === 'ride' ? { ...s, lowFloor: 'no' as const } : s,
         );
-        return Promise.resolve({ status: 'ok' as const, journeys: [{ ...j, steps }] });
+        return Promise.resolve({ status: 'ok' as const, journeys: [{ ...j, steps }], walk: null });
       }),
     });
     renderRoute(api);
@@ -75,7 +75,7 @@ describe('маршрут найден', () => {
         const steps = j.steps.map((s, i) =>
           i === 0 && s.kind === 'walk' ? { ...s, hasStairs: true } : s,
         );
-        return Promise.resolve({ status: 'ok' as const, journeys: [{ ...j, steps }] });
+        return Promise.resolve({ status: 'ok' as const, journeys: [{ ...j, steps }], walk: null });
       }),
     });
     renderRoute(api);
@@ -88,7 +88,9 @@ describe('маршрут найден', () => {
 
 describe('нет маршрута и ошибки', () => {
   it('транспорта нет: серый блок, «Обновить», «Выбрать другие точки», без пешего маршрута', async () => {
-    const planRoute = vi.fn(() => Promise.resolve({ status: 'no_transit' as const, journeys: [] }));
+    const planRoute = vi.fn(() =>
+      Promise.resolve({ status: 'no_transit' as const, journeys: [], walk: null }),
+    );
     renderRoute(fakeApi({ planRoute }));
     expect(await screen.findByText('Транспорта сейчас нет')).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Маршрут' })).toBeNull();
@@ -252,5 +254,91 @@ describe('предложение установить после первого 
     });
     await screen.findByRole('region', { name: 'Маршрут' });
     expect(screen.queryByText('Установить «GoPoint»')).not.toBeInTheDocument();
+  });
+});
+
+describe('варианты маршрута и путь пешком (запрос владельца 13.11)', () => {
+  it('2–3 варианта с пометками, выбор меняет шаги', async () => {
+    const fast = journey({ labels: ['fastest'] });
+    const fewer = journey({
+      labels: ['fewest_transfers', 'least_walking'],
+      arriveAt: inMinutes(34),
+      durationS: 34 * 60,
+    });
+    const steps = fewer.steps.map((s) =>
+      s.kind === 'ride' ? { ...s, line: { ...s.line, number: '36', id: 'bus-36' } } : s,
+    );
+    const api = fakeApi({
+      planRoute: vi.fn(() =>
+        Promise.resolve({
+          status: 'ok' as const,
+          journeys: [fast, { ...fewer, steps }],
+          walk: null,
+        }),
+      ),
+    });
+    renderRoute(api);
+    const group = await screen.findByRole('group', { name: 'Варианты маршрута' });
+    const [first, second] = within(group).getAllByRole('button');
+    if (!first || !second) throw new Error('нет карточек вариантов');
+    expect(first).toHaveTextContent('Быстрее всего');
+    expect(first).toHaveAttribute('aria-pressed', 'true');
+    expect(second).toHaveTextContent('Меньше пересадок · Меньше пешком');
+    expect(second).toHaveTextContent(/пешком ≈ \d+ м/);
+    fireEvent.click(second);
+    expect(second).toHaveAttribute('aria-pressed', 'true');
+    const route = screen.getByRole('region', { name: 'Маршрут' });
+    expect(within(route).getByRole('heading', { name: /^Автобус 36/ })).toBeVisible();
+  });
+
+  it('точки рядом: карточка «Пешком» рядом с транспортом, выбирает человек', async () => {
+    const walk = {
+      kind: 'walk' as const,
+      fromName: null,
+      toName: null,
+      distanceM: 180,
+      durationS: 240,
+      geometry: [],
+      hasStairs: false,
+    };
+    const api = fakeApi({
+      planRoute: vi.fn(() =>
+        Promise.resolve({ status: 'ok' as const, journeys: [journey()], walk }),
+      ),
+    });
+    renderRoute(api);
+    const group = await screen.findByRole('group', { name: 'Варианты маршрута' });
+    const walkCard = within(group).getByRole('button', { name: /Пешком/ });
+    expect(walkCard).toHaveTextContent('4 мин · ≈ 180 м');
+    // По умолчанию открыт транспорт: пешком не подменяет маршрут.
+    expect(screen.getByRole('heading', { name: /^Автобус 3/ })).toBeVisible();
+    fireEvent.click(walkCard);
+    expect(screen.getByRole('heading', { name: 'Пешком · 4 мин' })).toBeVisible();
+    expect(screen.getByText('Пешком до точки Б')).toBeVisible();
+  });
+
+  it('транспорта нет: серый блок остаётся, путь пешком только по нажатию', async () => {
+    const walk = {
+      kind: 'walk' as const,
+      fromName: null,
+      toName: null,
+      distanceM: 900,
+      durationS: 1100,
+      geometry: [],
+      hasStairs: true,
+    };
+    const api = fakeApi({
+      planRoute: vi.fn(() =>
+        Promise.resolve({ status: 'no_transit' as const, journeys: [], walk }),
+      ),
+    });
+    renderRoute(api);
+    expect(await screen.findByText('Транспорта сейчас нет')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Маршрут' })).toBeNull();
+    const card = screen.getByRole('button', { name: /Пешком/ });
+    expect(card).toHaveTextContent('на пути есть лестница или эскалатор');
+    fireEvent.click(card);
+    expect(screen.getByRole('heading', { name: 'Пешком · 19 мин' })).toBeVisible();
+    expect(screen.getByText('На пути есть лестница или эскалатор')).toBeVisible();
   });
 });
