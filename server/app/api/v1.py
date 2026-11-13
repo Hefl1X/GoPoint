@@ -102,6 +102,8 @@ WalkingDep = Annotated[WalkingService, Depends(get_walking)]
 PlannerDep = Annotated[JourneyPlanner, Depends(get_planner)]
 
 NO_TRANSIT_MESSAGE = "Транспорта сейчас нет"
+WALK_BETTER_MESSAGE = "Пешком быстрее"
+STATUS_MESSAGE = {"no_transit": NO_TRANSIT_MESSAGE, "walk_better": WALK_BETTER_MESSAGE}
 
 
 def transit_unavailable() -> AppError:
@@ -266,7 +268,7 @@ async def route(body: RouteRequest, city: CityDep, planner: PlannerDep) -> Route
     return RouteResponse(
         journeys=outcome.journeys,
         status=outcome.status,
-        message=NO_TRANSIT_MESSAGE if outcome.status == "no_transit" else None,
+        message=STATUS_MESSAGE.get(outcome.status),
         walk=outcome.walk,
         diagnostics=_diagnostics(outcome.snapshot),
     )

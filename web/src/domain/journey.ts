@@ -48,7 +48,8 @@ export interface Journey {
 }
 
 export interface RoutePlan {
-  readonly status: 'ok' | 'no_transit';
+  /** walk_better: машины есть, но пешком (walk) быстрее и меньше идти. */
+  readonly status: 'ok' | 'no_transit' | 'walk_better';
   readonly journeys: readonly Journey[];
   /** Путь пешком от А до Б: отдельный выбор рядом с транспортом; null — не предлагать. */
   readonly walk: WalkStep | null;

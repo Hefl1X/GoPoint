@@ -190,9 +190,13 @@ function RouteOptions({
     }
     return list;
   }, [data, plannedAt]);
-  const noTransit = data.status === 'no_transit' || data.journeys.length === 0;
-  // Когда транспорта нет, путь пешком не открывается сам: человек выбирает его кнопкой.
-  const [selectedId, setSelectedId] = useState<string | null>(noTransit ? null : 'journey-0');
+  const walkBetter = data.status === 'walk_better' && data.journeys.length === 0;
+  const noTransit = !walkBetter && (data.status === 'no_transit' || data.journeys.length === 0);
+  // Когда транспорта нет (или пешком быстрее), путь пешком не открывается сам: человек
+  // выбирает его кнопкой.
+  const [selectedId, setSelectedId] = useState<string | null>(
+    noTransit || walkBetter ? null : 'journey-0',
+  );
   const selected = options.find((o) => o.id === selectedId) ?? null;
 
   useEffect(() => {
@@ -217,7 +221,10 @@ function RouteOptions({
           {lowFloorOnly ? <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a> : null}
         </StatusBlock>
       ) : null}
-      {options.length > 1 || (noTransit && options.length > 0) ? (
+      {walkBetter ? (
+        <StatusBlock title={ru.route.walkBetterTitle} text={ru.route.walkBetter} />
+      ) : null}
+      {options.length > 1 || ((noTransit || walkBetter) && options.length > 0) ? (
         <Variants options={options} selectedId={selectedId} onSelect={setSelectedId} />
       ) : null}
       {selected?.kind === 'journey' ? (

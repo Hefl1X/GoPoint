@@ -340,4 +340,28 @@ describe('варианты маршрута и путь пешком (запро
     expect(screen.getByRole('heading', { name: 'Пешком · 19 мин' })).toBeVisible();
     expect(screen.getByText('На пути есть лестница или эскалатор')).toBeVisible();
   });
+
+  it('пешком быстрее: не «Транспорта сейчас нет», путь пешком открывает человек', async () => {
+    const walk = {
+      kind: 'walk' as const,
+      fromName: null,
+      toName: null,
+      distanceM: 120,
+      durationS: 160,
+      geometry: [],
+      hasStairs: false,
+    };
+    const api = fakeApi({
+      planRoute: vi.fn(() =>
+        Promise.resolve({ status: 'walk_better' as const, journeys: [], walk }),
+      ),
+    });
+    renderRoute(api);
+    expect(await screen.findByText('Пешком быстрее')).toBeVisible();
+    expect(screen.queryByText('Транспорта сейчас нет')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Показать любой транспорт' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Маршрут' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Пешком/ }));
+    expect(screen.getByRole('heading', { name: 'Пешком · 3 мин' })).toBeVisible();
+  });
 });

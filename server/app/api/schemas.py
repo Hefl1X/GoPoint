@@ -66,8 +66,11 @@ class RouteRequest(DomainModel):
 
 class RouteResponse(DomainModel):
     journeys: list[Journey] = Field(max_length=3)
-    status: Literal["ok", "no_transit"] = Field(
-        description="no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем)"
+    status: Literal["ok", "no_transit", "walk_better"] = Field(
+        description=(
+            "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); "
+            "walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти"
+        )
     )
     message: str | None = Field(default=None, description="Что сказать человеку, по-русски")
     walk: WalkLeg | None = Field(

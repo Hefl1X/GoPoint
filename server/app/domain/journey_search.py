@@ -305,3 +305,20 @@ def _choose(plans: list[Plan], params: SearchParams) -> list[Plan]:
             continue
         chosen.append(plan)
     return chosen
+
+
+def with_transfer_times(
+    transfers: Mapping[str, Sequence[tuple[str, int]]],
+    fixes: Sequence[tuple[str, str, int | None]],
+) -> dict[str, list[tuple[str, int]]]:
+    """Пешие пересадки с настоящим временем по улицам: (откуда, куда, секунды или None).
+
+    None: пути по улицам нет, пересадка убирается.
+    """
+    fixed = {stop: list(pairs) for stop, pairs in transfers.items()}
+    for from_stop, to_stop, seconds in fixes:
+        pairs = [(sid, s) for sid, s in fixed.get(from_stop, []) if sid != to_stop]
+        if seconds is not None:
+            pairs.append((to_stop, seconds))
+        fixed[from_stop] = pairs
+    return fixed
