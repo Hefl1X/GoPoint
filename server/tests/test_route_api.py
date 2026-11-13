@@ -198,6 +198,15 @@ def test_walk_option_when_points_are_close(client: TestClient) -> None:
     assert walk["distanceM"] > 0
 
 
+def test_points_across_the_street_walk_is_better(client: TestClient) -> None:
+    """Аудит 14.11: точки в 100 м — не везём по кольцу на другую сторону улицы."""
+    body = route(client, True, origin=shifted(ORIGIN, 40), destination=shifted(ORIGIN, -60))
+    assert body["journeys"] == []
+    assert body["status"] == "walk_better"
+    assert body["message"] == "Пешком быстрее"
+    assert body["walk"] is not None
+
+
 def test_walk_option_up_to_two_km_even_if_transit_is_faster(client: TestClient) -> None:
     """Решение владельца 14.11: карточка «Пешком» есть всегда, если путь до 2 км."""
     # По прямой 1400 м, по улицам заглушки ×1,3 = 1820 м.

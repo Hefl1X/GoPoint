@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from app.domain.journey_search import Ride, SearchParams, TransferWalk, Trip, search
+from app.domain.journey_search import (
+    Ride,
+    SearchParams,
+    TransferWalk,
+    Trip,
+    search,
+    with_transfer_times,
+)
 from app.domain.linear import StopCall
 from app.domain.models import EtaMethod, LatLon, Stop
 
@@ -147,3 +154,22 @@ def test_variants_not_much_later_than_fastest() -> None:
     too_slow = trip("bus-2", ("s1", 6), ("s4", 90))  # на 75 мин позже: не показываем
     plans = search(NOW, [fast, too_slow], {"s0": 60, "s1": 0}, {"s3": 0, "s4": 0}, {}, P)
     assert [p.vehicle_ids for p in plans] == [("bus-1",)]
+
+
+def test_slow_transfer_on_streets_leads_to_other_variant() -> None:
+    """Аудит 14.11: пересадка по улицам дольше оценки — ищем заново, а не «транспорта нет»."""
+    first = trip("bus-1", ("a", 5), ("x", 10))
+    connect = trip("bus-2", ("y", 18), ("b", 24))  # запас на пересадку 2 + 3 мин
+    slow_direct = trip("bus-3", ("a", 6), ("b", 40))
+    transfers = {"x": [("y", 60)]}
+    [best, *_] = search(NOW, [first, connect, slow_direct], {"a": 60}, {"b": 60}, transfers, P)
+    assert best.vehicle_ids == ("bus-1", "bus-2")
+    # По улицам пересадка x → y заняла 15 мин: bus-2 уже не догнать.
+    fixed = with_transfer_times(transfers, [("x", "y", 15 * 60)])
+    [again, *_] = search(NOW, [first, connect, slow_direct], {"a": 60}, {"b": 60}, fixed, P)
+    assert again.vehicle_ids == ("bus-3",)
+
+
+def test_transfer_without_street_path_is_removed() -> None:
+    fixed = with_transfer_times({"x": [("y", 60), ("z", 90)]}, [("x", "y", None)])
+    assert fixed == {"x": [("z", 90)]}

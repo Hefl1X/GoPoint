@@ -719,10 +719,11 @@
             "title": "Message"
           },
           "status": {
-            "description": "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем)",
+            "description": "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти",
             "enum": [
               "ok",
-              "no_transit"
+              "no_transit",
+              "walk_better"
             ],
             "title": "Status",
             "type": "string"

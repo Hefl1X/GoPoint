@@ -12,12 +12,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal
 
+from app.domain.access import choose_access_stops, drop_worse_than_walk
 from app.domain.geo import distance_m
-from app.domain.journey_search import Plan, Ride, SearchParams, TransferWalk, Trip, search
+from app.domain.journey_search import (
+    Plan,
+    Ride,
+    SearchParams,
+    TransferWalk,
+    Trip,
+    search,
+    with_transfer_times,
+)
 from app.domain.linear import (
     EtaParams,
     LineGeometry,
@@ -60,6 +70,8 @@ TRANSFER_DETOUR = 1.4
 RIDE_EXTRA = timedelta(minutes=90)
 # Сколько пеших запросов к OTP одновременно.
 WALK_CONCURRENCY = 4
+# Сколько раз искать заново, если пешая пересадка по улицам оказалась дольше оценки.
+TRANSFER_RETRIES = 2
 
 
 class TransitUnavailableError(Exception):
@@ -78,12 +90,17 @@ class PlannerSettings:
     walk_speed_mps: float
     snapshot_max_age: timedelta
     walk_option_max_m: float = 2000.0
+    # Кроме access_stops ближайших: ближайшая остановка каждого маршрута и направления
+    # в этом радиусе, всего не больше access_stops_max.
+    access_radius_m: float = 1500.0
+    access_stops_max: int = 40
 
 
 @dataclass(frozen=True)
 class RouteOutcome:
     journeys: list[Journey]
-    status: Literal["ok", "no_transit"]
+    # walk_better: варианты на транспорте были, но все хуже пути пешком (walk).
+    status: Literal["ok", "no_transit", "walk_better"]
     snapshot: Snapshot
     # Путь пешком от А до Б: отдельный выбор рядом с транспортом, маршрут им не подменяется.
     walk: WalkLeg | None = None
@@ -125,6 +142,15 @@ class CheckOutcome:
     alternative: Journey | None  # предложение; сам маршрут не заменяется
     gain_s: int | None  # насколько раньше приедет по предложению
     snapshot: Snapshot
+
+
+@dataclass(frozen=True)
+class _TransferFix:
+    """Пешая пересадка по улицам дольше оценки (seconds) или пути нет (None)."""
+
+    from_stop: str
+    to_stop: str
+    seconds: int | None
 
 
 @dataclass(frozen=True)
@@ -300,8 +326,13 @@ class JourneyPlanner:
         self, network: _Network, point: LatLon, *, to_point: bool
     ) -> tuple[dict[str, WalkLeg], list[WalkPlannerError]]:
         """Пешком от точки до ближайших остановок (или от них до точки)."""
-        nearest = sorted(network.stops.values(), key=lambda s: distance_m(s.point, point))
-        chosen = nearest[: self._s.access_stops]
+        chosen = choose_access_stops(
+            network.source.values(),
+            point,
+            nearest=self._s.access_stops,
+            radius_m=self._s.access_radius_m,
+            max_total=self._s.access_stops_max,
+        )
         here = Place(point=point)
         sem = asyncio.Semaphore(WALK_CONCURRENCY)
 
@@ -334,7 +365,10 @@ class JourneyPlanner:
         low_floor_only: bool,
         exclude: frozenset[str] = frozenset(),
         first_vehicle: str | None = None,
+        compare_walk: bool = True,
     ) -> RouteOutcome:
+        """Варианты «сейчас». compare_walk: отбросить поездки хуже пути пешком (не для проверки
+        уже выбранного маршрута: там нужна именно выбранная машина)."""
         snap = await self._snapshot()
         network = await self._load_network()
         lines = {line.id: line for line in await self._live.lines()}
@@ -352,29 +386,43 @@ class JourneyPlanner:
 
         trips = self._trips(network, snap, now, low_floor_only, ring_lines)
         usable_trips = [t for vid, (t, _) in trips.items() if vid not in exclude]
-        plans = search(
-            now,
-            usable_trips,
-            {sid: leg.duration_s for sid, leg in access.items()},
-            {sid: leg.duration_s for sid, leg in egress.items()},
-            network.transfers,
-            self._s.search,
-            first_vehicle=first_vehicle,
-        )
         ctx = _Context(
             now, origin, destination, access, egress, trips, lines, low_floor_only, network
         )
+        transfers: Mapping[str, Sequence[tuple[str, int]]] = network.transfers
         journeys: list[Journey] = []
-        for plan in plans:
-            journey = await self._journey(plan, ctx)
-            if journey is not None:
-                journeys.append(journey)
-        return RouteOutcome(
-            journeys,
-            "ok" if journeys else "no_transit",
-            snap,
-            walk=self._walk_option(direct),
-        )
+        for attempt in range(TRANSFER_RETRIES + 1):
+            plans = search(
+                now,
+                usable_trips,
+                {sid: leg.duration_s for sid, leg in access.items()},
+                {sid: leg.duration_s for sid, leg in egress.items()},
+                transfers,
+                self._s.search,
+                first_vehicle=first_vehicle,
+            )
+            journeys = []
+            fixes: list[_TransferFix] = []
+            for plan in plans:
+                result = await self._journey(plan, ctx)
+                if isinstance(result, Journey):
+                    journeys.append(result)
+                elif isinstance(result, _TransferFix):
+                    fixes.append(result)
+            if not fixes or attempt == TRANSFER_RETRIES:
+                break
+            # Вариант не успел из-за настоящей пешей пересадки: ищем заново с ней,
+            # чтобы не ответить «Транспорта сейчас нет», когда есть другой вариант.
+            transfers = with_transfer_times(
+                transfers, [(f.from_stop, f.to_stop, f.seconds) for f in fixes]
+            )
+        walk = self._walk_option(direct)
+        status: Literal["ok", "no_transit", "walk_better"] = "ok" if journeys else "no_transit"
+        if compare_walk and journeys:
+            journeys = drop_worse_than_walk(journeys, walk, now)
+            if not journeys:
+                status = "walk_better"
+        return RouteOutcome(journeys, status, snap, walk=walk)
 
     async def _direct_walk(self, origin: LatLon, destination: LatLon) -> WalkLeg | None:
         """Путь пешком прямо от А до Б; None, если пути по улицам нет или OTP не ответил."""
@@ -485,7 +533,11 @@ class JourneyPlanner:
         """
         now = self._clock()
         current_outcome = await self.plan(
-            origin, destination, low_floor_only=low_floor_only, first_vehicle=vehicle_id
+            origin,
+            destination,
+            low_floor_only=low_floor_only,
+            first_vehicle=vehicle_id,
+            compare_walk=False,
         )
         snap = current_outcome.snapshot
         current = current_outcome.journeys[0] if current_outcome.journeys else None
@@ -527,8 +579,12 @@ class JourneyPlanner:
             snapshot=snap,
         )
 
-    async def _journey(self, plan: Plan, ctx: _Context) -> Journey | None:
-        """Шаги варианта с настоящими пешими участками. None, если пересадка не успевает."""
+    async def _journey(self, plan: Plan, ctx: _Context) -> Journey | _TransferFix | None:
+        """Шаги варианта с настоящими пешими участками.
+
+        _TransferFix: пересадка по улицам дольше оценки или без пути (искать заново);
+        None: не успевает по другой причине.
+        """
         trips = ctx.trips
         first = ctx.access[plan.access_stop]
         legs: list[Leg] = [first.model_copy(update={"origin": Place(point=ctx.origin)})]
@@ -545,7 +601,14 @@ class JourneyPlanner:
                         Place(name=a.name, point=a.point), Place(name=b.name, point=b.point)
                     )
                 except WalkPlannerError:
-                    return None  # на пересадке нет пути по улицам
+                    return _TransferFix(step.from_stop, step.to_stop, None)
+                if walk.duration_s > step.duration_s:
+                    late = ready + timedelta(seconds=walk.duration_s)
+                    next_ride = _next_ride(plan, step)
+                    if next_ride is not None and late + margin + transfer_margin > (
+                        next_ride.trip.calls[next_ride.board].arrive_at
+                    ):
+                        return _TransferFix(step.from_stop, step.to_stop, walk.duration_s)
                 legs.append(walk)
                 ready += timedelta(seconds=walk.duration_s)
                 continue
@@ -636,6 +699,14 @@ class JourneyPlanner:
                 method=board.method, position_observed_at=v.position_observed_at
             ),
         )
+
+
+def _next_ride(plan: Plan, walk: TransferWalk) -> Ride | None:
+    steps = list(plan.steps)
+    for step in steps[steps.index(walk) + 1 :]:
+        if isinstance(step, Ride):
+            return step
+    return None
 
 
 def _most_telling(errors: list[WalkPlannerError]) -> WalkPlannerError:

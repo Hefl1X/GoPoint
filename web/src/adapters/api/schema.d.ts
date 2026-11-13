@@ -543,10 +543,10 @@ export interface components {
             message?: string | null;
             /**
              * Status
-             * @description no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем)
+             * @description no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти
              * @enum {string}
              */
-            status: "ok" | "no_transit";
+            status: "ok" | "no_transit" | "walk_better";
             /** @description Путь пешком от А до Б: отдельный выбор рядом с транспортом (если он не намного дольше транспорта); null — не показывать */
             walk?: components["schemas"]["WalkLeg"] | null;
         };

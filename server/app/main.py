@@ -150,6 +150,8 @@ def planner_settings(settings: Settings) -> PlannerSettings:
         walk_speed_mps=settings.walk_speed_mps,
         snapshot_max_age=timedelta(seconds=settings.snapshot_max_age_s),
         walk_option_max_m=settings.walk_option_max_m,
+        access_radius_m=settings.access_radius_m,
+        access_stops_max=settings.access_stops_max,
     )
 
 
