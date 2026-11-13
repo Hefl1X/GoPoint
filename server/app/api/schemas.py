@@ -143,6 +143,10 @@ class ArrivalsResponse(DomainModel):
     diagnostics: SnapshotDiagnostics
 
 
+class StopsResponse(DomainModel):
+    stops: list[Stop] = Field(description="Остановки в области карты, без повторов")
+
+
 class VehicleDetails(DomainModel):
     vehicle: Vehicle
     toward: str | None = Field(

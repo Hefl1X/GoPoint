@@ -30,6 +30,7 @@ class FakeTransitFeed:
         self._vehicles = parse_vehicles(self._load("markers.json")).vehicles
         self.fail = False  # включается в тестах: «источник не отвечает»
         self.vehicle_requests = 0
+        self.path_requests = 0
 
     @property
     def max_lines_per_request(self) -> int:
@@ -59,6 +60,7 @@ class FakeTransitFeed:
         self, line_ids: Sequence[str], direction: Direction
     ) -> dict[str, LinePath]:
         self._check()
+        self.path_requests += 1
         wanted = [(i, self._routes[i].marsh) for i in _BATCH_LINES]
         paths = parse_traces(self._load(_BATCH_FILES[direction]), wanted, direction)
         return {i: p for i, p in paths.items() if i in set(line_ids)}

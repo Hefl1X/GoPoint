@@ -5,9 +5,11 @@ import { onlineManager, useQuery, type UseQueryResult } from '@tanstack/react-qu
 import { useSyncExternalStore } from 'react';
 import type { Journey, RouteCheck, RoutePlan, RoutePoints } from '../domain/journey';
 import type {
+  Bounds,
   LineDetails,
   LinesList,
   Meta,
+  Stop,
   StopArrivals,
   Vehicle,
   VehicleDetails,
@@ -103,6 +105,32 @@ export function useLine(lineId: string | null, lowFloorOnly: boolean): LiveQuery
     networkMode: 'offlineFirst',
   });
   return { query, data: freshData(query, staleMs) };
+}
+
+/** Остановки в области карты; область округлена наружу, чтобы небольшие сдвиги карты
+ * не вызывали новых запросов. Остановки почти не меняются: храним долго. */
+export function useStops(area: Bounds | null): UseQueryResult<readonly Stop[]> {
+  const { api } = useServices();
+  const grid = area ? roundOut(area) : null;
+  return useQuery({
+    queryKey: ['stops', grid],
+    queryFn: ({ signal }) => (grid ? api.getStops(grid, signal) : Promise.resolve([])),
+    enabled: grid !== null,
+    staleTime: 60 * 60 * 1000,
+    placeholderData: (previous) => previous,
+  });
+}
+
+const STOPS_GRID_DEG = 0.01;
+
+function roundOut(area: Bounds): Bounds {
+  const down = (v: number) => Math.floor(v / STOPS_GRID_DEG) * STOPS_GRID_DEG;
+  const up = (v: number) => Math.ceil(v / STOPS_GRID_DEG) * STOPS_GRID_DEG;
+  const fix = (v: number) => Number(v.toFixed(4));
+  return {
+    southWest: { lat: fix(down(area.southWest.lat)), lon: fix(down(area.southWest.lon)) },
+    northEast: { lat: fix(up(area.northEast.lat)), lon: fix(up(area.northEast.lon)) },
+  };
 }
 
 export function useStopArrivals(stopId: string, lowFloorOnly: boolean): LiveQuery<StopArrivals> {

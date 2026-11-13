@@ -38,6 +38,7 @@ from app.domain.linear import (
 )
 from app.domain.live import usable_vehicles
 from app.domain.models import (
+    Bounds,
     Direction,
     EtaDiagnostics,
     Journey,
@@ -436,6 +437,12 @@ class JourneyPlanner:
         if walk is None:
             return None
         return walk if walk.distance_m <= self._s.walk_option_max_m else None
+
+    async def stops_in(self, bounds: Bounds) -> list[Stop]:
+        """Остановки всех маршрутов в области карты (без повторов, по названию)."""
+        network = await self._load_network()
+        found = [s for s in network.stops.values() if bounds.contains(s.point)]
+        return sorted(found, key=lambda s: (s.name, s.id))
 
     async def stop_arrivals(self, stop_id: str, *, low_floor_only: bool) -> ArrivalsOutcome:
         """Что подъезжает к остановке в пределах горизонта, по времени прихода.

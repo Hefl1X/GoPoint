@@ -27,6 +27,19 @@ export interface MapJourneyLine {
   readonly color: string;
 }
 
+/** Остановка на карте. */
+export interface MapStop {
+  readonly id: string;
+  readonly name: string;
+  readonly point: LatLon;
+}
+
+/** Что сейчас видно на карте. */
+export interface MapViewport {
+  readonly bounds: Bounds;
+  readonly zoom: number;
+}
+
 export interface MapViewProps {
   /** Подпись для экранной читалки. */
   readonly label: string;
@@ -58,6 +71,11 @@ export interface MapViewProps {
   readonly picking: boolean;
   readonly onCenterChange?: ((center: LatLon) => void) | undefined;
   readonly onVehicleSelect: (id: string) => void;
+  /** Остановки в видимой области (рисуются, когда карта приближена). */
+  readonly stops?: readonly MapStop[] | undefined;
+  readonly onStopSelect?: ((id: string) => void) | undefined;
+  /** Карта остановилась: что сейчас видно. */
+  readonly onViewportChange?: ((view: MapViewport) => void) | undefined;
 }
 
 export type MapView = ComponentType<MapViewProps>;

@@ -75,7 +75,10 @@ export function VehicleCard({
         <div className="next-stop">
           <p className="next-stop__label">{ru.vehicle.nextStop}</p>
           <p className="next-stop__name">
-            {timed[0].stop.name} · {etaText(timed[0].arriveAt, now)}
+            <a className="stop-link" href={routeHref({ name: 'stop', stopId: timed[0].stop.id })}>
+              {timed[0].stop.name}
+            </a>{' '}
+            · {etaText(timed[0].arriveAt, now)}
           </p>
           {vehicle.speedKmh != null ? (
             <p className="next-stop__speed">
@@ -88,7 +91,15 @@ export function VehicleCard({
           <p className="next-stop__label">
             {nextStop ? ru.vehicle.nextStop : ru.vehicle.atTerminal}
           </p>
-          <p className="next-stop__name">{nextStop ? nextStop.name : toward}</p>
+          <p className="next-stop__name">
+            {nextStop ? (
+              <a className="stop-link" href={routeHref({ name: 'stop', stopId: nextStop.id })}>
+                {nextStop.name}
+              </a>
+            ) : (
+              toward
+            )}
+          </p>
           {vehicle.speedKmh != null ? (
             <p className="next-stop__speed">
               {ru.vehicle.speed} {Math.round(vehicle.speedKmh)} {ru.vehicle.kmh}
@@ -105,7 +116,9 @@ export function VehicleCard({
           <ul className="further">
             {timed.slice(1, 1 + FURTHER_STOPS).map((s) => (
               <li key={`${s.stop.id}-${s.arriveAt}`}>
-                <span>{s.stop.name}</span>
+                <a className="stop-link" href={routeHref({ name: 'stop', stopId: s.stop.id })}>
+                  {s.stop.name}
+                </a>
                 <span>{etaText(s.arriveAt, now)}</span>
               </li>
             ))}

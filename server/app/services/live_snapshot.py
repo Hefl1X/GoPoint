@@ -77,6 +77,8 @@ class LiveSnapshotService:
         self._lines_lock = asyncio.Lock()
         self._network: _Cached[dict[tuple[str, Direction], LinePath]] | None = None
         self._network_lock = asyncio.Lock()
+        self._warming: asyncio.Task[None] | None = None
+        self._warm_retry_at: datetime | None = None
         self._still: dict[str, _Still] = {}
 
     # ------------------------------------------------------------ активность
@@ -232,10 +234,28 @@ class LiveSnapshotService:
             )
             return self._snapshot
 
+    async def _warm_network(self) -> None:
+        """Линии всех маршрутов заранее, как только кто-то пришёл (первому маршруту не ждать)."""
+        try:
+            await self.network()
+        except TransitFeedError as exc:
+            log.warning("Линии маршрутов заранее не загрузились: %s", exc)
+            # Источник недоступен: не долбим его каждую секунду.
+            self._warm_retry_at = self._clock() + timedelta(minutes=5)
+        finally:
+            self._warming = None
+
     async def run_poller(self, tick_s: float = 1.0) -> None:
         """Фоновый опрос: пока есть пользователи, раз в poll_interval_s."""
         while True:
             due = self._last_attempt is None or self._clock() - self._last_attempt >= self._interval
+            if (
+                self.is_active()
+                and self._network is None
+                and self._warming is None
+                and (self._warm_retry_at is None or self._clock() >= self._warm_retry_at)
+            ):
+                self._warming = asyncio.create_task(self._warm_network())
             if self.is_active() and due:
                 try:
                     await self.refresh()

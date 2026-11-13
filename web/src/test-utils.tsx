@@ -204,6 +204,7 @@ export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
     ),
     getLines: vi.fn(() => Promise.resolve(linesList())),
     getLine: vi.fn(() => Promise.resolve(LINE_DETAILS)),
+    getStops: vi.fn(() => Promise.resolve([])),
     getStopArrivals: vi.fn((_stopId: string, lowFloorOnly: boolean) =>
       Promise.resolve(stopArrivals(lowFloorOnly)),
     ),

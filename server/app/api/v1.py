@@ -29,6 +29,7 @@ from app.api.schemas import (
     RouteResponse,
     SearchResponse,
     SnapshotDiagnostics,
+    StopsResponse,
     VehicleDetails,
     VehiclesResponse,
     WalkRequest,
@@ -141,13 +142,20 @@ def _diagnostics(snap: Snapshot) -> SnapshotDiagnostics:
     return SnapshotDiagnostics(fetched_at=snap.fetched_at, complete=snap.complete)
 
 
-def parse_bbox(value: str) -> Bounds:
-    bad = AppError(
+MAX_STOPS_SPAN_DEG = 0.15
+
+
+def bad_bbox() -> AppError:
+    return AppError(
         422,
         "BAD_BBOX",
         "Проверьте введённые данные.",
         {"field": "bbox", "expected": "south,west,north,east"},
     )
+
+
+def parse_bbox(value: str) -> Bounds:
+    bad = bad_bbox()
     parts = value.split(",")
     if len(parts) != 4:
         raise bad
@@ -412,6 +420,26 @@ async def live_route(
     if not directions:
         raise transit_unavailable()
     return LineDetails(line=line, directions=directions, diagnostics=_diagnostics(snap))
+
+
+@router.get("/live/stops", tags=["live"])
+async def live_stops(
+    planner: PlannerDep,
+    bbox: Annotated[str, Query(description="Видимая область: south,west,north,east")],
+) -> StopsResponse:
+    """Остановки в видимой области карты. Область больше ~15 км по стороне не принимаем:
+    на карте остановки видны только вблизи."""
+    bounds = parse_bbox(bbox)
+    if (
+        bounds.north_east.lat - bounds.south_west.lat > MAX_STOPS_SPAN_DEG
+        or bounds.north_east.lon - bounds.south_west.lon > MAX_STOPS_SPAN_DEG
+    ):
+        raise bad_bbox()
+    try:
+        stops = await planner.stops_in(bounds)
+    except TransitUnavailableError as exc:
+        raise transit_unavailable() from exc
+    return StopsResponse(stops=stops)
 
 
 @router.get("/live/stops/{stop_id}/arrivals", tags=["live"])

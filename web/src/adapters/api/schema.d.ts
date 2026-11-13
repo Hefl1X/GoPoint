@@ -55,6 +55,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/live/stops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live Stops
+         * @description Остановки в видимой области карты. Область больше ~15 км по стороне не принимаем:
+         *     на карте остановки видны только вблизи.
+         */
+        get: operations["live_stops_api_v1_live_stops_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/live/stops/{stop_id}/arrivals": {
         parameters: {
             query?: never;
@@ -602,6 +623,14 @@ export interface components {
             toward?: string | null;
             vehicle: components["schemas"]["Vehicle"];
         };
+        /** StopsResponse */
+        StopsResponse: {
+            /**
+             * Stops
+             * @description Остановки в области карты, без повторов
+             */
+            stops: components["schemas"]["Stop"][];
+        };
         /**
          * TransitLeg
          * @description Поездка на конкретной машине.
@@ -868,6 +897,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LineDetails"];
+                };
+            };
+            /** @description Неверные данные запроса */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ошибка сервера */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ещё не сделано */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    live_stops_api_v1_live_stops_get: {
+        parameters: {
+            query: {
+                /** @description Видимая область: south,west,north,east */
+                bbox: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StopsResponse"];
                 };
             };
             /** @description Неверные данные запроса */

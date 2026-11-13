@@ -853,6 +853,24 @@
         "title": "StopArrival",
         "type": "object"
       },
+      "StopsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "stops": {
+            "description": "Остановки в области карты, без повторов",
+            "items": {
+              "$ref": "#/components/schemas/Stop"
+            },
+            "title": "Stops",
+            "type": "array"
+          }
+        },
+        "required": [
+          "stops"
+        ],
+        "title": "StopsResponse",
+        "type": "object"
+      },
       "TransitLeg": {
         "additionalProperties": false,
         "description": "Поездка на конкретной машине.",
@@ -1388,6 +1406,71 @@
           }
         },
         "summary": "Live Route",
+        "tags": [
+          "live"
+        ]
+      }
+    },
+    "/api/v1/live/stops": {
+      "get": {
+        "description": "Остановки в видимой области карты. Область больше ~15 км по стороне не принимаем:\nна карте остановки видны только вблизи.",
+        "operationId": "live_stops_api_v1_live_stops_get",
+        "parameters": [
+          {
+            "description": "Видимая область: south,west,north,east",
+            "in": "query",
+            "name": "bbox",
+            "required": true,
+            "schema": {
+              "description": "Видимая область: south,west,north,east",
+              "title": "Bbox",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Неверные данные запроса"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ошибка сервера"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Ещё не сделано"
+          }
+        },
+        "summary": "Live Stops",
         "tags": [
           "live"
         ]
