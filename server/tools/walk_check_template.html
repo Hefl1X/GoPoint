@@ -12,7 +12,7 @@
  @media (max-width:700px){#map{inset:45% 0 0 0}#list{width:auto;right:0;bottom:55%}}
 </style></head><body>
 <div id="list"><b>10 пеших маршрутов</b><br>
-<small>Сплошная линия: путь для коляски (как в приложении). Пунктир: обычный пешеход, для сравнения.
+<small>Сплошная линия: путь в приложении (обычный пешеход). Пунктир: с обходом лестниц (прежний режим коляски), для сравнения.
 Нажмите на маршрут в списке, чтобы приблизить.</small><div id="items"></div>
 <small>© OpenStreetMap contributors · OpenFreeMap © OpenMapTiles</small></div>
 <div id="map"></div>
@@ -22,15 +22,15 @@ const data = __DATA__;
 const map = new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[82.92,55.03],zoom:11});
 map.on('load',()=>{
   map.addSource('r',{type:'geojson',data});
-  map.addLayer({id:'plain',type:'line',source:'r',filter:['==',['get','kind'],'пешеход'],
+  map.addLayer({id:'plain',type:'line',source:'r',filter:['==',['get','kind'],'обход лестниц'],
     paint:{'line-color':['get','color'],'line-width':3,'line-dasharray':[2,2],'line-opacity':0.7}});
-  map.addLayer({id:'chair',type:'line',source:'r',filter:['==',['get','kind'],'коляска'],
+  map.addLayer({id:'chair',type:'line',source:'r',filter:['==',['get','kind'],'приложение'],
     paint:{'line-color':['get','color'],'line-width':5}});
 });
 const items=document.getElementById('items');
 const seen=new Set();
 for(const f of data.features){
-  if(f.properties.kind!=='коляска'||seen.has(f.properties.n))continue; seen.add(f.properties.n);
+  if(f.properties.kind!=='приложение'||seen.has(f.properties.n))continue; seen.add(f.properties.n);
   const b=document.createElement('button');
   b.innerHTML='<span class="sw" style="background:'+f.properties.color+'"></span>'+f.properties.text;
   b.onclick=()=>{const c=f.geometry.coordinates;const bb=c.reduce((a,p)=>[[Math.min(a[0][0],p[0]),Math.min(a[0][1],p[1])],[Math.max(a[1][0],p[0]),Math.max(a[1][1],p[1])]],[c[0],c[0]]);map.fitBounds(bb,{padding:60});};

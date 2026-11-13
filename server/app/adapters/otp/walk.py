@@ -1,11 +1,10 @@
 """WalkPlanner на OpenTripPlanner 2.10 (контейнер otp во внутренней сети).
 
-Только пешие участки (без транспорта): directOnly + WALK. Профиль коляски включён
-всегда, здесь, на сервере (wheelchair.enabled = true); пользователь его не выбирает.
-Что он делает (docs Accessibility.md, RouteRequest.md OTP 2.10): обходит лестницы,
-дороги с wheelchair=no и высокие бордюры (barrier=kerb без kerb=flush/lowered/no),
-штрафует уклон круче maxSlope (8,3 %). Это штрафы, а не запрет: если другого пути нет,
-OTP может провести и через них. Настройки штрафов: otp/router-config.json.
+Только пешие участки (без транспорта): directOnly + WALK, обычный пешеход.
+Режим коляски выключен явно (wheelchair.enabled = false) по решению владельца 14.11.2026:
+в OpenStreetMap Новосибирска бордюры и съезды почти не размечены, поэтому путь строится
+по всем улицам и тротуарам. Ступени на пути видны по признаку hasStairs (parse.py).
+Скорость задаётся настройкой GOPOINT_WALK_SPEED_MPS.
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ import httpx
 
 from app.adapters.otp.parse import parse_walk
 from app.domain.models import Place, WalkLeg
-from app.ports import NoAccessibleWalkError, NoWalkRouteError, WalkPlannerUnavailableError
+from app.ports import WalkPlannerUnavailableError
 
 GRAPHQL_PATH = "/otp/gtfs/v1"
 
@@ -28,7 +27,7 @@ query Walk($from: PlanLabeledLocationInput!, $to: PlanLabeledLocationInput!, $sp
     first: 1
     modes: { directOnly: true, direct: [WALK] }
     preferences: {
-      accessibility: { wheelchair: { enabled: true } }
+      accessibility: { wheelchair: { enabled: false } }
       street: { walk: { speed: $speed } }
     }
   ) {
@@ -71,24 +70,8 @@ class OtpWalkPlanner:
         await self._client.aclose()
 
     async def walk(self, origin: Place, destination: Place) -> WalkLeg:
-        try:
-            return await self._plan(QUERY, origin, destination)
-        except NoAccessibleWalkError:
-            raise
-        except NoWalkRouteError as exc:
-            # Есть ли путь хотя бы для обычного пешехода? Тогда мешают лестницы или
-            # препятствия: человеку нужно сказать именно это. Этот путь мы не отдаём.
-            try:
-                await self._plan(
-                    QUERY.replace("enabled: true", "enabled: false"), origin, destination
-                )
-            except NoWalkRouteError:
-                raise exc from None
-            raise NoAccessibleWalkError("путь есть только с препятствиями") from exc
-
-    async def _plan(self, query: str, origin: Place, destination: Place) -> WalkLeg:
         payload = {
-            "query": query,
+            "query": QUERY,
             "variables": {
                 "from": _location(origin),
                 "to": _location(destination),

@@ -9,7 +9,6 @@ from app.config import Settings
 from app.domain.models import LatLon, Place, WalkLeg
 from app.main import create_app
 from app.ports import (
-    NoAccessibleWalkError,
     NoWalkRouteError,
     PointNotOnStreetError,
     WalkPlannerError,
@@ -104,7 +103,6 @@ def test_api_walk_outside_city(client: TestClient, planner: StubPlanner) -> None
     [
         (PointNotOnStreetError("x"), 422, "POINT_NOT_ON_STREET"),
         (NoWalkRouteError("x"), 422, "NO_WALK_ROUTE"),
-        (NoAccessibleWalkError("x"), 422, "NO_ACCESSIBLE_WALK"),
         (WalkPlannerUnavailableError("x"), 503, "WALK_UNAVAILABLE"),
     ],
 )

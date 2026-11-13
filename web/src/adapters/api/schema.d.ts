@@ -145,7 +145,7 @@ export interface paths {
          * @description Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.
          *
          *     lowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой
-         *     поездки пометка lowFloor. Пешие участки всегда по профилю коляски.
+         *     поездки пометка lowFloor. Пешие участки по улицам, скорость из настройки.
          */
         post: operations["route_api_v1_route_post"];
         delete?: never;
@@ -226,8 +226,8 @@ export interface paths {
         put?: never;
         /**
          * Walk
-         * @description Пеший участок по профилю коляски: время, расстояние, линия. Служебный адрес для
-         *     проверки и для расчёта маршрута; профиль коляски включён всегда.
+         * @description Пеший участок по улицам: время, расстояние, линия, есть ли ступени. Служебный адрес
+         *     для проверки и для расчёта маршрута.
          */
         post: operations["walk_api_v1_walk_post"];
         delete?: never;
@@ -547,7 +547,7 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "no_transit";
-            /** @description Путь пешком от А до Б по профилю коляски: отдельный выбор рядом с транспортом (если он не намного дольше транспорта); null — не показывать */
+            /** @description Путь пешком от А до Б: отдельный выбор рядом с транспортом (если он не намного дольше транспорта); null — не показывать */
             walk?: components["schemas"]["WalkLeg"] | null;
         };
         /** SearchResponse */
@@ -709,7 +709,7 @@ export interface components {
         };
         /**
          * WalkLeg
-         * @description Пеший участок по профилю коляски.
+         * @description Пеший участок по улицам и тротуарам.
          */
         WalkLeg: {
             /** Climbm */

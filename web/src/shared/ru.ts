@@ -151,7 +151,7 @@ export const ru = {
     walkMinutes: (minutes: number) => `${String(minutes)} мин`,
     walkHeadline: (minutes: number) => `Пешком · ${String(minutes)} мин`,
     stairsWarn: 'На пути есть лестница или эскалатор',
-    walkNote: 'Путь построен по данным карты для коляски, состояние тротуаров не гарантируется.',
+    walkNote: 'Путь построен по данным карты, состояние тротуаров не гарантируется.',
   },
   search: {
     fromLabel: 'Откуда: адрес или место',

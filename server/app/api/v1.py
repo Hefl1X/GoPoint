@@ -40,7 +40,6 @@ from app.domain.live import line_sort_key, usable_vehicles
 from app.domain.models import Bounds, Direction, LatLon, Place, TransportType, WalkLeg
 from app.ports import (
     GeocoderError,
-    NoAccessibleWalkError,
     NoWalkRouteError,
     PointNotOnStreetError,
     TransitFeedError,
@@ -215,12 +214,6 @@ def walk_error(exc: WalkPlannerError) -> AppError:
             "POINT_NOT_ON_STREET",
             "Рядом с точкой не нашлось улицы или тротуара. Выберите точку ближе к дороге.",
         )
-    if isinstance(exc, NoAccessibleWalkError):
-        return AppError(
-            422,
-            "NO_ACCESSIBLE_WALK",
-            "Отсюда нашёлся путь только по лестнице или эскалатору. Выберите точку ближе к улице.",
-        )
     if isinstance(exc, NoWalkRouteError):
         return AppError(422, "NO_WALK_ROUTE", "Не нашли путь по улицам между этими точками.")
     return AppError(
@@ -232,8 +225,8 @@ def walk_error(exc: WalkPlannerError) -> AppError:
 
 @router.post("/walk", tags=["route"])
 async def walk(body: WalkRequest, city: CityDep, walking: WalkingDep) -> WalkLeg:
-    """Пеший участок по профилю коляски: время, расстояние, линия. Служебный адрес для
-    проверки и для расчёта маршрута; профиль коляски включён всегда."""
+    """Пеший участок по улицам: время, расстояние, линия, есть ли ступени. Служебный адрес
+    для проверки и для расчёта маршрута."""
     _check_points(city, body.origin, body.destination)
     try:
         return await walking.walk(Place(point=body.origin), Place(point=body.destination))
@@ -259,7 +252,7 @@ async def route(body: RouteRequest, city: CityDep, planner: PlannerDep) -> Route
     """Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.
 
     lowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой
-    поездки пометка lowFloor. Пешие участки всегда по профилю коляски.
+    поездки пометка lowFloor. Пешие участки по улицам, скорость из настройки.
     """
     _check_points(city, body.origin, body.destination)
     try:

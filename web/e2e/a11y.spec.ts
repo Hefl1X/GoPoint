@@ -43,17 +43,17 @@ test('точка вне Новосибирска: понятное сообще�
   await check(page);
 });
 
-test('нет пути без лестниц: понятное сообщение', async ({ page }) => {
+test('нет пути по улицам: понятное сообщение', async ({ page }) => {
   await mockServer(page, {
     routeError: {
       status: 422,
-      code: 'NO_ACCESSIBLE_WALK',
-      message: 'До остановки нет пути без лестниц. Выберите точку рядом с улицей.',
+      code: 'NO_WALK_ROUTE',
+      message: 'Не нашли путь по улицам между этими точками.',
     },
   });
   await page.goto('/');
   await setPoints(page);
-  await expect(page.getByText(/без лестниц/).first()).toBeVisible();
+  await expect(page.getByText(/Не нашли путь по улицам/).first()).toBeVisible();
   await check(page);
 });
 
