@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from app.domain.geo import distance_m
-from app.domain.models import Direction, LatLon, Line, LinePath, LiveVehicle
+from app.domain.models import Direction, LatLon, Line, LinePath, LiveVehicle, Stop
 from app.ports import TransitFeed, TransitFeedError
 
 log = logging.getLogger(__name__)
@@ -154,6 +154,16 @@ class LiveSnapshotService:
             for key, path in value.items():
                 self._paths[key] = _Cached(path, now)
             return value
+
+    def known_stops(self) -> list[Stop]:
+        """Остановки из загруженных линий, без запросов к источнику (пока нет линий — пусто)."""
+        if self._network is None:
+            return []
+        unique: dict[str, Stop] = {}
+        for path in self._network.value.values():
+            for rs in path.stops:
+                unique.setdefault(rs.stop.id, rs.stop)
+        return list(unique.values())
 
     def still_for(self, vehicle_id: str, now: datetime | None = None) -> timedelta | None:
         """Сколько машина стоит на месте по её отметкам; None, если машину не видели."""

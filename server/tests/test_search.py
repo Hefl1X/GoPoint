@@ -230,3 +230,39 @@ def test_api_reverse_outside_city(client: TestClient, geo: StubGeocoder) -> None
     assert response.json()["code"] == "OUTSIDE_CITY"
     assert "56.5" not in response.text
     assert geo.reverse_calls == 0
+
+
+# --- свои подсказки (синонимы и остановки) ---
+
+
+class LocalStub:
+    def __init__(self, items: list[PlaceSuggestion]) -> None:
+        self.items = items
+
+    async def search(self, query: str, near: LatLon) -> list[PlaceSuggestion]:
+        return self.items
+
+
+async def test_local_aliases_come_first_and_survive_empty_geocoder() -> None:
+    alias_place = place("alias-1", "Новосибирск-Главный")
+    svc = service(StubGeocoder([place("p1", "Вокзальная магистраль")]))
+    svc.set_local(LocalStub([alias_place]))
+    result = await svc.search("вокзал")
+    assert [p.id for p in result] == ["alias-1", "p1"]
+
+
+async def test_local_still_works_when_geocoder_is_down() -> None:
+    geo = StubGeocoder()
+    geo.fail = True
+    svc = service(geo)
+    svc.set_local(LocalStub([place("alias-1", "НГУ")]))
+    assert [p.id for p in await svc.search("нгу ")] == ["alias-1"]
+
+
+async def test_local_not_cached_so_new_stops_appear() -> None:
+    local = LocalStub([])
+    svc = service(StubGeocoder([place("p1", "Цирк")]))
+    svc.set_local(local)
+    assert [p.id for p in await svc.search("цирк")] == ["p1"]
+    local.items = [place("stop-1", "Цирк", kind=PlaceKind.STOP, subtitle="Остановка")]
+    assert "stop-1" in [p.id for p in await svc.search("цирк")]
