@@ -4,8 +4,8 @@ import { useEffect, useRef } from 'react';
 import { etaText, stopsAwayText, upcoming } from '../../domain/arrivals';
 import { lineName } from '../../domain/transport';
 import type { StopArrivals } from '../../domain/types';
-import { BackButton, LiveState, LowFloorBadge, Pill, StatusBlock } from '../../shared/components';
-import { useOnline, useStopArrivals } from '../../shared/queries';
+import { LiveState, LowFloorBadge, Pill, StatusBlock } from '../../shared/components';
+import { useOnline, type LiveQuery } from '../../shared/queries';
 import { navigate, routeHref } from '../../shared/router';
 import { ru } from '../../shared/ru';
 import { useServices } from '../../shared/services';
@@ -13,24 +13,42 @@ import { useSettings } from '../../shared/settings';
 import { useTrip } from '../../shared/trip';
 import { useNow } from '../../shared/useNow';
 
-export function LiveStopScreen({ stopId }: { stopId: string }) {
+/** Остановка в нижней панели карты: что подъезжает, маршрут отсюда, панорама. */
+export function StopCard({ arrivals }: { arrivals: LiveQuery<StopArrivals> }) {
   const { lowFloorOnly } = useSettings();
   const online = useOnline();
-  const arrivals = useStopArrivals(stopId, lowFloorOnly);
   return (
-    <main className="screen">
+    <div className="stop-card">
       <LiveState
         query={arrivals.query}
         data={arrivals.data}
         online={online}
         render={(data) => <StopView data={data} lowFloorOnly={lowFloorOnly} />}
       />
-      {arrivals.data === undefined ? (
-        <div className="screen-head">
-          <BackButton />
-        </div>
-      ) : null}
-    </main>
+      {arrivals.data === undefined ? <CloseButton /> : null}
+    </div>
+  );
+}
+
+function CloseButton() {
+  return (
+    <button
+      type="button"
+      className="icon-button"
+      aria-label={ru.close}
+      onClick={() => {
+        navigate({ name: 'map', vehicleId: null });
+      }}
+    >
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path
+          d="M6 6l12 12M18 6L6 18"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    </button>
   );
 }
 
@@ -53,15 +71,15 @@ function StopView({ data, lowFloorOnly }: { data: StopArrivals; lowFloorOnly: bo
   return (
     <>
       <div className="screen-head">
-        <BackButton />
         <div>
-          <h1 ref={heading} tabIndex={-1}>
+          <h2 ref={heading} tabIndex={-1} className="stop-card__title">
             {data.stop.name}
-          </h1>
+          </h2>
           <p className="screen-title__sub">{ru.stop.kind}</p>
         </div>
+        <CloseButton />
       </div>
-      <h2>{ru.stop.nearest}</h2>
+      <h3>{ru.stop.nearest}</h3>
       {items.length === 0 ? (
         <StatusBlock
           title={ru.live.noneTitle}

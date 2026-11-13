@@ -3,7 +3,7 @@ import type { MapViewport } from '../ports/MapView';
 import type { Bounds } from './types';
 
 /** С этого масштаба на карте видны остановки (улицы и дома различимы). */
-export const MIN_STOPS_ZOOM = 15;
+export const MIN_STOPS_ZOOM = 14;
 
 /** Область, для которой нужны остановки; null, если карта далеко или область неизвестна. */
 export function stopsArea(view: MapViewport | null): Bounds | null {

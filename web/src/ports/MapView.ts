@@ -73,6 +73,8 @@ export interface MapViewProps {
   readonly onVehicleSelect: (id: string) => void;
   /** Остановки в видимой области (рисуются, когда карта приближена). */
   readonly stops?: readonly MapStop[] | undefined;
+  /** Выбранная остановка: рисуется крупнее и другим цветом, видна при любом масштабе. */
+  readonly selectedStopId?: string | null | undefined;
   readonly onStopSelect?: ((id: string) => void) | undefined;
   /** Карта остановилась: что сейчас видно. */
   readonly onViewportChange?: ((view: MapViewport) => void) | undefined;

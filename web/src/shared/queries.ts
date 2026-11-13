@@ -133,12 +133,16 @@ function roundOut(area: Bounds): Bounds {
   };
 }
 
-export function useStopArrivals(stopId: string, lowFloorOnly: boolean): LiveQuery<StopArrivals> {
+export function useStopArrivals(
+  stopId: string | null,
+  lowFloorOnly: boolean,
+): LiveQuery<StopArrivals> {
   const { api } = useServices();
   const { refreshMs, staleMs } = useLiveTiming();
   const query = useQuery({
     queryKey: ['stop', stopId, lowFloorOnly],
-    queryFn: ({ signal }) => api.getStopArrivals(stopId, lowFloorOnly, signal),
+    queryFn: ({ signal }) => api.getStopArrivals(stopId ?? '', lowFloorOnly, signal),
+    enabled: stopId !== null,
     ...liveOptions(refreshMs),
   });
   return { query, data: freshData(query, staleMs) };
