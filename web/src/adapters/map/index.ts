@@ -7,7 +7,7 @@ import { ListMapView } from '../map-list/ListMapView';
 function webglSupported(): boolean {
   try {
     const canvas = document.createElement('canvas');
-    return Boolean(canvas.getContext('webgl2') ?? canvas.getContext('webgl'));
+    return Boolean(canvas.getContext('webgl2'));
   } catch {
     // Браузер запретил WebGL: показываем список.
     return false;
