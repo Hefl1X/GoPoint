@@ -4,6 +4,7 @@ WORKDIR /web
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY . .
+ARG VITE_OSM_TILE_URL
 RUN npm run build
 
 FROM caddy:2.11.7-alpine

@@ -9,20 +9,20 @@ import { usePlaceSearch } from '../../shared/placeQueries';
 import { useOnline } from '../../shared/queries';
 import { navigate } from '../../shared/router';
 import { ru } from '../../shared/ru';
-import { useServices } from '../../shared/services';
 import { useTrip } from '../../shared/trip';
 import { EndpointBadge } from './TripCard';
 
 export function SearchPanel({
   end,
+  mapCanPick,
   onUseLocation,
   locating,
 }: {
   end: Endpoint;
+  mapCanPick: boolean;
   onUseLocation: (end: Endpoint) => void;
   locating: boolean;
 }) {
-  const { mapCanPick } = useServices();
   const { from, to, setPoint } = useTrip();
   const current = end === 'from' ? from : to;
   const [text, setText] = useState('');

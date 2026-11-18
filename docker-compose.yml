@@ -44,7 +44,10 @@ services:
     networks: [internal]
 
   caddy:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        VITE_OSM_TILE_URL: ${GOPOINT_OSM_TILE_URL:-}
     image: gopoint-web:local
     environment:
       GOPOINT_SITE_ADDRESS: ${GOPOINT_SITE_ADDRESS:-:80}

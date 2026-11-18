@@ -21,7 +21,7 @@ const bus = {
 };
 
 async function mockServer(context: BrowserContext) {
-  await context.route('https://tiles.openfreemap.org/**', (route) => route.abort());
+  await context.route('https://tile.openstreetmap.org/**', (route) => route.abort());
   await context.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
     const diagnostics = { fetchedAt: new Date().toISOString(), complete: true };
