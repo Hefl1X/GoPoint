@@ -71,7 +71,12 @@ export function MapScreen({ route }: { route: MapRoute }) {
   const vehicleId = route.name === 'map' ? route.vehicleId : null;
   const stopId = route.name === 'stop' ? route.stopId : null;
   const pickingEnd: Endpoint | null = route.name === 'pick' ? route.end : null;
-  const { MapView, geolocator, mapCanPick } = useServices();
+  const { MapView, geolocator, mapCanPick: supportsPick } = useServices();
+  const [mapFailed, setMapFailed] = useState(false);
+  const mapCanPick = supportsPick && !mapFailed;
+  useEffect(() => {
+    if (pickingEnd && !mapCanPick) navigate({ name: 'search', end: pickingEnd }, { replace: true });
+  }, [mapCanPick, pickingEnd]);
   const trip = useTrip();
   const { lowFloorOnly } = useSettings();
   const online = useOnline();
@@ -212,6 +217,9 @@ export function MapScreen({ route }: { route: MapRoute }) {
           <Suspense fallback={<div className="map-view map-view--loading" />}>
             <MapView
               label={ru.map.label}
+              onUnavailable={() => {
+                setMapFailed(true);
+              }}
               bounds={meta.data.cityBounds}
               vehicles={mapVehicles}
               selectedVehicleId={selected?.id ?? null}
@@ -370,6 +378,7 @@ export function MapScreen({ route }: { route: MapRoute }) {
         <SearchPanel
           key={route.end}
           end={route.end}
+          mapCanPick={mapCanPick}
           locating={geoState === 'busy'}
           onUseLocation={(end) => {
             locate(end);

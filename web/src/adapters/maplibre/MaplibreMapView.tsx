@@ -1,4 +1,4 @@
-// Карта на MapLibre GL и векторных тайлах OpenFreeMap (данные OpenStreetMap).
+// Карта на MapLibre GL и стандартных растровых тайлах OpenStreetMap.
 // Только здесь известно про MapLibre и порядок координат [lon, lat].
 import {
   Map as MapLibreMap,
@@ -6,6 +6,7 @@ import {
   setWorkerUrl,
   type GeoJSONSource,
   type LngLatLike,
+  type MapSourceDataEvent,
 } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -22,7 +23,7 @@ import type {
 } from '../../ports/MapView';
 import { MIN_STOPS_ZOOM } from '../../domain/stops';
 import { blendPoint, motionProgress } from '../../domain/motion';
-import { STYLE_URL } from './config';
+import { BASEMAP, mapStyle } from './config';
 
 setWorkerUrl(workerUrl);
 
@@ -215,9 +216,8 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-// Если стиль карты не загрузился за это время (сервер карты недоступен), показываем
-// машины списком, а не пустой экран.
-const STYLE_TIMEOUT_MS = 30_000;
+// Список остаётся доступен, даже если сервер тайлов не ответил.
+const FIRST_TILE_TIMEOUT_MS = 30_000;
 const FAILED_NOTE = 'Карта сейчас не загружается. Транспорт на линии — списком ниже.';
 
 export function MaplibreMapView(props: MapViewProps) {
@@ -234,11 +234,11 @@ export function MaplibreMapView(props: MapViewProps) {
 
   // Карта создаётся один раз.
   useEffect(() => {
-    if (!container.current) return;
+    if (failed || !container.current) return;
     const { bounds } = latest.current;
     const map = new MapLibreMap({
       container: container.current,
-      style: STYLE_URL,
+      style: mapStyle,
       center: NOVOSIBIRSK_CENTER,
       zoom: 11.5,
       minZoom: 9,
@@ -255,23 +255,22 @@ export function MaplibreMapView(props: MapViewProps) {
     map.touchZoomRotate.disableRotation();
     mapRef.current = map;
 
-    let styleLoaded = false;
+    let receivedTile = false;
     const giveUp = () => {
-      if (styleLoaded) return;
-      mapRef.current = null;
-      map.remove();
+      if (receivedTile || mapRef.current !== map) return;
       setFailed(true);
+      latest.current.onUnavailable?.();
     };
-    const timer = window.setTimeout(giveUp, STYLE_TIMEOUT_MS);
-    map.on('style.load', () => {
-      styleLoaded = true;
-      window.clearTimeout(timer);
+    const timer = window.setTimeout(giveUp, FIRST_TILE_TIMEOUT_MS);
+    // У события о метаданных нет coord; оно ещё не означает загрузку изображения.
+    map.on('sourcedata', (event: Partial<MapSourceDataEvent>) => {
+      if (event.sourceId === BASEMAP && event.coord) {
+        receivedTile = true;
+        window.clearTimeout(timer);
+      }
     });
-    // Ошибка до загрузки стиля: стиль карты не получен. Ошибки отдельных тайлов
-    // после загрузки не мешают: машины и маршрут рисуются поверх фона.
-    map.on('error', () => {
-      if (!styleLoaded) giveUp();
-    });
+    // Когда запросы завершились, отсутствие хотя бы одного тайла означает пустую карту.
+    map.once('idle', giveUp);
 
     map.on('load', () => {
       addPillImages(map);
@@ -347,7 +346,7 @@ export function MaplibreMapView(props: MapViewProps) {
         minzoom: MIN_STOPS_ZOOM + 1,
         layout: {
           'text-field': ['get', 'name'],
-          'text-font': ['Noto Sans Regular'],
+          'text-font': ['Nunito Regular'],
           'text-size': 12,
           'text-offset': [0, 1.1],
           'text-anchor': 'top',
@@ -402,7 +401,7 @@ export function MaplibreMapView(props: MapViewProps) {
           'icon-allow-overlap': false,
           'text-allow-overlap': false,
           'text-field': ['get', 'number'],
-          'text-font': ['Noto Sans Bold'],
+          'text-font': ['Nunito ExtraBold'],
           'text-size': 13,
           'symbol-sort-key': ['get', 'order'],
         },
@@ -420,7 +419,7 @@ export function MaplibreMapView(props: MapViewProps) {
           'icon-allow-overlap': true,
           'text-allow-overlap': true,
           'text-field': ['get', 'number'],
-          'text-font': ['Noto Sans Bold'],
+          'text-font': ['Nunito ExtraBold'],
           'text-size': 15,
           'symbol-sort-key': ['get', 'order'],
         },
@@ -479,7 +478,7 @@ export function MaplibreMapView(props: MapViewProps) {
         map.remove();
       }
     };
-  }, []);
+  }, [failed]);
 
   // Значки А и Б (элементы страницы поверх карты, не зависят от загрузки стиля).
   const { tripPoints } = props;
@@ -569,18 +568,11 @@ export function MaplibreMapView(props: MapViewProps) {
         aria-label={props.label}
         data-testid="map-maplibre"
       />
-      {/* Подпись источников карты (условия OpenStreetMap и OpenFreeMap): одна короткая
-          строка вверху, всегда видна, не закрывает кнопки. */}
       <p className="map-attribution">
         ©{' '}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           OpenStreetMap contributors
-        </a>{' '}
-        ·{' '}
-        <a href="https://openfreemap.org" target="_blank" rel="noreferrer">
-          OpenFreeMap
-        </a>{' '}
-        © OpenMapTiles
+        </a>
       </p>
     </>
   );

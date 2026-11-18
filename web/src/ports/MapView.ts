@@ -1,4 +1,4 @@
-// Порт карты. Реализации: adapters/maplibre (векторная карта) и adapters/map-list
+// Порт карты. Реализации: adapters/maplibre (интерактивная карта) и adapters/map-list
 // (список вместо карты, если WebGL недоступен). Координаты только { lat, lon }.
 import type { ComponentType } from 'react';
 import type { Accessibility, Bounds, Endpoint, LatLon, TransportType } from '../domain/types';
@@ -70,6 +70,7 @@ export interface MapViewProps {
    */
   readonly picking: boolean;
   readonly onCenterChange?: ((center: LatLon) => void) | undefined;
+  readonly onUnavailable?: () => void;
   readonly onVehicleSelect: (id: string) => void;
   /** Остановки в видимой области (рисуются, когда карта приближена). */
   readonly stops?: readonly MapStop[] | undefined;

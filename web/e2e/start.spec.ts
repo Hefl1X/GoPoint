@@ -47,6 +47,10 @@ test('сервер карты недоступен: машины списком 
   ).toBeVisible();
   await expect(page.getByRole('button', { name: /Автобус 3/ })).toBeVisible();
   await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выбрать на карте' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Куда', exact: true }).click();
+  await expect(page.getByRole('searchbox')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выбрать на карте' })).toHaveCount(0);
   await noAxeViolations(page);
 });
 
