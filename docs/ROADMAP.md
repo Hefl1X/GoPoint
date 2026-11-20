@@ -5,7 +5,7 @@
 **21.11.2026. Шаг 04 — маршруты по расписанию в OpenTripPlanner.** Архитектура согласована с владельцем и описана в [ROUTING.md](ROUTING.md): общее расписание ЦУГАЭТ и второе, низкопольное расписание из GPS (`ramp = 1`), весь маршрут строит OTP, задержки и свежесть низкопольного расписания передаются потоком GTFS-Realtime. Решения владельца: `LiveTransit` заменяется полностью; режим по умолчанию — «Низкопольный транспорт»; неподтверждённые рейсы в низкопольном режиме не показываются; расписание с сайта ЦУГАЭТ пока только разовыми образцами.
 
 - **Готово:** этап 0 — образцы расписания (`data/tsugaet/samples/schedule/`) и разбор формата ([SCHEDULE.md](../data/tsugaet/SCHEDULE.md)). Кода шага 04 ещё нет.
-- **Состояние git:** ветка `codex/04-route-options` от `main` (`f87f674`, после слияния PR № 5), черновой PR к `main` — для CI и восстановления. `docs/architecture.drawio` и `docs/architecture.png` удалены владельцем намеренно. Личные `bagi.md` и `docs/TARGET_ARCHITECTURE.md` (заменён `ROUTING.md`) в git не входят.
+- **Состояние git:** ветка `codex/04-route-options` от `main` (`f87f674`, после слияния PR № 5), черновой [PR № 6](https://github.com/Hefl1X/GoPoint/pull/6) — для CI и восстановления. `docs/architecture.drawio` и `docs/architecture.png` удалены владельцем намеренно. Личные `bagi.md` и `docs/TARGET_ARCHITECTURE.md` (заменён `ROUTING.md`) в git не входят.
 - **Первое действие:** в ветке `codex/04-route-options` — этап 1 из [ROUTING.md](ROUTING.md) § 6 — проверка OTP на № 8 и № 35 по образцам.
 - **Ждёт владельца:** регулярное обновление расписания и способ получить шаблон времени хода ([ROUTING.md](ROUTING.md) § 8).
 
