@@ -440,7 +440,7 @@ export interface components {
             cityBounds: components["schemas"]["Bounds"];
             /**
              * Lowflooronlydefault
-             * @default true
+             * @default false
              */
             lowFloorOnlyDefault: boolean;
             /** Refreshintervals */
@@ -505,7 +505,7 @@ export interface components {
             destination: components["schemas"]["LatLon"];
             /**
              * Lowflooronly
-             * @default true
+             * @default false
              */
             lowFloorOnly: boolean;
             origin: components["schemas"]["LatLon"];
@@ -547,7 +547,7 @@ export interface components {
             destination: components["schemas"]["LatLon"];
             /**
              * Lowflooronly
-             * @default true
+             * @default false
              */
             lowFloorOnly: boolean;
             origin: components["schemas"]["LatLon"];
@@ -564,10 +564,10 @@ export interface components {
             message?: string | null;
             /**
              * Status
-             * @description no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти
+             * @description no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти; transit_unavailable: данных для проверки транспорта недостаточно
              * @enum {string}
              */
-            status: "ok" | "no_transit" | "walk_better";
+            status: "ok" | "no_transit" | "walk_better" | "transit_unavailable";
             /** @description Путь пешком от А до Б: отдельный выбор рядом с транспортом (если он не намного дольше транспорта); null — не показывать */
             walk?: components["schemas"]["WalkLeg"] | null;
         };

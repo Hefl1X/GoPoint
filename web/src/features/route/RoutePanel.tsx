@@ -191,11 +191,12 @@ function RouteOptions({
     return list;
   }, [data, plannedAt]);
   const walkBetter = data.status === 'walk_better' && data.journeys.length === 0;
-  const noTransit = !walkBetter && (data.status === 'no_transit' || data.journeys.length === 0);
+  const noTransit = data.status === 'no_transit';
+  const unavailable = data.status === 'transit_unavailable';
   // Когда транспорта нет (или пешком быстрее), путь пешком не открывается сам: человек
   // выбирает его кнопкой.
   const [selectedId, setSelectedId] = useState<string | null>(
-    noTransit || walkBetter ? null : 'journey-0',
+    data.journeys.length ? 'journey-0' : null,
   );
   const selected = options.find((o) => o.id === selectedId) ?? null;
 
@@ -205,10 +206,16 @@ function RouteOptions({
 
   return (
     <>
-      {noTransit ? (
+      {noTransit || unavailable ? (
         <StatusBlock
-          title={ru.route.noneTitle}
-          text={lowFloorOnly ? ru.route.noneLowFloor : ru.route.noneAny}
+          title={unavailable ? ru.route.unavailableTitle : ru.route.noneTitle}
+          text={
+            unavailable
+              ? ru.route.unavailable
+              : lowFloorOnly
+                ? ru.route.noneLowFloor
+                : ru.route.noneAny
+          }
         >
           <div className="button-row">
             <button type="button" className="button button--outline" onClick={onPlanAgain}>
@@ -218,13 +225,15 @@ function RouteOptions({
               {ru.route.otherPoints}
             </button>
           </div>
-          {lowFloorOnly ? <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a> : null}
+          {noTransit && lowFloorOnly ? (
+            <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a>
+          ) : null}
         </StatusBlock>
       ) : null}
       {walkBetter ? (
         <StatusBlock title={ru.route.walkBetterTitle} text={ru.route.walkBetter} />
       ) : null}
-      {options.length > 1 || ((noTransit || walkBetter) && options.length > 0) ? (
+      {options.length > 1 || (data.journeys.length === 0 && options.length > 0) ? (
         <Variants options={options} selectedId={selectedId} onSelect={setSelectedId} />
       ) : null}
       {selected?.kind === 'journey' ? (

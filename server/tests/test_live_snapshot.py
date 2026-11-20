@@ -56,7 +56,8 @@ async def test_old_snapshot_returned_when_source_fails(
     fake_feed.fail = True
     clock.advance(600)
     snap = await svc.snapshot()
-    assert snap is good
+    assert not snap.complete
+    assert snap.vehicles == good.vehicles
     assert snap.fetched_at == clock.now - timedelta(seconds=600)
 
 

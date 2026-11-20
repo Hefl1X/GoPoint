@@ -32,7 +32,7 @@ class Meta(DomainModel):
     version: str
     city_bounds: Bounds
     refresh_interval_s: int
-    low_floor_only_default: bool = True
+    low_floor_only_default: bool = False
     stale_seconds: int = Field(description="Служебное: порог свежести. Интерфейс не показывает.")
 
 
@@ -61,15 +61,16 @@ class WalkRequest(DomainModel):
 class RouteRequest(DomainModel):
     origin: LatLon
     destination: LatLon
-    low_floor_only: bool = True
+    low_floor_only: bool = False
 
 
 class RouteResponse(DomainModel):
     journeys: list[Journey] = Field(max_length=3)
-    status: Literal["ok", "no_transit", "walk_better"] = Field(
+    status: Literal["ok", "no_transit", "walk_better", "transit_unavailable"] = Field(
         description=(
             "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); "
-            "walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти"
+            "walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти; "
+            "transit_unavailable: данных для проверки транспорта недостаточно"
         )
     )
     message: str | None = Field(default=None, description="Что сказать человеку, по-русски")
@@ -86,7 +87,7 @@ class RouteResponse(DomainModel):
 class RouteCheckRequest(DomainModel):
     origin: LatLon
     destination: LatLon
-    low_floor_only: bool = True
+    low_floor_only: bool = False
     vehicle_id: str = Field(min_length=1, max_length=64, description="Машина первой поездки")
     planned_arrive_at: datetime = Field(description="Когда человек должен был приехать (UTC)")
 

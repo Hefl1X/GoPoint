@@ -66,22 +66,20 @@ class Settings(BaseSettings):
     # Пешие участки: OpenTripPlanner во внутренней сети Docker.
     otp_url: str = "http://otp:8080"
     otp_timeout_s: float = Field(default=10.0, gt=0)
-    # Скорость человека на коляске по ровному месту, м/с. Подтверждено владельцем
-    # 04.11.2026 (источники в docs/DECISIONS.md). На подъёмах и переходах OTP сам снижает скорость.
-    walk_speed_mps: float = Field(default=0.8, gt=0.1, le=3.0)
+    # Скорость обычной ходьбы, м/с. Время перехода по улицам рассчитывает OTP.
+    walk_speed_mps: float = Field(default=1.3, gt=0.1, le=3.0)
     walk_cache_ttl_s: int = Field(default=86_400, ge=60)
 
     # Расчёт маршрута «сейчас». Значения по умолчанию и источники: docs/DECISIONS.md.
-    # Подтверждены владельцем 04.11.2026; менять только с его решения.
     # Скорость машины для расчёта прихода: текущая, но не ниже и не выше этих, км/ч.
     vehicle_min_speed_kmh: float = Field(default=15.0, gt=0)
     vehicle_max_speed_kmh: float = Field(default=40.0, gt=0)
     # Стоянка машины на каждой промежуточной остановке, с.
     dwell_s: int = Field(default=20, ge=0)
-    # Быть на остановке за столько до машины (посадка по аппарели), с.
-    board_margin_s: int = Field(default=120, ge=0)
+    # Быть на остановке за столько до машины, с.
+    board_margin_s: int = Field(default=30, ge=0)
     # Дополнительный запас на пересадке, с.
-    transfer_margin_s: int = Field(default=180, ge=0)
+    transfer_margin_s: int = Field(default=60, ge=0)
     # Машина «стоит», если не двигается дольше, с; «опаздывает», если позже плана на, с.
     stopped_threshold_s: int = Field(default=300, ge=60)
     late_threshold_s: int = Field(default=180, ge=60)

@@ -1,6 +1,6 @@
 """POST /api/v1/route и /route/check на образцах ЦУГАЭТ (машины 04.11.2026 12:28).
 
-Пешие участки считает заглушка: по прямой с поправкой 1,3 при 0,8 м/с.
+Пешие участки считает заглушка: по прямой с поправкой 1,3 при скорости обычного профиля.
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ from app.config import Settings
 from app.domain.geo import distance_m
 from app.domain.models import Direction, LatLon, Place, WalkLeg
 from app.main import create_app
-from app.ports import NoWalkRouteError
+from app.ports import NoWalkRouteError, WalkPlannerError, WalkPlannerUnavailableError
 from tests.conftest import SAMPLES, ManualClock
 
-WALK_SPEED = 0.8
+WALK_SPEED = Settings().walk_speed_mps
 
 
 class StraightWalker:
@@ -29,8 +29,11 @@ class StraightWalker:
         self.fail_from: LatLon | None = None
         # Нет пути по улицам прямо от точки до точки (без остановок на концах).
         self.fail_direct = False
+        self.stop_error: WalkPlannerError | None = None
 
     async def walk(self, origin: Place, destination: Place) -> WalkLeg:
+        if self.stop_error and (origin.name or destination.name):
+            raise self.stop_error
         if self.fail_from is not None and origin.point == self.fail_from:
             raise NoWalkRouteError("нет пути")
         if self.fail_direct and origin.name is None and destination.name is None:
@@ -228,6 +231,52 @@ def test_walk_option_also_when_no_transit(client: TestClient, clock: ManualClock
     assert body["status"] == "no_transit"
     assert body["message"] == "Транспорта сейчас нет"
     assert body["walk"] is not None  # отдельный выбор, маршрут им не подменяется
+
+
+@pytest.mark.parametrize(
+    ("error", "status"),
+    [
+        (NoWalkRouteError("нет подхода"), "no_transit"),
+        (WalkPlannerUnavailableError("OTP недоступен"), "transit_unavailable"),
+    ],
+)
+def test_direct_walk_survives_failed_access(
+    client: TestClient, walker: StraightWalker, error: WalkPlannerError, status: str
+) -> None:
+    walker.stop_error = error
+    body = route(client, False, origin=shifted(ORIGIN, 40), destination=shifted(ORIGIN, -60))
+    assert body["status"] == status
+    assert body["walk"]["distanceM"] == 130
+    assert body["journeys"] == []
+
+
+def test_standard_profile_offers_ordinary_tram(client: TestClient) -> None:
+    points = {
+        "origin": shifted(stop_point(Direction.A, "tram-0013", "0013", "Восход ж/м"), 20),
+        "destination": shifted(stop_point(Direction.A, "tram-0013", "0013", "Театр Оперы"), 20),
+    }
+    standard = client.post("/api/v1/route", json=points).json()
+    strict = client.post("/api/v1/route", json={**points, "lowFloorOnly": True}).json()
+    assert transit_legs(standard)[0]["lowFloor"] == "no"
+    assert standard["journeys"][0]["durationS"] < strict["journeys"][0]["durationS"]
+    assert {leg["lowFloor"] for leg in transit_legs(strict)} == {"yes"}
+
+
+def test_failed_refresh_is_not_evidence_of_absent_service(
+    client: TestClient, clock: ManualClock
+) -> None:
+    clock.advance(3600)
+    assert route(client, False)["status"] == "no_transit"
+    client.app.state.live._feed.fail = True  # type: ignore[attr-defined]
+    clock.advance(61)
+    short = route(client, False, destination=shifted(ORIGIN, -60))
+    assert short["status"] == "transit_unavailable"
+    assert short["walk"] is not None
+    response = client.post(
+        "/api/v1/route", json={"origin": shifted(ORIGIN), "destination": shifted(DEST)}
+    )
+    assert response.status_code == 503
+    assert response.json()["code"] == "TRANSIT_UNAVAILABLE"
 
 
 def test_no_direct_walk_does_not_break_route(client: TestClient, walker: StraightWalker) -> None:

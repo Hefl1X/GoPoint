@@ -148,7 +148,7 @@ export async function mockServer(
   );
   await page.route('**/api/v1/**', async (route: Route) => {
     const url = new URL(route.request().url());
-    const lowFloorOnly = url.searchParams.get('lowFloorOnly') !== 'false';
+    const lowFloorOnly = url.searchParams.get('lowFloorOnly') === 'true';
     const path = url.pathname.replace('/api/v1', '');
     if (options.failLive && path.startsWith('/live')) return route.abort('internetdisconnected');
     if (path === '/meta') {
@@ -158,7 +158,7 @@ export async function mockServer(
           version: '0.1.0',
           cityBounds: { southWest: point(54.8, 82.7), northEast: point(55.2, 83.2) },
           refreshIntervalS: 30,
-          lowFloorOnlyDefault: true,
+          lowFloorOnlyDefault: false,
           staleSeconds: 300,
         },
       });

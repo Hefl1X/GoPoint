@@ -889,13 +889,32 @@ h1:focus {
 }
 
 /* список вместо карты */
+.map-screen:has(.map-list) {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto var(--nav-total);
+}
+
+.map-layer:has(.map-list) {
+  position: relative;
+  grid-row: 1;
+}
+
+.map-screen:has(.map-list) .sheet {
+  position: relative;
+  grid-row: 2;
+  bottom: auto;
+  max-height: 50dvh;
+}
+
+.map-screen:has(.map-list) .sheet--collapsed {
+  height: var(--sheet-peek);
+}
+
 .map-list {
   position: absolute;
-  inset: 0 0 auto;
-  max-height: 60%;
+  inset: calc(var(--trip-card-h) + 76px + var(--top-safe)) 0 0;
   overflow: auto;
-  /* Под карточкой «Откуда/Куда» и кнопкой местоположения. */
-  padding: calc(var(--trip-card-h) + 76px + var(--top-safe)) 14px 12px;
+  padding: 0 14px 12px;
 }
 
 .map-list__trip {

@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from app.domain.geo import distance_m
@@ -247,6 +247,8 @@ class LiveSnapshotService:
                     for line_id in batch:
                         by_line[line_id] = previous.get(line_id, [])
             if batches and failed == len(batches):
+                if self._snapshot is not None:
+                    self._snapshot = replace(self._snapshot, complete=False)
                 raise TransitFeedError("Источник не ответил ни на одну пачку")
             vehicles = [v for group in by_line.values() for v in group]
             if self._first_poll_at is None:

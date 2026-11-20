@@ -31,7 +31,7 @@ test('открыл сайт, поставил А и Б, увидел время 
   const route = page.getByRole('region', { name: 'Маршрут', exact: true });
   await expect(route.getByRole('heading', { name: /^Автобус 3 · (9|10) мин$/ })).toBeVisible();
   await expect(route.getByText(/^Приедете в \d\d:\d\d · 26 минут в пути/)).toBeVisible();
-  await expect(route.getByText('Построен только по низкопольным рейсам')).toBeVisible();
+  await expect(route.getByText('Любой транспорт: часть рейсов не низкопольная')).toBeVisible();
   await expect(route.getByRole('img', { name: /^Шкала времени/ })).toBeVisible();
   await expect(route.getByRole('listitem')).toHaveCount(3);
   await expect(route.getByText(/Время ориентировочное/)).toBeAttached();
@@ -52,19 +52,19 @@ test('открыл сайт, поставил А и Б, увидел время 
   await noAxeViolations(page);
 });
 
-test('настройка выключена: любой транспорт и пометка «не низкий пол»', async ({ page }) => {
+test('явно включённый фильтр применяется и при построении поездки', async ({ page }) => {
   await mockServer(page);
   await page.goto('/#/settings');
   const toggle = page.getByRole('switch', { name: 'Низкопольный транспорт' });
-  await expect(toggle).toHaveAttribute('aria-checked', 'true');
-  await toggle.click();
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('link', { name: 'Карта' }).click();
   await choose(page, 'Откуда', 'аура', /Аура/);
   await choose(page, 'Куда', 'красный', /Красный проспект/);
   const route = page.getByRole('region', { name: 'Маршрут', exact: true });
-  await expect(route.getByText('Любой транспорт: часть рейсов не низкопольная')).toBeVisible();
-  await expect(route.getByRole('listitem').nth(1)).toContainText('не низкий пол');
+  await expect(route.getByText('Построен только по низкопольным рейсам')).toBeVisible();
+  await expect(route.getByRole('listitem').nth(1)).toContainText('низкий пол');
   await noAxeViolations(page);
 });
 

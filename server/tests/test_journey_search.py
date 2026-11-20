@@ -71,6 +71,18 @@ def test_transfer_with_walk_between_stops() -> None:
     assert plan.arrive_at == minutes(36)
 
 
+def test_standard_connection_budget_after_a_street_crossing() -> None:
+    # OTP: между площадками сквера Антонова 165 м, 150 с по улицам.
+    # При выходе в 10:00 успеть можно с 14:00 (переход + 30 с + 60 с).
+    first = trip("bus", ("a", 2), ("b", 10))
+    early = trip("early", ("c", 13.5), ("d", 20))
+    on_time = trip("on-time", ("c", 14), ("d", 21))
+    plans = search(
+        NOW, [first, early, on_time], {"a": 90}, {"d": 0}, {"b": [("c", 150)]}, SearchParams()
+    )
+    assert [plan.vehicle_ids for plan in plans] == [("bus", "on-time")]
+
+
 def test_late_first_vehicle_misses_transfer() -> None:
     # Первая машина опаздывает: на остановке пересадки в 20:00, пешком 2 мин,
     # запас 2 + 3 мин: на трамвай в 23:00 уже не успеть, берём следующий.
