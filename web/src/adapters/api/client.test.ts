@@ -6,7 +6,7 @@ const goodMeta = {
   version: '0.1.0',
   cityBounds: { southWest: { lat: 54.8, lon: 82.7 }, northEast: { lat: 55.2, lon: 83.2 } },
   refreshIntervalS: 30,
-  lowFloorOnlyDefault: true,
+  lowFloorOnlyDefault: false,
   staleSeconds: 300,
 };
 

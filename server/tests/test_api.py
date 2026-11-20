@@ -18,7 +18,7 @@ def test_health() -> None:
 def test_meta_has_city_bounds_as_objects() -> None:
     body = client.get("/api/v1/meta").json()
     assert body["appName"] == "GoPoint"
-    assert body["lowFloorOnlyDefault"] is True
+    assert body["lowFloorOnlyDefault"] is False
     sw = body["cityBounds"]["southWest"]
     ne = body["cityBounds"]["northEast"]
     assert set(sw) == {"lat", "lon"}
@@ -69,4 +69,4 @@ def test_low_floor_only_param_name_in_contract() -> None:
         "parameters"
     ]
     names = {p["name"]: p for p in params}
-    assert names["lowFloorOnly"]["schema"]["default"] is True
+    assert names["lowFloorOnly"]["schema"]["default"] is False

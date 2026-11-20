@@ -411,7 +411,7 @@
             "$ref": "#/components/schemas/Bounds"
           },
           "lowFloorOnlyDefault": {
-            "default": true,
+            "default": false,
             "title": "Lowflooronlydefault",
             "type": "boolean"
           },
@@ -568,7 +568,7 @@
             "$ref": "#/components/schemas/LatLon"
           },
           "lowFloorOnly": {
-            "default": true,
+            "default": false,
             "title": "Lowflooronly",
             "type": "boolean"
           },
@@ -677,7 +677,7 @@
             "$ref": "#/components/schemas/LatLon"
           },
           "lowFloorOnly": {
-            "default": true,
+            "default": false,
             "title": "Lowflooronly",
             "type": "boolean"
           },
@@ -719,11 +719,12 @@
             "title": "Message"
           },
           "status": {
-            "description": "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти",
+            "description": "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти; transit_unavailable: данных для проверки транспорта недостаточно",
             "enum": [
               "ok",
               "no_transit",
-              "walk_better"
+              "walk_better",
+              "transit_unavailable"
             ],
             "title": "Status",
             "type": "string"
@@ -1266,7 +1267,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": true,
+              "default": false,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"
@@ -1356,7 +1357,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": true,
+              "default": false,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"
@@ -1496,7 +1497,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": true,
+              "default": false,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"
@@ -1561,7 +1562,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": true,
+              "default": false,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"

@@ -1,9 +1,8 @@
-// Настройки пользователя. «Низкопольный транспорт» по умолчанию включена,
-// выбор запоминается на устройстве.
+// Фильтр включается только после выбора в текущей версии профиля.
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useServices } from './services';
 
-const LOW_FLOOR_KEY = 'gopoint.lowFloorOnly';
+const LOW_FLOOR_KEY = 'gopoint.lowFloorOnly.v2';
 
 interface SettingsValue {
   readonly lowFloorOnly: boolean;
@@ -14,8 +13,7 @@ const SettingsContext = createContext<SettingsValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const { store } = useServices();
-  // Включена всегда, кроме явно сохранённого «false».
-  const [lowFloorOnly, setState] = useState(() => store.get(LOW_FLOOR_KEY) !== 'false');
+  const [lowFloorOnly, setState] = useState(() => store.get(LOW_FLOOR_KEY) === 'true');
   const setLowFloorOnly = useCallback(
     (value: boolean) => {
       setState(value);

@@ -7,7 +7,7 @@ RAPTOR: круг k — лучшее время на остановках пос�
 остановками на пересадке приходят готовыми (длительность в секундах).
 
 Запасы:
-- board_margin_s: человек должен быть на остановке за столько до машины (аппарель);
+- board_margin_s: человек должен быть на остановке за столько до машины;
 - transfer_margin_s: ещё столько на пересадке (сверх board_margin_s).
 Выбирается самое раннее прибытие; запасные варианты — другие наборы машин,
 не хуже лучшего больше чем на max_extra_s.
@@ -33,8 +33,8 @@ class Trip:
 
 @dataclass(frozen=True)
 class SearchParams:
-    board_margin_s: int = 120
-    transfer_margin_s: int = 180
+    board_margin_s: int = 30
+    transfer_margin_s: int = 60
     max_rides: int = 3
     max_alternatives: int = 2
     max_extra_s: int = 30 * 60

@@ -30,7 +30,9 @@ describe('маршрут найден', () => {
     expect(
       within(route).getByText(/^Приедете в \d\d:\d\d · 26 минут в пути · без пересадок$/),
     ).toBeVisible();
-    expect(within(route).getByText('Построен только по низкопольным рейсам')).toBeVisible();
+    expect(
+      within(route).getByText('Любой транспорт: в этом маршруте все машины с низким полом'),
+    ).toBeVisible();
     expect(
       within(route).getByRole('img', {
         name: 'Шкала времени, минуты: пешком 6, ожидание 4, автобус 12, пешком 4',
@@ -94,10 +96,7 @@ describe('нет маршрута и ошибки', () => {
     renderRoute(fakeApi({ planRoute }));
     expect(await screen.findByText('Транспорта сейчас нет')).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Маршрут' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Показать любой транспорт' })).toHaveAttribute(
-      'href',
-      '#/settings',
-    );
+    expect(screen.queryByRole('link', { name: 'Показать любой транспорт' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
     await vi.waitFor(() => {
       expect(planRoute).toHaveBeenCalledTimes(2);
@@ -341,7 +340,10 @@ describe('варианты маршрута и путь пешком (запро
     expect(screen.getByText('На пути есть лестница или эскалатор')).toBeVisible();
   });
 
-  it('пешком быстрее: не «Транспорта сейчас нет», путь пешком открывает человек', async () => {
+  it.each([
+    ['walk_better', 'Пешком быстрее'],
+    ['transit_unavailable', 'Не удалось проверить транспорт'],
+  ] as const)('%s: показывает причину и сохраняет пеший вариант', async (status, title) => {
     const walk = {
       kind: 'walk' as const,
       fromName: null,
@@ -352,12 +354,10 @@ describe('варианты маршрута и путь пешком (запро
       hasStairs: false,
     };
     const api = fakeApi({
-      planRoute: vi.fn(() =>
-        Promise.resolve({ status: 'walk_better' as const, journeys: [], walk }),
-      ),
+      planRoute: vi.fn(() => Promise.resolve({ status, journeys: [], walk })),
     });
     renderRoute(api);
-    expect(await screen.findByText('Пешком быстрее')).toBeVisible();
+    expect(await screen.findByText(title)).toBeVisible();
     expect(screen.queryByText('Транспорта сейчас нет')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Показать любой транспорт' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Маршрут' })).toBeNull();

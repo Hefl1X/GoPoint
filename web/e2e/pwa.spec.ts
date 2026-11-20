@@ -32,7 +32,7 @@ async function mockServer(context: BrowserContext) {
           version: '0.1.0',
           cityBounds: { southWest: point(54.8, 82.7), northEast: point(55.2, 83.2) },
           refreshIntervalS: 30,
-          lowFloorOnlyDefault: true,
+          lowFloorOnlyDefault: false,
           staleSeconds: 300,
         },
       });

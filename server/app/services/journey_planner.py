@@ -59,6 +59,7 @@ from app.ports import (
     PointNotOnStreetError,
     TransitFeedError,
     WalkPlannerError,
+    WalkPlannerUnavailableError,
 )
 from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
 from app.services.walking import WalkingService
@@ -101,7 +102,7 @@ class PlannerSettings:
 class RouteOutcome:
     journeys: list[Journey]
     # walk_better: варианты на транспорте были, но все хуже пути пешком (walk).
-    status: Literal["ok", "no_transit", "walk_better"]
+    status: Literal["ok", "no_transit", "walk_better", "transit_unavailable"]
     snapshot: Snapshot
     # Путь пешком от А до Б: отдельный выбор рядом с транспортом, маршрут им не подменяется.
     walk: WalkLeg | None = None
@@ -152,6 +153,7 @@ class _TransferFix:
     from_stop: str
     to_stop: str
     seconds: int | None
+    unavailable: bool = False
 
 
 @dataclass(frozen=True)
@@ -372,7 +374,7 @@ class JourneyPlanner:
         уже выбранного маршрута: там нужна именно выбранная машина)."""
         snap = await self._snapshot()
         network = await self._load_network()
-        lines = {line.id: line for line in await self._live.lines()}
+        lines = await self._lines()
         ring_lines = frozenset(i for i, line in lines.items() if line.ring)
         now = self._clock()
 
@@ -381,8 +383,9 @@ class JourneyPlanner:
             self._walks(network, destination, to_point=True),
             self._direct_walk(origin, destination),
         )
+        walk = self._walk_option(direct)
         for legs, errors in ((access, a_err), (egress, b_err)):
-            if not legs and errors:
+            if not legs and errors and (walk is None or not compare_walk):
                 raise _most_telling(errors)
 
         trips = self._trips(network, snap, now, low_floor_only, ring_lines)
@@ -391,6 +394,9 @@ class JourneyPlanner:
             now, origin, destination, access, egress, trips, lines, low_floor_only, network
         )
         transfers: Mapping[str, Sequence[tuple[str, int]]] = network.transfers
+        incomplete_walks = any(
+            isinstance(error, WalkPlannerUnavailableError) for error in (*a_err, *b_err)
+        )
         journeys: list[Journey] = []
         for attempt in range(TRANSFER_RETRIES + 1):
             plans = search(
@@ -410,6 +416,7 @@ class JourneyPlanner:
                     journeys.append(result)
                 elif isinstance(result, _TransferFix):
                     fixes.append(result)
+                    incomplete_walks |= result.unavailable
             if not fixes or attempt == TRANSFER_RETRIES:
                 break
             # Вариант не успел из-за настоящей пешей пересадки: ищем заново с ней,
@@ -417,12 +424,17 @@ class JourneyPlanner:
             transfers = with_transfer_times(
                 transfers, [(f.from_stop, f.to_stop, f.seconds) for f in fixes]
             )
-        walk = self._walk_option(direct)
-        status: Literal["ok", "no_transit", "walk_better"] = "ok" if journeys else "no_transit"
+        status: Literal["ok", "no_transit", "walk_better", "transit_unavailable"] = (
+            "ok" if journeys else "no_transit"
+        )
         if compare_walk and journeys:
             journeys = drop_worse_than_walk(journeys, walk, now)
             if not journeys:
                 status = "walk_better"
+        if not journeys and (not snap.complete or incomplete_walks):
+            if not compare_walk or walk is None:
+                raise TransitUnavailableError("Недостаточно данных для проверки поездки")
+            status = "transit_unavailable"
         return RouteOutcome(journeys, status, snap, walk=walk)
 
     async def _direct_walk(self, origin: LatLon, destination: LatLon) -> WalkLeg | None:
@@ -607,6 +619,8 @@ class JourneyPlanner:
                     walk = await self._walking.walk(
                         Place(name=a.name, point=a.point), Place(name=b.name, point=b.point)
                     )
+                except WalkPlannerUnavailableError:
+                    return _TransferFix(step.from_stop, step.to_stop, None, unavailable=True)
                 except WalkPlannerError:
                     return _TransferFix(step.from_stop, step.to_stop, None)
                 if walk.duration_s > step.duration_s:

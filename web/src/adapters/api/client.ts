@@ -177,7 +177,7 @@ const journeySchema = z.object({
 
 const routeSchema = z.object({
   journeys: z.array(journeySchema).max(3),
-  status: z.enum(['ok', 'no_transit', 'walk_better']),
+  status: z.enum(['ok', 'no_transit', 'walk_better', 'transit_unavailable']),
   message: z.string().nullable().optional(),
   walk: walkLegSchema.nullable().default(null),
   diagnostics,

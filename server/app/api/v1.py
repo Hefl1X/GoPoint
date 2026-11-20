@@ -104,7 +104,11 @@ PlannerDep = Annotated[JourneyPlanner, Depends(get_planner)]
 
 NO_TRANSIT_MESSAGE = "Транспорта сейчас нет"
 WALK_BETTER_MESSAGE = "Пешком быстрее"
-STATUS_MESSAGE = {"no_transit": NO_TRANSIT_MESSAGE, "walk_better": WALK_BETTER_MESSAGE}
+STATUS_MESSAGE = {
+    "no_transit": NO_TRANSIT_MESSAGE,
+    "walk_better": WALK_BETTER_MESSAGE,
+    "transit_unavailable": "Не удалось проверить транспорт",
+}
 
 
 def transit_unavailable() -> AppError:
@@ -318,7 +322,7 @@ async def live_vehicles(
     live: LiveDep,
     settings: SettingsDep,
     clock: ClockDep,
-    low_floor_only: LowFloorOnly = True,
+    low_floor_only: LowFloorOnly = False,
     bbox: Annotated[
         str | None,
         Query(description="Видимая область: south,west,north,east"),
@@ -354,7 +358,7 @@ async def live_routes(
     live: LiveDep,
     settings: SettingsDep,
     clock: ClockDep,
-    low_floor_only: LowFloorOnly = True,
+    low_floor_only: LowFloorOnly = False,
     type: TransportType | None = None,  # noqa: A002 (имя параметра из контракта)
 ) -> LinesResponse:
     snap = await _snapshot(live)
@@ -385,7 +389,7 @@ async def live_route(
     live: LiveDep,
     settings: SettingsDep,
     clock: ClockDep,
-    low_floor_only: LowFloorOnly = True,
+    low_floor_only: LowFloorOnly = False,
 ) -> LineDetails:
     try:
         line = await live.line(line_id)
@@ -445,7 +449,7 @@ async def live_stops(
 
 @router.get("/live/stops/{stop_id}/arrivals", tags=["live"])
 async def live_stop_arrivals(
-    stop_id: str, planner: PlannerDep, low_floor_only: LowFloorOnly = True
+    stop_id: str, planner: PlannerDep, low_floor_only: LowFloorOnly = False
 ) -> ArrivalsResponse:
     """Что подъезжает к остановке: машины на линии с временем прихода.
 
