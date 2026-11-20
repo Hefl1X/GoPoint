@@ -155,7 +155,9 @@ test('настройка «Низкопольный транспорт»: кла
   page,
 }) => {
   await mockServer(page);
-  await page.addInitScript(() => localStorage.setItem('gopoint.lowFloorOnly', 'true'));
+  await page.addInitScript(() => {
+    localStorage.setItem('gopoint.lowFloorOnly', 'true');
+  });
   await page.goto('/?map=list#/settings');
   const toggle = page.getByRole('switch', { name: 'Низкопольный транспорт' });
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
