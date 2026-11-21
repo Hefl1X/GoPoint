@@ -1,0 +1,261 @@
+{
+  "purpose": "Bounded one-off source audit; no recurring collection",
+  "started_at": "2026-11-20T19:37:46.637680+00:00",
+  "pause_s": 1.5,
+  "request_cap": 100,
+  "requests": [
+    {
+      "file": "listmarsh.json",
+      "url": "https://map.nskgortrans.ru/listmarsh.php?r=true",
+      "fetched_at": "2026-11-20T19:37:46.637798+00:00",
+      "status": 200,
+      "bytes": 12818,
+      "sha256": "6c69b2c959b07b721561ac4e971a81ee93be3241f637bc441156a71cc265e0c1"
+    },
+    {
+      "file": "markers-start.json",
+      "url": "https://map.nskgortrans.ru/markers.php?r=1-8-W-8%7C8-35-W-35%7C3-0013-W-13%7C",
+      "fetched_at": "2026-11-20T19:37:49.274487+00:00",
+      "status": 200,
+      "bytes": 14,
+      "sha256": "5a8614c4abc4fbaa888060229b9e6feeb0990d2803bdffac2cf6d6839af83ae4"
+    },
+    {
+      "file": "trasses-A.json",
+      "url": "https://map.nskgortrans.ru/trasses.php?r=1-8-A-8%7C8-35-A-35%7C3-0013-A-13%7C",
+      "fetched_at": "2026-11-20T19:37:51.442200+00:00",
+      "status": 200,
+      "bytes": 42815,
+      "sha256": "06946ac25161427a091ae33bbf0ba3ca3c75576f3cb03311e57266b529c7602f"
+    },
+    {
+      "file": "trasses-B.json",
+      "url": "https://map.nskgortrans.ru/trasses.php?r=1-8-B-8%7C8-35-B-35%7C3-0013-B-13%7C",
+      "fetched_at": "2026-11-20T19:37:53.811130+00:00",
+      "status": 200,
+      "bytes": 40229,
+      "sha256": "14c355cdce4c218f7d8a77d1271498ff30e1a9c7fe22bf4e4c1742a503b5326a"
+    },
+    {
+      "file": "forecast-76.json",
+      "url": "https://map.nskgortrans.ru/forecast.php?id=76&type=platform",
+      "fetched_at": "2026-11-20T19:37:55.924828+00:00",
+      "status": 200,
+      "bytes": 13,
+      "sha256": "18a08e2a6a64fe8f8b178453908493eec71b62c1250d47734466736c98c6431e"
+    },
+    {
+      "file": "raps.min.js",
+      "url": "https://nskgortrans.ru/themes/goodnex/js/raps.min.js",
+      "fetched_at": "2026-11-20T19:37:57.952161+00:00",
+      "status": 200,
+      "bytes": 5889,
+      "sha256": "c45114b8c56212dffebfa58f59c24a5d7c1c282f82632a635d7296632bb578d1"
+    },
+    {
+      "file": "bus8-directions.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=8&t=1",
+      "fetched_at": "2026-11-20T19:38:00.240205+00:00",
+      "status": 200,
+      "bytes": 234,
+      "sha256": "97e065c026d2e2c110400e59c5fdb3c3e729df68b11041af12c5e8c5b46b43a2"
+    },
+    {
+      "file": "bus8-A-days.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=8&t=1&r=A",
+      "fetched_at": "2026-11-20T19:38:02.833562+00:00",
+      "status": 200,
+      "bytes": 72,
+      "sha256": "083ca7f33ae2dc6eef0ff567060d38498e6ab38904648e5eb011ae0fcca0e1b9"
+    },
+    {
+      "file": "bus8-A-stops.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=8&t=1&r=A&sch=23",
+      "fetched_at": "2026-11-20T19:38:05.090238+00:00",
+      "status": 200,
+      "bytes": 2448,
+      "sha256": "e4fa8f0342b99bd9dd32873078d7941f2508758844e318b31046e5b1c44c16f4"
+    },
+    {
+      "file": "bus8-A-day23-s01.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=8&t=1&r=A&sch=23&s=49%7C1&v=0",
+      "fetched_at": "2026-11-20T19:38:07.110332+00:00",
+      "status": 200,
+      "bytes": 6862,
+      "sha256": "593b8a1cce6128fc7ca3108ef1230f76da3499c0eff0459b77ba55ff4d38374c"
+    },
+    {
+      "file": "bus8-A-day23-s02.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=8&t=1&r=A&sch=23&s=2087%7C2&v=0",
+      "fetched_at": "2026-11-20T19:38:09.117475+00:00",
+      "status": 200,
+      "bytes": 6880,
+      "sha256": "8105ba86f8c285cfb041c175a82e876e5294a85632d58d861f155d8644152699"
+    },
+    {
+      "file": "bus8-A-day23-s03.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=8&t=1&r=A&sch=23&s=75%7C3&v=0",
+      "fetched_at": "2026-11-20T19:38:11.202077+00:00",
+      "status": 200,
+      "bytes": 6854,
+      "sha256": "822b0323b84bf9d5f1d835905fe919ae163ae33fc11cdb6cf160e25f2c9cc4a0"
+    },
+    {
+      "file": "bus8-A-day23-s04.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=8&t=1&r=A&sch=23&s=50%7C4&v=0",
+      "fetched_at": "2026-11-20T19:38:13.299862+00:00",
+      "status": 200,
+      "bytes": 6866,
+      "sha256": "1171f4c3bd886716adff244f8078a3fd1b4d56969aa55895d340fcc0fd7e2e52"
+    },
+    {
+      "file": "bus8-A-day23-all.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=8&t=1&r=A&sch=23&s=0&v=0",
+      "fetched_at": "2026-11-20T19:38:29.885711+00:00",
+      "status": 200,
+      "bytes": 146092,
+      "sha256": "454a69e3e16a91c3e3d19e4fc729ea298bcdd43b729e3922d7c6f608236b0452"
+    },
+    {
+      "file": "bus8-A-day23-s38.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=8&t=1&r=A&sch=23&s=2615%7C38&v=0",
+      "fetched_at": "2026-11-20T19:38:32.593240+00:00",
+      "status": 200,
+      "bytes": 6897,
+      "sha256": "72786ec4f4de4cd69151b4d322c75bf5d4daa9c87cbb2d235e074748e863989c"
+    },
+    {
+      "file": "bus8-B-days.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=8&t=1&r=B",
+      "fetched_at": "2026-11-20T19:38:34.690315+00:00",
+      "status": 200,
+      "bytes": 72,
+      "sha256": "083ca7f33ae2dc6eef0ff567060d38498e6ab38904648e5eb011ae0fcca0e1b9"
+    },
+    {
+      "file": "minibus35-directions.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=35&t=8",
+      "fetched_at": "2026-11-20T19:38:36.790846+00:00",
+      "status": 200,
+      "bytes": 196,
+      "sha256": "b6b3c66c40198bd9b6308d1984875845ab0b3b5d75aa3ee01cc2cf3c3c23f255"
+    },
+    {
+      "file": "minibus35-A-days.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=35&t=8&r=A",
+      "fetched_at": "2026-11-20T19:38:38.846738+00:00",
+      "status": 200,
+      "bytes": 72,
+      "sha256": "083ca7f33ae2dc6eef0ff567060d38498e6ab38904648e5eb011ae0fcca0e1b9"
+    },
+    {
+      "file": "minibus35-A-stops.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=35&t=8&r=A&sch=23",
+      "fetched_at": "2026-11-20T19:38:41.122160+00:00",
+      "status": 200,
+      "bytes": 2060,
+      "sha256": "a591768fbc7daf7440be5d0c0ab2a7440404e6368ef0e480f6bd04cb0016c368"
+    },
+    {
+      "file": "minibus35-A-day23-all.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=35&t=8&r=A&sch=23&s=0&v=0",
+      "fetched_at": "2026-11-20T19:38:43.182613+00:00",
+      "status": 200,
+      "bytes": 142253,
+      "sha256": "de697ba0eb2f4c37e6f9a7fb571b3e5407c9d8cfa486985b81239726b93e0f99"
+    },
+    {
+      "file": "minibus35-A-day23-s01.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=35&t=8&r=A&sch=23&s=49%7C1&v=0",
+      "fetched_at": "2026-11-20T19:38:45.405099+00:00",
+      "status": 200,
+      "bytes": 7396,
+      "sha256": "5a4f680db7489dbf53d48d4d1c2f5e19092fbdf503eeab739935fee583cd501c"
+    },
+    {
+      "file": "minibus35-A-day23-s32.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=35&t=8&r=A&sch=23&s=2016%7C32&v=0",
+      "fetched_at": "2026-11-20T19:38:47.391069+00:00",
+      "status": 200,
+      "bytes": 7465,
+      "sha256": "a06d6f2f0963a2408a0f083f6942087118ffff707fca90224ed88955062cdf1f"
+    },
+    {
+      "file": "minibus35-B-days.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=35&t=8&r=B",
+      "fetched_at": "2026-11-20T19:38:49.474420+00:00",
+      "status": 200,
+      "bytes": 72,
+      "sha256": "083ca7f33ae2dc6eef0ff567060d38498e6ab38904648e5eb011ae0fcca0e1b9"
+    },
+    {
+      "file": "tram13-directions.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=0013&t=3",
+      "fetched_at": "2026-11-20T19:38:51.473324+00:00",
+      "status": 200,
+      "bytes": 198,
+      "sha256": "9db1721972aa1cc49dc6870d3f2af4b4537ca701e763ae0a323f2943bc3045d1"
+    },
+    {
+      "file": "tram13-A-days.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=0013&t=3&r=A",
+      "fetched_at": "2026-11-20T19:38:53.542739+00:00",
+      "status": 200,
+      "bytes": 109,
+      "sha256": "c8265eb963c7c76aecd0dc9dc3804c9146c6351820f08210208d1eac2c3bb873"
+    },
+    {
+      "file": "tram13-A-stops.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=0013&t=3&r=A&sch=11",
+      "fetched_at": "2026-11-20T19:38:55.761840+00:00",
+      "status": 200,
+      "bytes": 1767,
+      "sha256": "0aef7b177b7f7d4aaa60fbc0a02a6cdad2c4d470b236d13115ff71e847d6880d"
+    },
+    {
+      "file": "tram13-A-day11-all.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=0013&t=3&r=A&sch=11&s=0&v=0",
+      "fetched_at": "2026-11-20T19:38:57.925782+00:00",
+      "status": 200,
+      "bytes": 142133,
+      "sha256": "d7365fb6d98663457f98da4c0b69364f85d0780e08c96f255e30d297dcd7a281"
+    },
+    {
+      "file": "tram13-A-day11-s01.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=0013&t=3&r=A&sch=11&s=1028%7C1&v=0",
+      "fetched_at": "2026-11-20T19:39:00.249653+00:00",
+      "status": 200,
+      "bytes": 8621,
+      "sha256": "de6cc53374dbc8c969df2ed4f63f24ef59fbc4916edd94a2fbd4f5bf2ade4cc3"
+    },
+    {
+      "file": "tram13-A-day11-s25.html",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?tv=mr&m=0013&t=3&r=A&sch=11&s=1838%7C25&v=0",
+      "fetched_at": "2026-11-20T19:39:02.288901+00:00",
+      "status": 200,
+      "bytes": 8598,
+      "sha256": "a266fd475eaa9efe404e36ca4ee2d4e10c4a6780135637e81c44385843901ed8"
+    },
+    {
+      "file": "tram13-B-days.xml",
+      "url": "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php?m=0013&t=3&r=B",
+      "fetched_at": "2026-11-20T19:39:04.296509+00:00",
+      "status": 200,
+      "bytes": 109,
+      "sha256": "c8265eb963c7c76aecd0dc9dc3804c9146c6351820f08210208d1eac2c3bb873"
+    },
+    {
+      "file": "markers-end.json",
+      "url": "https://map.nskgortrans.ru/markers.php?r=1-8-W-8%7C8-35-W-35%7C3-0013-W-13%7C",
+      "fetched_at": "2026-11-20T19:39:06.412984+00:00",
+      "status": 200,
+      "bytes": 14,
+      "sha256": "5a8614c4abc4fbaa888060229b9e6feeb0990d2803bdffac2cf6d6839af83ae4"
+    }
+  ],
+  "finished_at": "2026-11-20T19:39:07.226699+00:00",
+  "notes": [
+    "Initial per-stop collection stopped after finding the supported s=0 all-stops option. Existing responses reused; collection completed with all-stops pages.",
+    "GPS and forecast responses are night samples; empty results do not prove missing daytime service."
+  ]
+}

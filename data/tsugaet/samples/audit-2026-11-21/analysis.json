@@ -1,0 +1,396 @@
+{
+  "routes": {
+    "bus8": {
+      "stop_count": 38,
+      "departures_per_stop": {
+        "55": 38
+      },
+      "single_stop_responses_equal": 5,
+      "constant_offsets_all_stops": true,
+      "offsets_minutes": [
+        [
+          0
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ],
+        [
+          6
+        ],
+        [
+          7
+        ],
+        [
+          9
+        ],
+        [
+          11
+        ],
+        [
+          12
+        ],
+        [
+          14
+        ],
+        [
+          18
+        ],
+        [
+          24
+        ],
+        [
+          27
+        ],
+        [
+          31
+        ],
+        [
+          34
+        ],
+        [
+          36
+        ],
+        [
+          38
+        ],
+        [
+          41
+        ],
+        [
+          42
+        ],
+        [
+          44
+        ],
+        [
+          46
+        ],
+        [
+          50
+        ],
+        [
+          51
+        ],
+        [
+          58
+        ],
+        [
+          60
+        ],
+        [
+          61
+        ],
+        [
+          62
+        ],
+        [
+          63
+        ],
+        [
+          64
+        ],
+        [
+          65
+        ],
+        [
+          68
+        ],
+        [
+          69
+        ],
+        [
+          72
+        ],
+        [
+          73
+        ],
+        [
+          74
+        ],
+        [
+          75
+        ],
+        [
+          76
+        ],
+        [
+          78
+        ],
+        [
+          81
+        ]
+      ],
+      "trace_stop_count": 38,
+      "trace_prefix_names_match": true,
+      "shared_raw_stop_ids": 0,
+      "first_departure": 361,
+      "last_departure": 1350
+    },
+    "minibus35": {
+      "stop_count": 32,
+      "departures_per_stop": {
+        "97": 32
+      },
+      "single_stop_responses_equal": 2,
+      "constant_offsets_all_stops": true,
+      "offsets_minutes": [
+        [
+          0
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ],
+        [
+          6
+        ],
+        [
+          7
+        ],
+        [
+          9
+        ],
+        [
+          10
+        ],
+        [
+          12
+        ],
+        [
+          14
+        ],
+        [
+          18
+        ],
+        [
+          25
+        ],
+        [
+          28
+        ],
+        [
+          32
+        ],
+        [
+          36
+        ],
+        [
+          38
+        ],
+        [
+          40
+        ],
+        [
+          43
+        ],
+        [
+          44
+        ],
+        [
+          46
+        ],
+        [
+          48
+        ],
+        [
+          52
+        ],
+        [
+          54
+        ],
+        [
+          60
+        ],
+        [
+          63
+        ],
+        [
+          64
+        ],
+        [
+          65
+        ],
+        [
+          67
+        ],
+        [
+          68
+        ],
+        [
+          69
+        ],
+        [
+          72
+        ],
+        [
+          74
+        ],
+        [
+          78
+        ]
+      ],
+      "trace_stop_count": 32,
+      "trace_prefix_names_match": false,
+      "shared_raw_stop_ids": 0,
+      "first_departure": 360,
+      "last_departure": 1353,
+      "only_in_schedule": [
+        "Ул. Жемчужная (Жемчужная)",
+        "М. \"Речной вокзал\" (Парк \"Городское начало\")"
+      ],
+      "only_in_trace": [
+        "Ул. Выборная",
+        "Парк \"Городское начало\""
+      ]
+    },
+    "tram13": {
+      "stop_count": 25,
+      "departures_per_stop": {
+        "184": 25
+      },
+      "single_stop_responses_equal": 2,
+      "constant_offsets_all_stops": false,
+      "offsets_minutes": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          3
+        ],
+        [
+          4
+        ],
+        [
+          6
+        ],
+        [
+          9
+        ],
+        [
+          11
+        ],
+        [
+          12
+        ],
+        [
+          14
+        ],
+        [
+          15,
+          16
+        ],
+        [
+          17
+        ],
+        [
+          19,
+          20
+        ],
+        [
+          21
+        ],
+        [
+          23,
+          24
+        ],
+        [
+          24,
+          25
+        ],
+        [
+          26,
+          27
+        ],
+        [
+          28,
+          29
+        ],
+        [
+          30,
+          31
+        ],
+        [
+          32,
+          33
+        ],
+        [
+          34,
+          35
+        ],
+        [
+          36,
+          37,
+          38
+        ],
+        [
+          37,
+          38,
+          39
+        ],
+        [
+          40,
+          41,
+          42
+        ],
+        [
+          42,
+          43,
+          44
+        ],
+        [
+          46,
+          47,
+          48,
+          49
+        ]
+      ],
+      "trace_stop_count": 26,
+      "trace_prefix_names_match": true,
+      "shared_raw_stop_ids": 0,
+      "first_departure": 340,
+      "last_departure": 1363,
+      "trace_same_name_terminal_stops": [
+        {
+          "stop_id": "1910",
+          "order": 24,
+          "point_index": 154
+        },
+        {
+          "stop_id": "1687",
+          "order": 25,
+          "point_index": 174
+        }
+      ]
+    }
+  },
+  "vehicles": {
+    "markers-start.json": {
+      "count": 0,
+      "on_line": 0,
+      "fresh_within_300s": 0,
+      "ramp": {},
+      "fields": []
+    },
+    "markers-end.json": {
+      "count": 0,
+      "on_line": 0,
+      "fresh_within_300s": 0,
+      "ramp": {},
+      "fields": []
+    }
+  },
+  "line_count": 104,
+  "captured_from": "2026-11-20T19:37:46.637680+00:00",
+  "captured_to": "2026-11-20T19:39:07.226699+00:00",
+  "request_count": 31,
+  "response_bytes": 606118,
+  "checked_scope": "Three routes, direction A: complete timetable; A/B geometry and day metadata; two night GPS snapshots; no whole-city schedule coverage or matching accuracy claim."
+}

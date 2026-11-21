@@ -1,0 +1,515 @@
+{
+  "observed_at": "2026-11-21",
+  "otp_image": "opentripplanner/opentripplanner:2.10.0",
+  "scope": "GraphQL input schema observed on running local OTP; feed isolation and realtime routing NOT yet tested",
+  "query": {
+    "name": "planConnection",
+    "args": [
+      {
+        "name": "after",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "before",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "dateTime",
+        "type": {
+          "kind": "INPUT_OBJECT",
+          "name": "PlanDateTimeInput",
+          "ofType": null
+        }
+      },
+      {
+        "name": "destination",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "INPUT_OBJECT",
+            "name": "PlanLabeledLocationInput",
+            "ofType": null
+          }
+        }
+      },
+      {
+        "name": "first",
+        "type": {
+          "kind": "SCALAR",
+          "name": "Int",
+          "ofType": null
+        }
+      },
+      {
+        "name": "flex",
+        "type": {
+          "kind": "INPUT_OBJECT",
+          "name": "FlexRequest",
+          "ofType": null
+        }
+      },
+      {
+        "name": "itineraryFilter",
+        "type": {
+          "kind": "INPUT_OBJECT",
+          "name": "PlanItineraryFilterInput",
+          "ofType": null
+        }
+      },
+      {
+        "name": "last",
+        "type": {
+          "kind": "SCALAR",
+          "name": "Int",
+          "ofType": null
+        }
+      },
+      {
+        "name": "locale",
+        "type": {
+          "kind": "SCALAR",
+          "name": "Locale",
+          "ofType": null
+        }
+      },
+      {
+        "name": "modes",
+        "type": {
+          "kind": "INPUT_OBJECT",
+          "name": "PlanModesInput",
+          "ofType": null
+        }
+      },
+      {
+        "name": "origin",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "INPUT_OBJECT",
+            "name": "PlanLabeledLocationInput",
+            "ofType": null
+          }
+        }
+      },
+      {
+        "name": "preferences",
+        "type": {
+          "kind": "INPUT_OBJECT",
+          "name": "PlanPreferencesInput",
+          "ofType": null
+        }
+      },
+      {
+        "name": "searchWindow",
+        "type": {
+          "kind": "SCALAR",
+          "name": "Duration",
+          "ofType": null
+        }
+      },
+      {
+        "name": "via",
+        "type": {
+          "kind": "LIST",
+          "name": null,
+          "ofType": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": {
+              "kind": "INPUT_OBJECT",
+              "name": "PlanViaLocationInput"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "inputs": [
+    {
+      "name": "BoardPreferencesInput",
+      "fields": [
+        {
+          "name": "slack",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Duration",
+            "ofType": null
+          }
+        },
+        {
+          "name": "waitReluctance",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Reluctance",
+            "ofType": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "PlanDateTimeInput",
+      "fields": [
+        {
+          "name": "earliestDeparture",
+          "type": {
+            "kind": "SCALAR",
+            "name": "OffsetDateTime",
+            "ofType": null
+          }
+        },
+        {
+          "name": "latestArrival",
+          "type": {
+            "kind": "SCALAR",
+            "name": "OffsetDateTime",
+            "ofType": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "PlanModesInput",
+      "fields": [
+        {
+          "name": "direct",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "ENUM",
+                "name": "PlanDirectMode"
+              }
+            }
+          }
+        },
+        {
+          "name": "directOnly",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Boolean",
+            "ofType": null
+          }
+        },
+        {
+          "name": "transit",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "PlanTransitModesInput",
+            "ofType": null
+          }
+        },
+        {
+          "name": "transitOnly",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Boolean",
+            "ofType": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "PlanPreferencesInput",
+      "fields": [
+        {
+          "name": "accessibility",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "AccessibilityPreferencesInput",
+            "ofType": null
+          }
+        },
+        {
+          "name": "street",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "PlanStreetPreferencesInput",
+            "ofType": null
+          }
+        },
+        {
+          "name": "transit",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "TransitPreferencesInput",
+            "ofType": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "PlanTransitModesInput",
+      "fields": [
+        {
+          "name": "access",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "ENUM",
+                "name": "PlanAccessMode"
+              }
+            }
+          }
+        },
+        {
+          "name": "egress",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "ENUM",
+                "name": "PlanEgressMode"
+              }
+            }
+          }
+        },
+        {
+          "name": "transfer",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "ENUM",
+                "name": "PlanTransferMode"
+              }
+            }
+          }
+        },
+        {
+          "name": "transit",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "INPUT_OBJECT",
+                "name": "PlanTransitModePreferenceInput"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TimetablePreferencesInput",
+      "fields": [
+        {
+          "name": "excludeRealTimeUpdates",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Boolean",
+            "ofType": null
+          }
+        },
+        {
+          "name": "includePlannedCancellations",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Boolean",
+            "ofType": null
+          }
+        },
+        {
+          "name": "includeRealTimeCancellations",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Boolean",
+            "ofType": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "TransferPreferencesInput",
+      "fields": [
+        {
+          "name": "cost",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Cost",
+            "ofType": null
+          }
+        },
+        {
+          "name": "maximumAdditionalTransfers",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Int",
+            "ofType": null
+          }
+        },
+        {
+          "name": "maximumTransfers",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Int",
+            "ofType": null
+          }
+        },
+        {
+          "name": "slack",
+          "type": {
+            "kind": "SCALAR",
+            "name": "Duration",
+            "ofType": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "TransitFilterInput",
+      "fields": [
+        {
+          "name": "exclude",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "INPUT_OBJECT",
+                "name": "TransitFilterSelectInput"
+              }
+            }
+          }
+        },
+        {
+          "name": "include",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "INPUT_OBJECT",
+                "name": "TransitFilterSelectInput"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TransitFilterSelectInput",
+      "fields": [
+        {
+          "name": "agencies",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "SCALAR",
+                "name": "String"
+              }
+            }
+          }
+        },
+        {
+          "name": "routes",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "SCALAR",
+                "name": "String"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TransitPreferencesInput",
+      "fields": [
+        {
+          "name": "alight",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "AlightPreferencesInput",
+            "ofType": null
+          }
+        },
+        {
+          "name": "board",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "BoardPreferencesInput",
+            "ofType": null
+          }
+        },
+        {
+          "name": "filters",
+          "type": {
+            "kind": "LIST",
+            "name": null,
+            "ofType": {
+              "kind": "NON_NULL",
+              "name": null,
+              "ofType": {
+                "kind": "INPUT_OBJECT",
+                "name": "TransitFilterInput"
+              }
+            }
+          }
+        },
+        {
+          "name": "relaxTransitGroupPriority",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "LinearCostFunctionInput",
+            "ofType": null
+          }
+        },
+        {
+          "name": "timetable",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "TimetablePreferencesInput",
+            "ofType": null
+          }
+        },
+        {
+          "name": "transfer",
+          "type": {
+            "kind": "INPUT_OBJECT",
+            "name": "TransferPreferencesInput",
+            "ofType": null
+          }
+        }
+      ]
+    }
+  ]
+}
