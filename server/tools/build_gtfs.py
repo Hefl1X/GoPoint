@@ -104,15 +104,15 @@ def _write_gtfs(path: Path, tables: tuple[GtfsTable, ...]) -> None:
                 archive.writestr(ZipInfo(table.name), stream.getvalue().encode("utf-8"))
 
 
-def build_pilot(samples_dir: Path, output: Path, window: ServiceWindow) -> GtfsBuild:
+def write_snapshot(
+    output: Path, window: ServiceWindow, build: GtfsBuild, provenance: dict[str, object]
+) -> None:
     if output.exists():
         raise FileExistsError(f"Укажите новый каталог для результата: {output}")
-    samples = _Samples(samples_dir)
-    build = _build_pilot(samples, window)
     report = {
+        **provenance,
         "service_start": window.start.isoformat(),
         "service_end": window.end.isoformat(),
-        "sources": samples.checksums,
         "coverage": _COVERAGE.dump_python(build.coverage, mode="json"),
     }
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -126,6 +126,12 @@ def build_pilot(samples_dir: Path, output: Path, window: ServiceWindow) -> GtfsB
             encoding="utf-8",
         )
         staging.rename(output)
+
+
+def build_pilot(samples_dir: Path, output: Path, window: ServiceWindow) -> GtfsBuild:
+    samples = _Samples(samples_dir)
+    build = _build_pilot(samples, window)
+    write_snapshot(output, window, build, {"sources": samples.checksums})
     return build
 
 

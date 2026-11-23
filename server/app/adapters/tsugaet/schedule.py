@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 
 import httpx
 
+from app.adapters.tsugaet.feed import TRASSES_BATCH
 from app.adapters.tsugaet.parse import RouteInfo, TsugaetFormatError, parse_traces
 from app.adapters.tsugaet.schedule_parse import (
     parse_schedule_day,
@@ -46,6 +47,38 @@ class ScheduleBudget:
 class ScheduleLoad:
     schedule: RouteSchedule
     path: LinePath
+
+
+@dataclass(frozen=True)
+class ScheduleGroup:
+    route: RouteInfo
+    direction: Direction
+    day_id: str
+
+    @property
+    def key(self) -> tuple[str, Direction, str]:
+        return self.route.line_id, self.direction, self.day_id
+
+
+def _geometry_batches(
+    groups: Sequence[ScheduleGroup],
+) -> list[tuple[Direction, list[RouteInfo]]]:
+    batches = []
+    for direction in Direction:
+        routes_by_id = {
+            group.route.line_id: group.route for group in groups if group.direction == direction
+        }
+        routes = [routes_by_id[line_id] for line_id in sorted(routes_by_id)]
+        for start in range(0, len(routes), TRASSES_BATCH):
+            batches.append((direction, routes[start : start + TRASSES_BATCH]))
+    return batches
+
+
+def planned_requests(groups: Sequence[ScheduleGroup]) -> int:
+    """Число запросов без повторов и отдельного запроса каталога."""
+    routes = {group.route.line_id for group in groups}
+    directions = {(group.route.line_id, group.direction) for group in groups}
+    return len(routes) + len(directions) + 2 * len(groups) + len(_geometry_batches(groups))
 
 
 class TsugaetScheduleSource:
@@ -127,25 +160,62 @@ class TsugaetScheduleSource:
 
     async def load(self, route: RouteInfo, direction: Direction, day_id: str) -> ScheduleLoad:
         """Возвращает одну согласованную таблицу и геометрию после приёма всех ответов."""
+        (result,) = await self.load_many((ScheduleGroup(route, direction, day_id),))
+        return result
+
+    async def load_many(self, groups: Sequence[ScheduleGroup]) -> tuple[ScheduleLoad, ...]:
+        """Справочники и геометрия общие для типов дня одного направления."""
+        requested = sorted(groups, key=lambda group: group.key)
+        if len({group.key for group in requested}) != len(requested):
+            raise ValueError("Группа расписания указана дважды")
+        metadata: dict[tuple[tuple[str, str], ...], str] = {}
+        schedules = [await self._schedule(group, metadata) for group in requested]
+        paths: dict[tuple[str, Direction], LinePath] = {}
+        for direction, batch in _geometry_batches(requested):
+            for line_id, path in (await self._geometry(direction, batch)).items():
+                paths[line_id, direction] = path
+        return tuple(
+            ScheduleLoad(schedule, paths[schedule.route.line_id, schedule.route.direction])
+            for schedule in schedules
+        )
+
+    async def _cached_grasp(
+        self, params: dict[str, str], metadata: dict[tuple[tuple[str, str], ...], str]
+    ) -> str:
+        key = tuple(sorted(params.items()))
+        if key not in metadata:
+            metadata[key] = await self._grasp(params)
+        return metadata[key]
+
+    async def _schedule(
+        self, group: ScheduleGroup, metadata: dict[tuple[tuple[str, str], ...], str]
+    ) -> RouteSchedule:
+        route, direction = group.route, group.direction
         query = {"m": route.marsh, "t": str(route.type_code)}
-        directions = parse_schedule_directions(await self._grasp(query))
+        directions = parse_schedule_directions(await self._cached_grasp(query, metadata))
         if direction not in directions:
             raise TsugaetFormatError(f"У {route.line_id} нет направления {direction.value}")
 
         query["r"] = direction.value
-        day = parse_schedule_day(await self._grasp(query), day_id)
+        day = parse_schedule_day(await self._cached_grasp(query, metadata), group.day_id)
         query["sch"] = day.source_id
         stops = parse_schedule_stops(await self._grasp(query))
         html = await self._grasp(query | {"tv": "mr", "s": "0", "v": "0"})
         tables = parse_schedule_tables(html, stops)
         identity = ScheduleRoute(route.type, route.marsh, route.name, direction)
-        geometry = await self._get(_TRACES, {"r": route.key(direction.value)})
+        return RouteSchedule(identity, day, tables)
+
+    async def _geometry(self, direction: Direction, routes: list[RouteInfo]) -> dict[str, LinePath]:
+        wanted = [(route.line_id, route.marsh) for route in routes]
+        geometry = await self._get(
+            _TRACES, {"r": "".join(route.key(direction.value) for route in routes)}
+        )
         try:
             data: object = json.loads(geometry)
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise TsugaetFormatError("trasses: ответ не JSON") from exc
-        paths = parse_traces(data, [(route.line_id, route.marsh)], direction)
-        path = paths.get(route.line_id)
-        if path is None:
-            raise TsugaetFormatError(f"trasses: линия {route.line_id} отсутствует в ответе")
-        return ScheduleLoad(RouteSchedule(identity, day, tables), path)
+        paths = parse_traces(data, wanted, direction)
+        missing = sorted({line_id for line_id, _ in wanted} - paths.keys())
+        if missing:
+            raise TsugaetFormatError(f"trasses: нет геометрии для {', '.join(missing)}")
+        return paths
