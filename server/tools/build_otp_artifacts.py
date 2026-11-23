@@ -249,7 +249,7 @@ def _build_release(
         staging.rename(release)
 
 
-def _docker() -> tuple[str, str]:
+def local_otp_image() -> tuple[str, str]:
     docker = shutil.which("docker")
     if docker is None:
         raise ArtifactError("Docker CLI не найден")
@@ -274,7 +274,7 @@ def main() -> int:
     verify.add_argument("release", type=Path)
     args = parser.parse_args()
     try:
-        docker, image = _docker()
+        docker, image = local_otp_image()
         if args.action == "verify":
             print(verify_release(args.release, otp_image=image).version)
             return 0

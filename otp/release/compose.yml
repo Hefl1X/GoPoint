@@ -1,0 +1,11 @@
+services:
+  otp:
+    image: "${GOPOINT_OTP_RELEASE_IMAGE:?Укажите ID образа OTP}"
+    pull_policy: never
+    command: ["--load"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx3g"
+    volumes:
+      - "${GOPOINT_OTP_RELEASE_DIR:?Укажите каталог версии}:/var/opentripplanner:ro"
+    ports:
+      - "127.0.0.1:${GOPOINT_OTP_RELEASE_PORT:-18801}:8080"
