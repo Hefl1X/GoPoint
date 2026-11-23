@@ -8,6 +8,7 @@ from html.parser import HTMLParser
 from xml.etree import ElementTree
 
 from app.adapters.tsugaet.parse import TsugaetFormatError
+from app.domain.models import Direction
 from app.domain.schedule import (
     RouteSchedule,
     ScheduleDay,
@@ -71,6 +72,13 @@ def parse_schedule_day(xml: str, source_id: str) -> ScheduleDay:
     if kind is None:
         raise UnsupportedScheduleDayError(f"grasp schedules: неизвестный тип дня {title!r}")
     return ScheduleDay(source_id, title, kind)
+
+
+def parse_schedule_directions(xml: str) -> tuple[Direction, ...]:
+    try:
+        return tuple(Direction(source_id) for source_id, _ in _xml_entries(xml, "routes", "route"))
+    except ValueError as exc:
+        raise TsugaetFormatError("grasp routes: неверное направление или справочник") from exc
 
 
 def parse_schedule_stops(xml: str) -> tuple[ScheduleStop, ...]:
