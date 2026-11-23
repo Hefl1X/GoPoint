@@ -369,19 +369,34 @@ docker run --rm --pull never --network none \
 Запуск из корня репозитория после сборки ZIP этапа 2, при наличии локальных образов `gopoint-server:local` и `opentripplanner/opentripplanner:2.10.0`:
 
 ```bash
-export GOPOINT_OTP_EXPERIMENT_DIR="$(mktemp -d)/pilot"
-uv run --script otp/experiment/check.py prepare "$GOPOINT_OTP_EXPERIMENT_DIR" \
+otp_experiment_dir="$(mktemp -d)"
+export GOPOINT_OTP_EXPERIMENT_DIR="$otp_experiment_dir/a"
+PYTHONPATH=server uv run --script otp/experiment/check.py prepare "$GOPOINT_OTP_EXPERIMENT_DIR" \
   --feed /tmp/gopoint-gtfs-nsk/schedule.gtfs.zip
+PYTHONPATH=server uv run --script otp/experiment/check.py prepare "$otp_experiment_dir/b" \
+  --feed /tmp/gopoint-gtfs-nsk/schedule.gtfs.zip --version gopoint-experiment-b
+GOPOINT_OTP_EXPERIMENT_DIR="$otp_experiment_dir/b" \
+  docker compose --env-file /dev/null -p gopoint-otp-exp-b -f otp/experiment/compose.yml \
+  run --rm --no-deps otp --build --save
 docker compose --env-file /dev/null -p gopoint-otp-exp -f otp/experiment/compose.yml \
   run --rm --no-deps otp --build --save
 docker compose --env-file /dev/null -p gopoint-otp-exp -f otp/experiment/compose.yml up -d
-uv run --script otp/experiment/check.py check "$GOPOINT_OTP_EXPERIMENT_DIR"
+PYTHONPATH=server uv run --script otp/experiment/check.py check "$GOPOINT_OTP_EXPERIMENT_DIR" \
+  --replacement "$otp_experiment_dir/b"
 docker compose --env-file /dev/null -p gopoint-otp-exp -f otp/experiment/compose.yml down
+GOPOINT_OTP_EXPERIMENT_DIR="$otp_experiment_dir/b" \
+  docker compose --env-file /dev/null -p gopoint-otp-exp-b -f otp/experiment/compose.yml down
 ```
 
 На дату 24.11.2026 от Цветного проезда к «М. Речной вокзал» общий режим выдал 06:01 при запросе в 05:58 и 06:15 при запросе в 06:02. Фильтры по агентству изолировали фиды. Отмена скрыла 06:01 в low, а подтверждение вернуло его. `trip(id).onServiceDate(date).stopCalls` вернул 38 остановок выбранного рейса; тестовая задержка на 120 с сдвинула прибытие с 07:22 до 07:24.
 
-Воспроизведено ограничение OTP: пустой `FULL_DATASET` в low вернул плановый рейс 06:15 без подтверждения. После явной отмены всех рейсов low на проверяемую дату короткий пеший путь и общий поиск были доступны. Для интеграции нужны подтверждения по каждой посадке, проверка готовности и свежести при запуске или отставании updater. Ещё проверить пересадку с задержкой, повторную остановку, поздние посадки и даты около полуночи, перезапуск и смену версии графа. Полевых данных GPS в эксперименте нет.
+Воспроизведено ограничение OTP: пустой `FULL_DATASET` в low вернул плановый рейс 06:15 без подтверждения. После явной отмены всех рейсов low короткий пеший путь и общий поиск были доступны.
+
+Расширенный эксперимент добавляет три синтетических рейса на площадках пилота. По запросу 24.11 в 22:54 OTP находит вторую посадку в 24:05 и третью в 24:28 той же даты обслуживания. Задержка первого рейса на 300 с срывает пересадку в 24:05, сброс задержки её возвращает. Отмена второй или третьей посадки убирает цепочку из low, восстановление возвращает её. Запрос с пересадки 25.11 в 00:03 находит рейсы за 24.11, а вечером 25.11 те же ID относятся к новой дате. Два посещения площадки 645 возвращаются в позициях 2 и 4, в 23:33 и 23:37, по запросу самого рейса.
+
+Календарь обоих фидов 23.11–06.12.2026. Проверены поездки вечером первого и последнего дней. После полуночи 07.12 OTP возвращает `OUTSIDE_SERVICE_PERIOD`, хотя в GTFS есть времена последнего дня после 24:00. Для производственного календаря нужен запас и явная недоступность на границе. Полный low обновляется по всем 812 экземплярам поездок тестового календаря, с тремя подтверждёнными посадками в потоке около 52 КБ отмен. Граф с тремя тестовыми рейсами весит 20,2 МБ, разовый замер OTP — около 650 МиБ.
+
+При HTTP 404 OTP сохраняет предыдущие обновления, а после перезапуска без потока выдаёт плановые рейсы low. Правило допуска сверяет версию обоих фидов из `feeds { feedId version }`, неизменность снимка за время запроса, срок его действия и подтверждение **каждой** посадки по `(trip_id, service_date)`. Эксперимент применяет правило к настоящему ответу OTP при потерянной третьей посадке, истёкшем снимке, холодном старте и переключении с версии A на B. Новый граф применил полный набор отмен после восстановления источника. В рабочее API правило подключается на этапе 7, готовность снимка и доставка потока входят в этап 6. Эксперимент использовал фиксированные подтверждения и задержки. [Схема версий фидов в OTP](https://github.com/opentripplanner/OpenTripPlanner/pull/7445)
 
 ### 4. Производственный сборщик расписания и артефакты
 
