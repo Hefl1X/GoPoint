@@ -29,6 +29,10 @@ class ScheduleRoute:
     number: str
     direction: Direction
 
+    @property
+    def line_id(self) -> str:
+        return f"{self.type.value}-{self.marsh}"
+
 
 @dataclass(frozen=True)
 class ScheduleStop:
