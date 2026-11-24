@@ -44,6 +44,10 @@ class _Manifest(BaseModel):
     requests: list[_Response]
 
 
+class MissingScheduleResponseError(ValueError):
+    """Запрос отсутствует в сохранённом HTTP-архиве."""
+
+
 def _request_key(url: httpx.URL) -> tuple[str, tuple[tuple[str, str], ...]]:
     return str(url.copy_with(query=None)), tuple(sorted(url.params.multi_items()))
 
@@ -67,7 +71,7 @@ class ScheduleArchive:
         key = _request_key(request.url)
         entry = self.entries.get(key)
         if entry is None:
-            raise ValueError(f"В архиве отсутствует ответ для {request.url}")
+            raise MissingScheduleResponseError(f"В архиве отсутствует ответ для {request.url}")
         if Path(entry.file).name != entry.file:
             raise ValueError("Имя файла в архиве должно быть без каталога")
         data = (self.directory / entry.file).read_bytes()
