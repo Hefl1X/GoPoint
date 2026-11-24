@@ -160,6 +160,24 @@ class TripScheduleIndex:
             return MotionState.UNKNOWN, True, ()
         return next(iter(phases), MotionState.UNKNOWN), False, tuple(candidates)
 
+    def receding(self, before: VehicleMatch, after: VehicleMatch, settings: MatchSettings) -> bool:
+        """Свежая пара точек уверенно уходит назад вдоль прежнего направления."""
+        entries = self._services.get((after.line_id, after.direction), ())
+        elapsed_s = (after.observed_at - before.observed_at).total_seconds()
+        for entry in entries:
+            points = [
+                projection_candidates(
+                    entry.geometry, item.point, max_offset_m=settings.max_offset_m
+                )
+                for item in (before, after)
+            ]
+            if any(len(options) != 1 for options in points):
+                return False
+            backwards_m = points[0][0].along_m - points[1][0].along_m
+            if not settings.min_progress_m <= backwards_m <= elapsed_s * settings.max_speed_mps:
+                return False
+        return bool(entries)
+
 
 def _position(
     geometry: LineGeometry, live: LiveVehicle, settings: MatchSettings
@@ -341,6 +359,12 @@ def _observe(
         return current
     # Источник может ещё сообщать старое направление, когда машина уходит с конечной.
     until = previous.turnaround_until
+    if (
+        previous.motion is MotionState.TURNAROUND
+        and motion is MotionState.IN_SERVICE
+        and index.receding(previous, current, settings)
+    ):
+        until = valid_until
     if (
         until is not None
         and now < until

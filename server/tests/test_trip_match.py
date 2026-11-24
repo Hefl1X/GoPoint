@@ -222,12 +222,18 @@ def test_turnaround_with_a_delayed_source_direction_drops_old_trip_candidates() 
     assert match.motion is MotionState.TURNAROUND
     assert not match.candidates and match.low_floor_occurrence is None
     assert match.turnaround_until == _at(SIX + 660)
-    midway = _step(index, SIX + 590, _obs(SIX + 590, 0.008), previous=turning)
+    midway = _step(index, SIX + 590, _obs(SIX + 590, 0.01), previous=turning)
     assert midway.vehicles["car"].motion is MotionState.TURNAROUND
     assert midway.vehicles["car"].turnaround_until == match.turnaround_until
-    expired = _step(index, SIX + 660, _obs(SIX + 660, 0.006), previous=midway)
+    expired = _step(index, SIX + 660, _obs(SIX + 660, 0.01), previous=midway)
     assert expired.vehicles["car"].motion is MotionState.IN_SERVICE
     assert expired.vehicles["car"].assignment is None
+
+    still_receding = _step(index, SIX + 660, _obs(SIX + 660, 0.006), previous=midway)
+    continued = still_receding.vehicles["car"]
+    assert continued.motion is MotionState.TURNAROUND
+    assert continued.turnaround_until == _at(SIX + 960)
+    assert continued.candidates == ()
 
 
 def test_conflicting_replay_and_lunch_remove_confirmation() -> None:
