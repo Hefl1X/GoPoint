@@ -3,10 +3,11 @@ from pathlib import Path
 
 import pytest
 
+from app.adapters.otp.release import ArtifactError, ArtifactManifest
 from app.domain.gtfs import ServiceWindow
 from tools.activate_otp_release import ActivationError, ReleaseState, switch_release
 from tools.build_gtfs import SAMPLES, build_pilot
-from tools.build_otp_artifacts import STREET_FILE, ArtifactError, ArtifactManifest, prepare_release
+from tools.build_otp_artifacts import STREET_FILE, prepare_release
 
 IMAGE = "fixture-image"
 

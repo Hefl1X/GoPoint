@@ -16,15 +16,27 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import BadZipFile, ZipFile, ZipInfo
 
-from pydantic import BaseModel, ConfigDict
-
+from app.adapters.otp.release import (
+    FEEDS,
+    RELEASE_FILES,
+    ArtifactError,
+    ArtifactManifest,
+    canonical_json,
+    checked_digest,
+    file_digest,
+    verify_release,
+)
+from app.adapters.otp.schedule import (
+    binding_data,
+    load_release_schedule,
+    published_coverage,
+    read_published_schedule,
+)
 from app.domain.gtfs import ServiceWindow
 
 OTP_IMAGE = "opentripplanner/opentripplanner:2.10.0"
 DEFAULT_BUILD_CONFIG = Path(__file__).resolve().parents[2] / "otp/build-config.json"
-FEEDS = {"all.gtfs.zip": "gopoint-all", "low.gtfs.zip": "gopoint-low"}
 STREET_FILE = "streetGraph.obj"
-RELEASE_FILES = frozenset({"graph.obj", "build-config.json", "coverage.json", *FEEDS})
 GTFS_FILES = frozenset(
     {
         "agency.txt",
@@ -39,57 +51,8 @@ GTFS_FILES = frozenset(
 type Build = Callable[[Path, tuple[str, ...]], None]
 
 
-class ArtifactError(ValueError):
-    pass
-
-
-class ArtifactManifest(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    version: str
-    schedule_sha256: str
-    street_key: str
-    otp_image: str
-    service_start: date
-    service_end: date
-    feeds: dict[str, str]
-    sha256: dict[str, str]
-
-
-def _json_bytes(value: object) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode()
-
-
 def _digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def _file_digest(path: Path) -> str:
-    with path.open("rb") as file:
-        return hashlib.file_digest(file, "sha256").hexdigest()
-
-
-def _checked_file(path: Path) -> str:
-    if not path.is_file() or path.stat().st_size == 0:
-        raise ArtifactError(f"Нет результата OTP: {path.name}")
-    return _file_digest(path)
-
-
-def verify_release(release: Path, *, otp_image: str | None = None) -> ArtifactManifest:
-    manifest = ArtifactManifest.model_validate_json((release / "manifest.json").read_bytes())
-    if (
-        release.name != manifest.version
-        or manifest.version != _digest(_json_bytes([manifest.street_key, manifest.schedule_sha256]))
-        or set(manifest.sha256) != RELEASE_FILES
-        or manifest.sha256["all.gtfs.zip"] != manifest.sha256["low.gtfs.zip"]
-        or manifest.feeds != FEEDS
-        or (otp_image is not None and manifest.otp_image != otp_image)
-    ):
-        raise ArtifactError("Версия, состав или образ OTP не совпадают с manifest.json")
-    for name, sha256 in manifest.sha256.items():
-        if _checked_file(release / name) != sha256:
-            raise ArtifactError(f"Не совпала контрольная сумма: {name}")
-    return manifest
 
 
 def _read_schedule(path: Path) -> tuple[dict[str, bytes], dict[str, str], ServiceWindow]:
@@ -126,7 +89,7 @@ def _street_graph(
     output = cache / STREET_FILE
     checksum = cache / "sha256"
     if cache.exists():
-        if _checked_file(output) != checksum.read_text(encoding="ascii").strip():
+        if checked_digest(output) != checksum.read_text(encoding="ascii").strip():
             raise ArtifactError("Повреждён кэш streetGraph.obj")
         return output
 
@@ -135,12 +98,12 @@ def _street_graph(
         staging.mkdir()
         source = staging / "novosibirsk.osm.pbf"
         shutil.copyfile(osm, source)
-        if _file_digest(source) != osm_sha:
+        if file_digest(source) != osm_sha:
             raise ArtifactError("Входной OSM изменился во время копирования")
-        (staging / "build-config.json").write_bytes(_json_bytes(config))
+        (staging / "build-config.json").write_bytes(canonical_json(config))
         build(staging, ("--buildStreet",))
         (staging / checksum.name).write_text(
-            _checked_file(staging / STREET_FILE) + "\n", encoding="ascii"
+            checked_digest(staging / STREET_FILE) + "\n", encoding="ascii"
         )
         source.unlink()
         staging.rename(cache)
@@ -157,23 +120,20 @@ def prepare_release(
 ) -> Path:
     tables, info, window = _read_schedule(schedule_dir / "schedule.gtfs.zip")
     coverage = (schedule_dir / "coverage.json").read_bytes()
-    report = json.loads(coverage)
-    if (report["service_start"], report["service_end"]) != (
-        window.start.isoformat(),
-        window.end.isoformat(),
-    ):
-        raise ArtifactError("Календарь GTFS и отчёта покрытия расходятся")
+    bindings = binding_data(published_coverage(coverage, window))
     schedule_sha = _digest(
-        _json_bytes([info, {name: _digest(data) for name, data in tables.items()}])
+        canonical_json(
+            [info, {name: _digest(data) for name, data in tables.items()}, _digest(bindings)]
+        )
     )
-    osm_sha = _file_digest(osm)
+    osm_sha = file_digest(osm)
     street_config = {
         key: value
         for key, value in street_options.items()
         if key not in {"transitFeeds", "transitServiceStart", "transitServiceEnd"}
     } | {"transitFeeds": []}
-    street_key = _digest(_json_bytes([otp_image, osm_sha, street_config]))
-    version = _digest(_json_bytes([street_key, schedule_sha]))
+    street_key = _digest(canonical_json([otp_image, osm_sha, street_config]))
+    version = _digest(canonical_json([street_key, schedule_sha]))
 
     cache = store / "street"
     releases = store / "releases"
@@ -223,9 +183,15 @@ def _build_release(
         staging.mkdir()
         street_input = staging / STREET_FILE
         shutil.copyfile(street_graph, street_input)
-        street_sha = _file_digest(street_graph)
+        street_sha = file_digest(street_graph)
         for name in FEEDS:
             _write_feed(staging / name, tables, info, manifest.version)
+        read_published_schedule(
+            staging / "all.gtfs.zip",
+            coverage,
+            manifest.version,
+            ServiceWindow(manifest.service_start, manifest.service_end),
+        )
         config = street_config | {
             "osm": [],
             "transitServiceStart": manifest.service_start.isoformat(),
@@ -234,13 +200,13 @@ def _build_release(
                 {"type": "gtfs", "source": name, "feedId": feed} for name, feed in FEEDS.items()
             ],
         }
-        (staging / "build-config.json").write_bytes(_json_bytes(config))
+        (staging / "build-config.json").write_bytes(canonical_json(config))
         (staging / "coverage.json").write_bytes(coverage)
         build(staging, ("--loadStreet", "--save"))
-        if _file_digest(street_input) != street_sha:
+        if file_digest(street_input) != street_sha:
             raise ArtifactError("OTP изменил промежуточный streetGraph.obj")
         street_input.unlink()
-        checksums = {name: _checked_file(staging / name) for name in sorted(RELEASE_FILES)}
+        checksums = {name: checked_digest(staging / name) for name in sorted(RELEASE_FILES)}
         complete = manifest.model_copy(update={"sha256": checksums})
         (staging / "manifest.json").write_text(
             complete.model_dump_json(indent=2) + "\n", encoding="utf-8"
@@ -276,7 +242,7 @@ def main() -> int:
     try:
         docker, image = local_otp_image()
         if args.action == "verify":
-            print(verify_release(args.release, otp_image=image).version)
+            print(load_release_schedule(args.release, otp_image=image).version)
             return 0
         options = json.loads(DEFAULT_BUILD_CONFIG.read_bytes())
 

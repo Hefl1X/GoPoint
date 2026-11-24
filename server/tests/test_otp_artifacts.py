@@ -7,9 +7,12 @@ from zipfile import ZipFile
 
 import pytest
 
+from app.adapters.otp.release import ArtifactError, verify_release
+from app.adapters.otp.schedule import load_release_schedule
 from app.domain.gtfs import ServiceWindow
+from app.domain.models import Direction
 from tools.build_gtfs import SAMPLES, build_pilot
-from tools.build_otp_artifacts import STREET_FILE, ArtifactError, prepare_release, verify_release
+from tools.build_otp_artifacts import STREET_FILE, prepare_release
 
 STREET = ("--buildStreet",)
 TRANSIT = ("--loadStreet", "--save")
@@ -73,6 +76,52 @@ def test_repacked_schedule_and_fresher_report_skip_both_builds(
     assert (release / "all.gtfs.zip").read_bytes() == (release / "low.gtfs.zip").read_bytes()
     with ZipFile(release / "all.gtfs.zip") as feed:
         assert release.name.encode() in feed.read("feed_info.txt")
+
+    snapshot = load_release_schedule(release, otp_image=IMAGE)
+    assert snapshot.version == manifest.version
+    assert snapshot.window == WINDOW
+    (service,) = snapshot.services
+    assert (service.line_id, service.direction) == ("bus-8", Direction.A)
+    assert len(service.trips) == 55
+    assert len(service.bindings) == 38
+    assert service.operates_on(WINDOW.start) and service.operates_on(WINDOW.end)
+    assert not service.operates_on(date(2026, 12, 7))
+    first = service.trips[0]
+    assert first.trip_id == "bus-8-A-23-021660"
+    assert first.stop_times[1].arrival == first.stop_times[1].departure == 21780
+    platform = service.bindings[1].platform
+    assert platform.stop.id == "645"
+    assert platform.stop.point == service.shape[platform.point_index]
+
+
+def test_changed_bindings_create_version_and_inconsistent_bindings_block_publication(
+    tmp_path: Path, inputs: tuple[Path, Path]
+) -> None:
+    osm, schedule = inputs
+    builder = _Builder()
+    store = tmp_path / "store"
+    first = prepare_release(store, osm, schedule, {}, IMAGE, builder)
+    changed = tmp_path / "new-bindings"
+    shutil.copytree(schedule, changed)
+    report = changed / "coverage.json"
+    data = json.loads(report.read_bytes())
+    row = next(row for row in data["coverage"] if row["trip_count"])
+    binding = row["bindings"][0]
+    binding["scheduled"]["source_id"] = "new-source-id"
+    report.write_text(json.dumps(data), encoding="utf-8")
+
+    rebuilt = prepare_release(store, osm, changed, {}, IMAGE, builder)
+    assert rebuilt != first
+    assert builder.calls == [STREET, TRANSIT, TRANSIT]
+    loaded = load_release_schedule(rebuilt)
+    assert loaded.services[0].bindings[0].scheduled.source_id == "new-source-id"
+
+    binding["platform"]["stop"]["id"] = "wrong-stop-id"
+    report.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ArtifactError, match="расходятся с привязками"):
+        prepare_release(store, osm, changed, {}, IMAGE, builder)
+    assert set((store / "releases").iterdir()) == {first, rebuilt}
+    assert builder.calls == [STREET, TRANSIT, TRANSIT]
 
 
 def test_time_and_calendar_changes_reuse_streets(tmp_path: Path, inputs: tuple[Path, Path]) -> None:

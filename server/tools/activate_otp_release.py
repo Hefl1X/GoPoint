@@ -18,7 +18,8 @@ from typing import Literal, Protocol
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from tools.build_otp_artifacts import ArtifactManifest, local_otp_image, verify_release
+from app.adapters.otp.release import ArtifactManifest, verify_release
+from tools.build_otp_artifacts import local_otp_image
 
 _VERSION = re.compile("[0-9a-f]{64}")
 _CONFIG = Path(__file__).resolve().parents[2] / "otp/release/compose.yml"
