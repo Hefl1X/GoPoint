@@ -16,7 +16,7 @@ from app.ports import TransitFeedError
 from app.services.live_snapshot import LiveSnapshotService
 from app.services.realtime import RealtimeService
 from tests.conftest import SAMPLES, ManualClock
-from tests.test_trip_match import FIRST, SIX, WINDOW, _at, _obs, _service
+from tests.test_trip_match import DAY, FIRST, SIX, WINDOW, _at, _obs, _service
 
 _ALL = "/internal/gtfs-rt/all"
 _LOW = "/internal/gtfs-rt/low-floor"
@@ -41,7 +41,7 @@ class _Feed(FakeTransitFeed):
 
 
 async def _get(client: httpx.AsyncClient, path: str) -> rt.FeedMessage:
-    response = await client.get(path)
+    response = await client.get(path, params={"version": "test-graph"})
     assert response.status_code == 200
     assert response.headers["X-GoPoint-Graph-Version"] == "test-graph"
     assert response.headers["Content-Type"] == "application/x-protobuf"
@@ -63,6 +63,8 @@ async def test_both_endpoints_use_one_snapshot_and_expiry_clears_delay() -> None
     ):
         service: RealtimeService = app.state.realtime
         assert not (await _get(client, _ALL)).entity
+        assert (await client.get(_LOW)).status_code == 422
+        assert (await client.get(f"{_LOW}?version=previous-graph")).status_code == 503
         initial = await _get(client, _LOW)
         assert initial.header.incrementality == rt.FeedHeader.FULL_DATASET
         assert len(initial.entity) == 7
@@ -108,7 +110,7 @@ async def test_both_endpoints_use_one_snapshot_and_expiry_clears_delay() -> None
         assert (await _get(client, _ALL)).entity[0].trip_update.timestamp == delay.timestamp
 
         clock.now = _at(SIX + 210) + timedelta(seconds=300)
-        assert (await client.get(_LOW)).status_code == 503
+        assert (await client.get(_LOW, params={"version": "test-graph"})).status_code == 503
         service.update()
         assert not (await _get(client, _ALL)).entity
         assert all(
@@ -145,6 +147,38 @@ async def test_high_floor_confirmation_updates_all_and_is_cancelled_in_low() -> 
         )
 
 
+async def test_departure_after_midnight_keeps_its_service_date() -> None:
+    clock = ManualClock(_at(86400))
+    feed = _Feed()
+    overnight = _service((86280, 86520, 86640, 86880))
+    schedule = ScheduleSnapshot("test-graph", WINDOW, (overnight,))
+    app = create_app(
+        Settings(), feed=feed, clock=clock, start_poller=False, realtime_schedule=schedule
+    )
+    live: LiveSnapshotService = app.state.live
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        service: RealtimeService = app.state.realtime
+        feed.observations = [_obs(86400, 0.0025)]
+        await live.refresh()
+        service.update()
+        clock.advance(180)
+        feed.observations = [_obs(86580, 0.0075)]
+        await live.refresh()
+        service.update()
+        (item,) = (await _get(client, _ALL)).entity
+        assert item.trip_update.trip.start_date == DAY.strftime("%Y%m%d")
+        low = {
+            entity.trip_update.trip.start_date: entity.trip_update.trip.schedule_relationship
+            for entity in (await _get(client, _LOW)).entity
+        }
+        assert len(low) == 7
+        assert low.pop(item.trip_update.trip.start_date) == rt.TripDescriptor.SCHEDULED
+        assert set(low.values()) == {rt.TripDescriptor.CANCELED}
+
+
 async def test_missing_release_keeps_api_available(tmp_path: Path) -> None:
     app = create_app(
         Settings(realtime_release=tmp_path / "missing"), feed=_Feed(), start_poller=False
@@ -154,6 +188,6 @@ async def test_missing_release_keeps_api_available(tmp_path: Path) -> None:
         httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client,
     ):
         assert (await client.get("/health")).status_code == 200
-        assert (await client.get(_LOW)).status_code == 503
+        assert (await client.get(_LOW, params={"version": "test-graph"})).status_code == 503
         paths = (await client.get("/api/openapi.json")).json()["paths"]
         assert all(not path.startswith("/internal/") for path in paths)

@@ -15,6 +15,7 @@ DAY = "2026-11-24"
 TRIP = "bus-8-A-23-021660"
 OTP = "http://127.0.0.1:18821/otp/gtfs/v1"
 WEB = "http://127.0.0.1:18822"
+FEEDS = "{ feeds { feedId version } }"
 PLAN = """
 query CheckPlan($agency: String!) {
   planConnection(
@@ -73,6 +74,12 @@ def _trips(client: httpx.Client, feed: str) -> set[str]:
     }
 
 
+def _versions(client: httpx.Client) -> dict[str, str | None]:
+    data = _graphql(client, FEEDS, {})
+    feeds = cast(list[dict[str, str | None]], data["feeds"])
+    return {str(feed["feedId"]): feed["version"] for feed in feeds}
+
+
 def _delays(client: httpx.Client, feed: str) -> tuple[int, ...]:
     data = _graphql(client, CALLS, {"id": f"gopoint-{feed}:{TRIP}", "date": DAY})
     trip = cast(dict[str, dict[str, list[_Call]]], data["trip"])
@@ -112,7 +119,7 @@ def _step(client: httpx.Client, path: Path, step: int, *, complete: bool) -> Non
         raise RuntimeError(f"Неожиданное состояние GPS на шаге {step}")
 
 
-def verify(directory: Path) -> None:
+def verify(directory: Path, version: str, phase: str) -> None:
     path = directory / "scenario" / "step"
     all_trip = f"gopoint-all:{TRIP}"
     low_trip = f"gopoint-low:{TRIP}"
@@ -120,7 +127,25 @@ def verify(directory: Path) -> None:
         _wait_for("GoPoint запущен", lambda: client.get(f"{WEB}/health").is_success)
         if client.get(f"{WEB}/internal/gtfs-rt/all").status_code != 404:
             raise RuntimeError("Caddy не вернул 404 для внутреннего фида")
-        if path.read_text(encoding="ascii").strip() != "0":
+        _wait_for(
+            f"OTP загрузил оба фида версии {version[:8]}",
+            lambda: _versions(client) == {"gopoint-all": version, "gopoint-low": version},
+        )
+        current = path.read_text(encoding="ascii").strip()
+        if phase == "reset":
+            if current != "2":
+                raise RuntimeError("Для проверки сброса оставьте последнюю отметку на шаге 2")
+            _step(client, path, 2, complete=True)
+            _wait_for(
+                "Новый процесс сбросил подтверждение и задержку предыдущей версии",
+                lambda: (
+                    _delays(client, "all") == (0, 0, 0)
+                    and all_trip in _trips(client, "all")
+                    and not _trips(client, "low")
+                ),
+            )
+            return
+        if current != "0":
             raise RuntimeError("Начните со свежих контейнеров на шаге 0")
         _step(client, path, 0, complete=True)
         _wait_for(
@@ -137,6 +162,8 @@ def verify(directory: Path) -> None:
                 and low_trip in _trips(client, "low")
             ),
         )
+        if phase == "confirm":
+            return
         _step(client, path, 3, complete=True)
         _wait_for(
             "После ramp=0: low пуст, общий сохраняет задержку №8",
@@ -156,4 +183,7 @@ def verify(directory: Path) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
-    verify(parser.parse_args().directory)
+    parser.add_argument("version")
+    parser.add_argument("--phase", choices=("full", "confirm", "reset"), default="full")
+    args = parser.parse_args()
+    verify(args.directory, args.version, args.phase)
