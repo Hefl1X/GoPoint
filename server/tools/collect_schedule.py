@@ -45,7 +45,7 @@ class _Manifest(BaseModel):
 
 
 class MissingScheduleResponseError(ValueError):
-    """Запрос отсутствует в сохранённом HTTP-архиве."""
+    """В сохранённом HTTP-архиве нет успешного ответа на запрос."""
 
 
 def _request_key(url: httpx.URL) -> tuple[str, tuple[tuple[str, str], ...]]:

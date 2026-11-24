@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -33,7 +34,9 @@ def _read(archive: ScheduleArchive, request: ScheduleRequest) -> bytes:
     url = httpx.URL(request.url, params=request.params)
     response = archive.response(httpx.Request("GET", url))
     if response.status_code != httpx.codes.OK:
-        raise ValueError(f"Архивный {request.kind} вернул HTTP {response.status_code}")
+        raise MissingScheduleResponseError(
+            f"Архивный {request.kind} вернул HTTP {response.status_code}"
+        )
     return response.content
 
 
@@ -93,6 +96,7 @@ def audit(
 ) -> dict[str, object]:
     if output.exists():
         raise FileExistsError(f"Укажите новый каталог GTFS: {output}")
+    http_complete = True
     paths: dict[tuple[str, Direction], LinePath] = {}
     geometry_issues: list[dict[str, object]] = []
     for direction, routes, request in schedule_geometry_requests(groups):
@@ -100,6 +104,7 @@ def audit(
         try:
             body = _read(archive, request)
         except MissingScheduleResponseError as exc:
+            http_complete = False
             geometry_issues.append(
                 {
                     "direction": direction.value,
@@ -126,13 +131,14 @@ def audit(
     schedule_errors: dict[str, str] = {}
     for group in sorted(groups, key=lambda group: group.key):
         stops, table = group_content_requests(group)
+        day_params = {key: value for key, value in stops.params.items() if key != "sch"}
         try:
             stops_body, table_body = _read(archive, stops), _read(archive, table)
+            raw_days = _read(metadata, ScheduleRequest("stops", stops.url, day_params))
         except MissingScheduleResponseError as exc:
+            http_complete = False
             schedule_errors["-".join(group.key)] = str(exc)
             continue
-        day_params = {key: value for key, value in stops.params.items() if key != "sch"}
-        raw_days = _read(metadata, ScheduleRequest("stops", stops.url, day_params))
         route_info, direction = group.route, group.direction
         route = ScheduleRoute(route_info.type, route_info.marsh, route_info.name, direction)
         try:
@@ -158,7 +164,7 @@ def audit(
         ],
         window,
     )
-    exported = [row for row in build.coverage if row.trip_count]
+    exported = [row for row in build.coverage if row.trip_count] if http_complete else []
     ambiguous = {
         row.service_id
         for row in build.coverage
@@ -166,6 +172,7 @@ def audit(
     }
     terminals = _review_terminals(sources, paths, ambiguous)
     counts: dict[str, object] = {
+        "http_complete": http_complete,
         "requested_groups": len(groups),
         "parsed_groups": len(sources),
         "geometry_directions": len(paths),
@@ -181,7 +188,7 @@ def audit(
     write_snapshot(
         output,
         window,
-        build,
+        build if http_complete else replace(build, tables=()),
         {"sources": metadata.checksums | archive.checksums, "audit": counts},
     )
     return counts
