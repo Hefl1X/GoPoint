@@ -31,6 +31,11 @@ def test_city_audit_reproduces_pilot_and_preserves_diagnostics(tmp_path: Path) -
     ).read_bytes()
     coverage = json.loads((output / "coverage.json").read_bytes())
     assert [row["trip_count"] for row in coverage["coverage"]] == [55, 0, 0]
+    assert report["ambiguous_terminal_groups"] == 1
+    review = coverage["audit"]["terminal_candidates"]["tram-0013-A-11"]
+    assert review["source_id"] == "1838"
+    assert [item["platform_id"] for item in review["candidates"]] == ["1910", "1687"]
+    assert review["opposite_origin"] is None
 
 
 def test_missing_http_response_is_reported_without_treating_it_as_bad_html(tmp_path: Path) -> None:

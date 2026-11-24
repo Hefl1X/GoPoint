@@ -41,6 +41,7 @@ class ScheduleStop:
     source_id: str
     sequence: int
     name: str
+    source_sequence: int | None = None  # номер в XML, если он расходится с порядком таблиц
 
 
 @dataclass(frozen=True)

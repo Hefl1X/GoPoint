@@ -100,3 +100,19 @@ def bind_stops(schedule: RouteSchedule, path: LinePath | None) -> StopBindings:
                 issues=(BindingIssue(BindingIssueKind.STOP_ORDER, (stop,), (platform,)),)
             )
     return StopBindings(stops=tuple(StopBinding(stop, platform) for stop, platform in pairs))
+
+
+def ordered_terminal_candidates(schedule: RouteSchedule, path: LinePath) -> tuple[RouteStop, ...]:
+    """Площадки конечной, совместимые с порядком всех имён в расписании."""
+    if not schedule.stops or not _geometry_is_ordered(path):
+        return ()
+    if path.line_id != schedule.route.line_id or path.direction != schedule.route.direction:
+        return ()
+
+    platforms = iter(path.stops)
+    for table in schedule.stops[:-1]:
+        name = _name_key(table.stop.name)
+        if not any(_name_key(platform.stop.name) == name for platform in platforms):
+            return ()
+    name = _name_key(schedule.stops[-1].stop.name)
+    return tuple(platform for platform in platforms if _name_key(platform.stop.name) == name)

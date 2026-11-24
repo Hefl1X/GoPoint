@@ -271,7 +271,9 @@ class TsugaetScheduleSource:
         query["r"] = direction.value
         day = parse_schedule_day(await self._cached_grasp(query, metadata), group.day_id)
         stops_request, table_request = group_content_requests(group)
-        stops = parse_schedule_stops(await self._grasp(stops_request.params))
+        stops = parse_schedule_stops(
+            await self._grasp(stops_request.params), allow_repeated_positions=True
+        )
         html = await self._grasp(table_request.params)
         tables = parse_schedule_tables(html, stops)
         identity = ScheduleRoute(route.type, route.marsh, route.name, direction)

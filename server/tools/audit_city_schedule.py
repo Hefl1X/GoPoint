@@ -21,7 +21,7 @@ from app.adapters.tsugaet.schedule_parse import parse_route_schedule
 from app.domain.gtfs import ServiceWindow, build_gtfs, service_id_for
 from app.domain.models import Direction, LinePath
 from app.domain.schedule import RouteSchedule, ScheduleRoute, reconstruct_trips
-from app.domain.stop_binding import bind_stops
+from app.domain.stop_binding import BindingIssueKind, bind_stops, ordered_terminal_candidates
 from tools.build_gtfs import write_snapshot
 from tools.capture_schedule import inventory_groups
 from tools.collect_schedule import MissingScheduleResponseError, ScheduleArchive
@@ -54,6 +54,34 @@ def _platform_conflicts(sources: Sources) -> dict[str, list[str]]:
         for stop_id, rows in sorted(signatures.items())
         if len(rows) > 1
     }
+
+
+def _review_terminals(
+    sources: Sources, paths: dict[tuple[str, Direction], LinePath], ambiguous: set[str]
+) -> dict[str, object]:
+    report: dict[str, object] = {}
+    for schedule, path in sources:
+        service = service_id_for(schedule)
+        if service not in ambiguous or path is None:
+            continue
+        candidates = ordered_terminal_candidates(schedule, path)
+        if len(candidates) < 2:
+            continue
+        opposite = Direction.B if path.direction is Direction.A else Direction.A
+        reverse = paths.get((path.line_id, opposite))
+        origin = reverse.stops[0].stop if reverse and reverse.stops else None
+        terminal = schedule.stops[-1].stop
+        report[service] = {
+            "name": terminal.name,
+            "source_id": terminal.source_id,
+            "candidates": [
+                {"platform_id": item.stop.id, "point_index": item.point_index}
+                for item in candidates
+            ],
+            "opposite_origin": origin.id if origin is not None else None,
+            "shares_opposite_origin": any(item.stop == origin for item in candidates),
+        }
+    return report
 
 
 def audit(
@@ -131,6 +159,12 @@ def audit(
         window,
     )
     exported = [row for row in build.coverage if row.trip_count]
+    ambiguous = {
+        row.service_id
+        for row in build.coverage
+        if any(issue.kind is BindingIssueKind.AMBIGUOUS_PLATFORM for issue in row.binding_issues)
+    }
+    terminals = _review_terminals(sources, paths, ambiguous)
     counts: dict[str, object] = {
         "requested_groups": len(groups),
         "parsed_groups": len(sources),
@@ -141,6 +175,8 @@ def audit(
         "schedule_errors": schedule_errors,
         "geometry_errors": geometry_issues,
         "conflicting_platforms": conflicts,
+        "ambiguous_terminal_groups": len(terminals),
+        "terminal_candidates": terminals,
     }
     write_snapshot(
         output,

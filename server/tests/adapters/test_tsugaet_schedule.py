@@ -128,6 +128,36 @@ def test_midnight_and_same_name_stops_keep_source_identity() -> None:
     assert [call.time for call in second.calls] == [24 * 3600 + 12 * 60, 24 * 3600 + 16 * 60]
 
 
+def test_full_page_confirms_order_of_two_different_stops_with_one_xml_position() -> None:
+    xml = (
+        "<stops><stop id='49|1' title='Начало'/><stop id='50|2' title='Склады (Первый)'/>"
+        "<stop id='51|2' title='Склады (Второй)'/><stop id='52|3' title='Конечная'/></stops>"
+    )
+    names = ("Начало", "Склады (Первый)", "Склады (Второй)", "Конечная")
+    html = _page(*(_table(name, {6: (index,)}) for index, name in enumerate(names)))
+    route = ScheduleRoute(TransportType.TROLLEYBUS, "29", "29", Direction.B)
+    days = _sample("bus8-A-days.xml")
+    with pytest.raises(TsugaetFormatError, match="позиции 3"):
+        parse_schedule_stops(xml)
+
+    result = parse_route_schedule(html, xml, days, route=route, day_id="23")
+    assert [
+        (item.stop.source_id, item.stop.sequence, item.stop.source_sequence)
+        for item in result.stops
+    ] == [("49", 1, None), ("50", 2, None), ("51", 3, 2), ("52", 4, 3)]
+    assert len(reconstruct_trips(result).trips) == 1
+
+    swapped = (names[0], names[2], names[1], names[3])
+    invalid = _page(*(_table(name, {6: (index,)}) for index, name in enumerate(swapped)))
+    with pytest.raises(TsugaetFormatError, match="название не совпало"):
+        parse_route_schedule(invalid, xml, days, route=route, day_id="23")
+
+    with pytest.raises(TsugaetFormatError, match="одноимённые остановки"):
+        parse_route_schedule(
+            html, xml.replace("Склады (Второй)", "Склады (Первый)"), days, route=route, day_id="23"
+        )
+
+
 def test_empty_table_is_valid_but_an_empty_response_is_an_error() -> None:
     stops = (ScheduleStop("49", 1, "Конечная"),)
     assert parse_schedule_tables(_page(_table("Конечная", {})), stops)[0].departures == ()

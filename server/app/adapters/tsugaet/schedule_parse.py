@@ -93,13 +93,31 @@ def parse_schedule_directions(xml: str) -> tuple[Direction, ...]:
         raise TsugaetFormatError("grasp routes: неверное направление или справочник") from exc
 
 
-def parse_schedule_stops(xml: str) -> tuple[ScheduleStop, ...]:
+def parse_schedule_stops(
+    xml: str, *, allow_repeated_positions: bool = False
+) -> tuple[ScheduleStop, ...]:
+    """Режим повторных позиций требует последующей сверки полного HTML по именам."""
     stops: list[ScheduleStop] = []
+    previous = 0
+    labels: set[tuple[int, str]] = set()
     for sequence, (source_id, name) in enumerate(_xml_entries(xml, "stops", "stop"), start=1):
         match = _STOP_ID.fullmatch(source_id)
-        if match is None or match[2] != str(sequence):
+        if match is None:
             raise TsugaetFormatError(f"grasp stops: ожидалась остановка на позиции {sequence}")
-        stops.append(ScheduleStop(match[1], sequence, name))
+        expected: tuple[int, ...] = (sequence,)
+        if allow_repeated_positions and previous:
+            expected = (previous, previous + 1)
+        position = next((value for value in expected if match[2] == str(value)), None)
+        if position is None:
+            raise TsugaetFormatError(f"grasp stops: ожидалась остановка на позиции {sequence}")
+        label = position, name.casefold()
+        if label in labels:
+            raise TsugaetFormatError("grasp stops: одноимённые остановки с общей позицией")
+        labels.add(label)
+        stops.append(
+            ScheduleStop(match[1], sequence, name, position if position != sequence else None)
+        )
+        previous = position
     return tuple(stops)
 
 
@@ -240,4 +258,5 @@ def parse_route_schedule(
     html: str, stops_xml: str, days_xml: str, *, route: ScheduleRoute, day_id: str
 ) -> RouteSchedule:
     day = parse_schedule_day(days_xml, day_id)
-    return RouteSchedule(route, day, parse_schedule_tables(html, parse_schedule_stops(stops_xml)))
+    stops = parse_schedule_stops(stops_xml, allow_repeated_positions=True)
+    return RouteSchedule(route, day, parse_schedule_tables(html, stops))
