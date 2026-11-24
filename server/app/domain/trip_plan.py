@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Literal
 
 from app.domain.low_floor import TripOccurrence
-from app.domain.models import LatLon, Line, Stop, WalkLeg
+from app.domain.models import LatLon, Line, Stop, VariantLabel, WalkLeg
 
 TimeSource = Literal["scheduled", "realtime"]
 
@@ -77,3 +77,49 @@ class TripTimetable:
 class TripLookup:
     graph_version: str | None
     timetable: TripTimetable | None
+
+
+@dataclass(frozen=True)
+class RoutingGraph:
+    version: str
+    complete_coverage: bool
+
+
+@dataclass(frozen=True)
+class JourneyOption:
+    journey: PlannedJourney
+    labels: tuple[VariantLabel, ...]
+
+
+@dataclass(frozen=True)
+class JourneyChoices:
+    status: Literal["ok", "no_transit", "walk_better", "transit_unavailable"]
+    graph_version: str | None
+    options: tuple[JourneyOption, ...] = ()
+    walk: WalkLeg | None = None
+
+
+@dataclass(frozen=True)
+class SelectedRide:
+    segment: TripSegment
+    walk_before_s: int
+
+
+@dataclass(frozen=True)
+class JourneySelection:
+    graph_version: str
+    rides: tuple[SelectedRide, ...]
+
+
+@dataclass(frozen=True)
+class CheckedRide:
+    segment: TripSegment
+    depart_at: datetime
+    arrive_at: datetime
+    time_source: TimeSource
+
+
+@dataclass(frozen=True)
+class JourneyCheck:
+    status: Literal["ok", "changed", "transit_unavailable"]
+    rides: tuple[CheckedRide, ...] = ()
