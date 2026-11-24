@@ -210,6 +210,26 @@ def test_invalid_future_and_implausible_jump_are_ignored() -> None:
     assert jump.vehicles["car"].assignment is None
 
 
+def test_turnaround_with_a_delayed_source_direction_drops_old_trip_candidates() -> None:
+    index = _index(_service(FIRST))
+    arrived = _step(index, SIX + 360, _obs(SIX + 360, 0.015))
+    assert arrived.vehicles["car"].motion is MotionState.FINISHED
+    first_reverse = _obs(SIX + 390, 0.01)
+    assert _step(index, SIX + 390, first_reverse).vehicles["car"].candidates
+
+    turning = _step(index, SIX + 390, first_reverse, previous=arrived)
+    match = turning.vehicles["car"]
+    assert match.motion is MotionState.TURNAROUND
+    assert not match.candidates and match.low_floor_occurrence is None
+    assert match.turnaround_until == _at(SIX + 660)
+    midway = _step(index, SIX + 590, _obs(SIX + 590, 0.008), previous=turning)
+    assert midway.vehicles["car"].motion is MotionState.TURNAROUND
+    assert midway.vehicles["car"].turnaround_until == match.turnaround_until
+    expired = _step(index, SIX + 660, _obs(SIX + 660, 0.006), previous=midway)
+    assert expired.vehicles["car"].motion is MotionState.IN_SERVICE
+    assert expired.vehicles["car"].assignment is None
+
+
 def test_conflicting_replay_and_lunch_remove_confirmation() -> None:
     index = _index(_service(FIRST))
     first = _step(index, SIX + 60, _obs(SIX + 60, 0.0025))

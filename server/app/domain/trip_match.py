@@ -34,6 +34,7 @@ class MotionState(StrEnum):
     WAITING = "waiting"
     IN_SERVICE = "in_service"
     FINISHED = "finished"
+    TURNAROUND = "turnaround"
     OUT_OF_SERVICE = "out_of_service"
 
 
@@ -73,6 +74,7 @@ class VehicleMatch:
     status: MatchStatus
     candidates: tuple[TripCandidate, ...] = ()
     assignment: TripCandidate | None = None
+    turnaround_until: datetime | None = None
 
     @property
     def low_floor_occurrence(self) -> TripOccurrence | None:
@@ -279,14 +281,14 @@ def _assignment(
 def _replayed(current: VehicleMatch, previous: VehicleMatch, state: VehicleState) -> VehicleMatch:
     if current.observed_at < previous.observed_at:
         return previous
+    if current.line_id != previous.line_id or current.direction is not previous.direction:
+        return current
     if (
-        current.line_id != previous.line_id
-        or current.direction is not previous.direction
-        or current.point != previous.point
+        current.point != previous.point
         or state is VehicleState.LUNCH
         or (state is VehicleState.PARKED and previous.motion is MotionState.IN_SERVICE)
     ):
-        return current
+        return replace(current, turnaround_until=previous.turnaround_until)
     accessibility = (
         previous.low_floor if current.low_floor is Accessibility.YES else current.low_floor
     )
@@ -329,6 +331,7 @@ def _observe(
         motion=motion,
         candidates=candidates,
         status=MatchStatus.AMBIGUOUS if ambiguous else MatchStatus.UNMATCHED,
+        turnaround_until=valid_until if motion is MotionState.FINISHED else None,
     )
     if (
         previous is None
@@ -336,6 +339,21 @@ def _observe(
         or previous.direction is not current.direction
     ):
         return current
+    # Источник может ещё сообщать старое направление, когда машина уходит с конечной.
+    until = previous.turnaround_until
+    if (
+        until is not None
+        and now < until
+        and motion not in {MotionState.WAITING, MotionState.FINISHED}
+    ):
+        inside_old_direction = motion is MotionState.IN_SERVICE
+        return replace(
+            current,
+            motion=MotionState.TURNAROUND if inside_old_direction else motion,
+            status=MatchStatus.UNMATCHED if inside_old_direction else current.status,
+            candidates=(),
+            turnaround_until=until,
+        )
     assignment = _assignment(current, previous, settings)
     if assignment is None:
         return current
