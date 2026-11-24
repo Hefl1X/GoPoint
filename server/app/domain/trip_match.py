@@ -60,6 +60,7 @@ class TripCandidate:
     occurrence: TripOccurrence
     along_m: float
     delay_s: float | None
+    stop_sequence: int
 
 
 @dataclass(frozen=True)
@@ -229,6 +230,7 @@ def _candidates(
     settings: MatchSettings,
 ) -> list[TripCandidate]:
     waiting = phase is MotionState.WAITING
+    stop_sequence = bisect_left(entry.geometry.stop_along_m, along_m) + 1
     early_s = settings.terminal_wait_s if waiting else settings.early_s
     local_s = (at - at.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
     earliest_day = int((local_s - entry.latest_s - settings.late_s) // _DAY_S)
@@ -251,7 +253,9 @@ def _candidates(
             delay = elapsed - plan
             if -early_s <= delay <= settings.late_s:
                 occurrence = TripOccurrence(trip.trip_id, day)
-                result.append(TripCandidate(occurrence, along_m, None if waiting else delay))
+                result.append(
+                    TripCandidate(occurrence, along_m, None if waiting else delay, stop_sequence)
+                )
     return result
 
 

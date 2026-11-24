@@ -28,6 +28,9 @@
 	handle /health {
 		reverse_proxy server:8000
 	}
+	handle /internal/* {
+		respond 404
+	}
 
 	# Service worker, манифест и страница не кэшируются браузером надолго: иначе телефон
 	# не узнает о новой версии сайта. Файлы в /assets/ с хешем в имени — навсегда.

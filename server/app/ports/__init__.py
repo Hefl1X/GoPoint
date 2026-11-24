@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Protocol
 
+from app.domain.low_floor import TripOccurrence
 from app.domain.models import (
     Bounds,
     Direction,
@@ -16,6 +18,17 @@ from app.domain.models import (
     PlaceSuggestion,
     WalkLeg,
 )
+from app.domain.realtime import TripDelay
+
+
+class RealtimeEncoder(Protocol):
+    def encode(
+        self,
+        delays: Sequence[TripDelay],
+        cancellations: Sequence[TripOccurrence],
+        *,
+        generated_at: datetime,
+    ) -> bytes: ...
 
 
 class TransitFeedError(Exception):

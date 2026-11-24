@@ -555,6 +555,26 @@ uv run --locked python -m tools.check_gps_passages \
 
 **Принять:** один сборщик на всех клиентов; OTP polling не вызывает вечный внешний polling; задачи корректно отменяются/закрываются. Деградация источника, TTL, полночь, отмена/возврат, смена графа покрыты тестами. Сохраняются все `/api/v1/live/*`, остановки и карточки машин.
 
+**Внутренние фиды.** `GOPOINT_REALTIME_RELEASE` указывает на проверенный комплект расписания в серверном контейнере. Версия комплекта возвращается в `X-GoPoint-Graph-Version`. Сервер читает готовые снимки существующего GPS-сервиса. Один matcher готовит оба ответа и обновляет их при истечении подтверждений, даже когда пользовательских запросов больше нет. Без настроенного комплекта оба внутренних адреса возвращают 503. Приёмка смены версии комплекта и проверка допуска после ответа OTP остаются отдельными задачами.
+
+**Контрольный проект на Mac.** В `otp/realtime` находятся отдельные Compose и настройки двух updater на OTP 2.10.0. Контрольный GPS подаёт две фиксированные отметки №8 A на сохранённой геометрии, затем меняет `ramp` и имитирует сбой источника. Для фиксированной даты очищение старых обновлений самим OTP отключено только в контрольной конфигурации.
+
+Из корня проекта, с локальными образами `opentripplanner/opentripplanner:2.10.0` и `gopoint-web:local`:
+
+```bash
+docker build -t gopoint-rt-check:local ./server
+export GOPOINT_RT_VERSION=114b034eb41e0dbeaec6b1e7b876133ed3108b3b1115df33dfe1f19f742933d9
+export GOPOINT_RT_DIR="$(mktemp -d "$PWD/data/otp/rt-check.XXXXXX")"
+release="$PWD/data/otp/tsugaet-test-otp-store/releases/$GOPOINT_RT_VERSION"
+mkdir -p "$GOPOINT_RT_DIR"/{releases,runtime,scenario}
+cp -R "$release" "$GOPOINT_RT_DIR/releases/"
+cp "$release/graph.obj" otp/realtime/router-config.json "$GOPOINT_RT_DIR/runtime/"
+printf '0\n' > "$GOPOINT_RT_DIR/scenario/step"
+docker compose --env-file /dev/null -p gopoint-rt-check -f otp/realtime/compose.yml up -d
+(cd server && uv run --locked python ../otp/realtime/verify.py "$GOPOINT_RT_DIR")
+docker compose --env-file /dev/null -p gopoint-rt-check -f otp/realtime/compose.yml down
+```
+
 ### 7. Маршрут, проверка всей поездки и сайт
 
 **Изменить:** порт/адаптер OTP, сервис маршрута, API и сайт по §6, подключение зависимостей и переключение по §2.1. Новый профиль включается вместе с готовым low-потоком, не раньше. Старый движок допускается только во временных тестах сравнения, без продуктового переключателя.

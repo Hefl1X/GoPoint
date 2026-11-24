@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -66,6 +67,8 @@ class Settings(BaseSettings):
     # Пешие участки: OpenTripPlanner во внутренней сети Docker.
     otp_url: str = "http://otp:8080"
     otp_timeout_s: float = Field(default=10.0, gt=0)
+    # Каталог принятой версии OTP для внутренних потоков GTFS-Realtime.
+    realtime_release: Path | None = None
     # Скорость обычной ходьбы, м/с. Время перехода по улицам рассчитывает OTP.
     walk_speed_mps: float = Field(default=1.3, gt=0.1, le=3.0)
     walk_cache_ttl_s: int = Field(default=86_400, ge=60)

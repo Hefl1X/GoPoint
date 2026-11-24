@@ -28,7 +28,7 @@
 |---|---|---|
 | FastAPI, pydantic, pydantic-settings, httpx, uvicorn | MIT / BSD-3 | сервер |
 | pytest, pytest-asyncio, ruff, mypy, import-linter | MIT / Apache-2.0 / BSD-2 | проверки сервера |
-| gtfs-realtime-bindings 3.0.0, protobuf 7.36.2 | Apache-2.0 / BSD-3-Clause | формирование тестовых потоков GTFS-Realtime для изолированного эксперимента OTP, лицензии сверены 2026-11-24 |
+| gtfs-realtime-bindings 3.0.0, protobuf 7.36.2 | Apache-2.0 / BSD-3-Clause | формирование внутренних потоков GTFS-Realtime и проверки OTP, лицензии сверены 2026-11-24 |
 | React, react-dom | MIT | интерфейс |
 | @tanstack/react-query | MIT | запросы к серверу, обновление раз в 30 с |
 | zod | MIT | проверка ответов сервера |

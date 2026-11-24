@@ -7,18 +7,25 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from pathlib import Path
 
 from app.adapters.fake.feed import FakeTransitFeed
+from app.adapters.gtfs_rt import GtfsRealtimeEncoder
 from app.adapters.local_places import LocalPlacesProvider
 from app.adapters.osm_boundary.load import DEFAULT_FILE, load_polygons
+from app.adapters.otp.schedule import load_release_schedule
 from app.adapters.otp.walk import OtpWalkPlanner
 from app.adapters.photon.geocoder import PhotonGeocoder
 from app.adapters.tsugaet.feed import TsugaetFeed
 from app.config import Settings
 from app.domain.area import CityArea
 from app.domain.models import Stop
+from app.domain.schedule_snapshot import ScheduleSnapshot
+from app.domain.trip_match import DEFAULT_MATCH_SETTINGS
 from app.ports import Geocoder, TransitFeed, WalkPlanner
+from app.services.live_snapshot import Clock, LiveSnapshotService
+from app.services.realtime import RealtimeService
 
 
 async def _noop() -> None:
@@ -66,6 +73,26 @@ def build_walk_planner(settings: Settings) -> tuple[WalkPlanner, Callable[[], Aw
         timeout_s=settings.otp_timeout_s,
     )
     return planner, planner.aclose
+
+
+def build_realtime(
+    settings: Settings, live: LiveSnapshotService, clock: Clock, schedule: ScheduleSnapshot | None
+) -> RealtimeService | None:
+    if schedule is None and settings.realtime_release is not None:
+        schedule = load_release_schedule(settings.realtime_release)
+    if schedule is None:
+        return None
+    return RealtimeService(
+        live,
+        schedule,
+        GtfsRealtimeEncoder(),
+        clock=clock,
+        settings=replace(
+            DEFAULT_MATCH_SETTINGS,
+            stale_s=settings.stale_seconds,
+            max_offset_m=settings.max_vehicle_offset_m,
+        ),
+    )
 
 
 def build_city_area(settings: Settings) -> CityArea:

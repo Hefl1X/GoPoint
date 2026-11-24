@@ -1,0 +1,29 @@
+services:
+  server:
+    image: gopoint-rt-check:local
+    pull_policy: never
+    command: ["/app/.venv/bin/uvicorn", "fixture:app", "--app-dir", "/fixture", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+    environment:
+      PYTHONPATH: /app
+      GOPOINT_REALTIME_RELEASE: "/schedule/${GOPOINT_RT_VERSION:?Укажите ID комплекта OTP}"
+    volumes:
+      - ./fixture.py:/fixture/fixture.py:ro
+      - "${GOPOINT_RT_DIR:?Укажите каталог проверки}/scenario:/scenario:ro"
+      - "${GOPOINT_RT_DIR:?Укажите каталог проверки}/releases:/schedule:ro"
+  otp:
+    image: opentripplanner/opentripplanner:2.10.0
+    pull_policy: never
+    command: ["--load"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx3g"
+    volumes:
+      - "${GOPOINT_RT_DIR:?Укажите каталог проверки}/runtime:/var/opentripplanner:ro"
+    ports:
+      - "127.0.0.1:18821:8080"
+  caddy:
+    image: gopoint-web:local
+    pull_policy: never
+    volumes:
+      - ../../web/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "127.0.0.1:18822:80"

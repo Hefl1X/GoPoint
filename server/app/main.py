@@ -12,13 +12,14 @@ from datetime import timedelta
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import v1
+from app.api import internal_rt, v1
 from app.api.errors import install_error_handlers
 from app.api.rate_limit import RateLimitMiddleware
 from app.api.schemas import Health
 from app.config import APP_NAME, APP_VERSION, Settings, get_settings
 from app.domain.journey_search import SearchParams
 from app.domain.linear import EtaParams
+from app.domain.schedule_snapshot import ScheduleSnapshot
 from app.ports import Geocoder, TransitFeed, WalkPlanner
 from app.services.geocoding import CachePolicy, GeocodingService
 from app.services.journey_planner import JourneyPlanner, PlannerSettings
@@ -28,6 +29,7 @@ from app.wiring import (
     build_city_area,
     build_geocoder,
     build_local_places,
+    build_realtime,
     build_transit_feed,
     build_walk_planner,
 )
@@ -39,6 +41,33 @@ for _noisy in ("httpx", "httpcore"):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 
+async def _start_realtime(
+    app: FastAPI,
+    settings: Settings,
+    live: LiveSnapshotService,
+    clock: Clock,
+    schedule: ScheduleSnapshot | None,
+) -> asyncio.Task[None] | None:
+    try:
+        realtime = await asyncio.to_thread(build_realtime, settings, live, clock, schedule)
+    except (OSError, ValueError) as exc:
+        logging.getLogger(__name__).warning("Комплект GTFS-Realtime недоступен: %s", exc)
+        return None
+    if realtime is None:
+        return None
+    await asyncio.to_thread(realtime.update)
+    app.state.realtime = realtime
+    return asyncio.create_task(realtime.run())
+
+
+async def _stop_tasks(tasks: list[asyncio.Task[None]]) -> None:
+    for task in tasks:
+        task.cancel()
+    for task in tasks:
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -47,6 +76,7 @@ def create_app(
     walk_planner: WalkPlanner | None = None,
     clock: Clock = utc_now,
     start_poller: bool = True,
+    realtime_schedule: ScheduleSnapshot | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     close_feed: Callable[[], Awaitable[None]] | None = None
@@ -78,14 +108,17 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        poller = asyncio.create_task(live.run_poller()) if start_poller else None
+        tasks: list[asyncio.Task[None]] = []
         try:
+            task = await _start_realtime(_app, settings, live, clock, realtime_schedule)
+            if task is not None:
+                tasks.append(task)
+            if start_poller:
+                tasks.append(asyncio.create_task(live.run_poller()))
             yield
         finally:
-            if poller:
-                poller.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await poller
+            await _stop_tasks(tasks)
+            _app.state.realtime = None
             if close_feed:
                 await close_feed()
             if close_geocoder:
@@ -103,6 +136,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.state.realtime = None
     app.state.city = city
     app.state.live = live
     geocoding.set_local(build_local_places(live.known_stops))
@@ -124,6 +158,7 @@ def create_app(
     app.add_middleware(RateLimitMiddleware, per_minute=settings.rate_limit_per_min, clock=clock)
     install_error_handlers(app)
     app.include_router(v1.router)
+    app.include_router(internal_rt.router)
 
     @app.get("/health", include_in_schema=False)
     async def root_health() -> Health:
