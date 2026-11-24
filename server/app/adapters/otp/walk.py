@@ -45,7 +45,7 @@ query Walk($from: PlanLabeledLocationInput!, $to: PlanLabeledLocationInput!, $sp
 """
 
 
-def _location(place: Place) -> dict[str, Any]:
+def location_input(place: Place) -> dict[str, object]:
     return {"location": {"coordinate": {"latitude": place.point.lat, "longitude": place.point.lon}}}
 
 
@@ -73,8 +73,8 @@ class OtpWalkPlanner:
         payload = {
             "query": QUERY,
             "variables": {
-                "from": _location(origin),
-                "to": _location(destination),
+                "from": location_input(origin),
+                "to": location_input(destination),
                 "speed": self._speed_mps,
             },
         }
