@@ -7,6 +7,7 @@ import json
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import httpx
 
@@ -69,6 +70,48 @@ class ScheduleGroup:
     @property
     def key(self) -> tuple[str, Direction, str]:
         return self.route.line_id, self.direction, self.day_id
+
+
+@dataclass(frozen=True)
+class ScheduleRequest:
+    kind: Literal["stops", "table", "geometry"]
+    url: str
+    params: dict[str, str]
+
+
+def group_content_requests(group: ScheduleGroup) -> tuple[ScheduleRequest, ScheduleRequest]:
+    params = {
+        "m": group.route.marsh,
+        "t": str(group.route.type_code),
+        "r": group.direction.value,
+        "sch": group.day_id,
+    }
+    return (
+        ScheduleRequest("stops", _GRASP, params),
+        ScheduleRequest("table", _GRASP, params | {"tv": "mr", "s": "0", "v": "0"}),
+    )
+
+
+def schedule_geometry_requests(
+    groups: Sequence[ScheduleGroup],
+) -> list[tuple[Direction, list[RouteInfo], ScheduleRequest]]:
+    return [
+        (
+            direction,
+            routes,
+            ScheduleRequest(
+                "geometry", _TRACES, {"r": "".join(route.key(direction.value) for route in routes)}
+            ),
+        )
+        for direction, routes in _geometry_batches(groups)
+    ]
+
+
+def content_requests(groups: Sequence[ScheduleGroup]) -> tuple[ScheduleRequest, ...]:
+    selected = sorted(groups, key=lambda group: group.key)
+    requests = [request for group in selected for request in group_content_requests(group)]
+    requests.extend(request for _, _, request in schedule_geometry_requests(selected))
+    return tuple(requests)
 
 
 def _geometry_batches(
@@ -184,6 +227,9 @@ class TsugaetScheduleSource:
             _GRASP, {"m": route.marsh, "t": str(route.type_code), "r": direction.value}
         )
 
+    async def capture_content(self, request: ScheduleRequest) -> MetadataReply:
+        return await self._metadata(request.url, request.params)
+
     async def load(self, route: RouteInfo, direction: Direction, day_id: str) -> ScheduleLoad:
         """Возвращает одну согласованную таблицу и геометрию после приёма всех ответов."""
         (result,) = await self.load_many((ScheduleGroup(route, direction, day_id),))
@@ -224,9 +270,9 @@ class TsugaetScheduleSource:
 
         query["r"] = direction.value
         day = parse_schedule_day(await self._cached_grasp(query, metadata), group.day_id)
-        query["sch"] = day.source_id
-        stops = parse_schedule_stops(await self._grasp(query))
-        html = await self._grasp(query | {"tv": "mr", "s": "0", "v": "0"})
+        stops_request, table_request = group_content_requests(group)
+        stops = parse_schedule_stops(await self._grasp(stops_request.params))
+        html = await self._grasp(table_request.params)
         tables = parse_schedule_tables(html, stops)
         identity = ScheduleRoute(route.type, route.marsh, route.name, direction)
         return RouteSchedule(identity, day, tables)

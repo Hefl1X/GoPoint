@@ -98,7 +98,7 @@ class _Inventory:
         }
 
 
-class _Output:
+class CaptureArchive:
     def __init__(self, path: Path) -> None:
         path.mkdir(parents=True)
         self.path = path
@@ -118,12 +118,15 @@ class _Output:
         staged.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         staged.replace(target)
 
+    def write_manifest(self) -> None:
+        self.write_json("manifest.json", {"requests": [asdict(item) for item in self.captures]})
+
 
 async def _directions(
     route: RouteInfo,
     index: int,
     source: TsugaetScheduleSource,
-    output: _Output,
+    output: CaptureArchive,
     inventory: _Inventory,
 ) -> tuple[_Direction, ...]:
     try:
@@ -151,7 +154,7 @@ async def _directions(
 
 
 async def _scan(
-    source: TsugaetScheduleSource, output: _Output, inventory: _Inventory, *, progress: bool
+    source: TsugaetScheduleSource, output: CaptureArchive, inventory: _Inventory, *, progress: bool
 ) -> None:
     catalog = output.save("listmarsh.json", await source.catalog_metadata())
     routes = sorted(parse_routes(json.loads(catalog)), key=lambda route: route.line_id)
@@ -168,14 +171,14 @@ async def _scan(
 async def inventory(
     source: TsugaetScheduleSource, output_dir: Path, *, progress: bool = False
 ) -> dict[str, object]:
-    output = _Output(output_dir)
+    output = CaptureArchive(output_dir)
     result = _Inventory()
     try:
         await _scan(source, output, result, progress=progress)
     except (ScheduleSourceError, ValueError) as exc:
         result.issues.append(_Issue("inventory", str(exc)))
     finally:
-        output.write_json("manifest.json", {"requests": [asdict(item) for item in output.captures]})
+        output.write_manifest()
         report = result.report() | {
             "requests": source.requests_made,
             "payload_bytes": source.payload_bytes,
