@@ -1,0 +1,11 @@
+# Подключение одного проверенного комплекта расписания к API и OTP локального демо.
+services:
+  server:
+    environment:
+      GOPOINT_REALTIME_RELEASE: "/schedule/${GOPOINT_RT_VERSION:?Укажите ID комплекта OTP}"
+    volumes:
+      - "${GOPOINT_RT_DIR:?Укажите каталог комплекта}/releases/${GOPOINT_RT_VERSION}:/schedule/${GOPOINT_RT_VERSION}:ro"
+  otp:
+    volumes: !override
+      - "${GOPOINT_RT_DIR:?Укажите каталог комплекта}/releases/${GOPOINT_RT_VERSION}/graph.obj:/var/opentripplanner/graph.obj:ro"
+      - "${GOPOINT_RT_DIR:?Укажите каталог комплекта}/runtime/${GOPOINT_RT_VERSION}/router-config.demo.json:/var/opentripplanner/router-config.json:ro"

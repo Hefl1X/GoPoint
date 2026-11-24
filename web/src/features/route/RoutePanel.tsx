@@ -53,6 +53,7 @@ export function RoutePanel({
   const online = useOnline();
   const client = useQueryClient();
   const [cancelled, setCancelled] = useState(false);
+  const [chooseReplacement, setChooseReplacement] = useState(false);
 
   const retry = () => {
     setCancelled(false);
@@ -137,10 +138,14 @@ export function RoutePanel({
       key={plan.dataUpdatedAt}
       data={data}
       plannedAt={new Date(plan.dataUpdatedAt).toISOString()}
-      points={points}
       lowFloorOnly={lowFloorOnly}
       onJourney={onJourney}
       onPlanAgain={retry}
+      selectFirst={!chooseReplacement}
+      onFindReplacement={() => {
+        setChooseReplacement(true);
+        retry();
+      }}
     />
   );
 }
@@ -161,22 +166,24 @@ type Option =
 function RouteOptions({
   data,
   plannedAt,
-  points,
   lowFloorOnly,
   onJourney,
   onPlanAgain,
+  selectFirst,
+  onFindReplacement,
 }: {
   data: RoutePlan;
   plannedAt: string;
-  points: RoutePoints;
   lowFloorOnly: boolean;
   onJourney: (journey: Journey | null) => void;
   onPlanAgain: () => void;
+  selectFirst: boolean;
+  onFindReplacement: () => void;
 }) {
   // Один и тот же набор объектов на весь расчёт: карта получает маршрут без лишних перерисовок.
   const options = useMemo(() => {
-    const list: Option[] = data.journeys.map((journey, i) => ({
-      id: `journey-${String(i)}`,
+    const list: Option[] = data.journeys.map((journey) => ({
+      id: journeyKey(journey),
       kind: 'journey' as const,
       journey,
     }));
@@ -196,7 +203,7 @@ function RouteOptions({
   // Когда транспорта нет (или пешком быстрее), путь пешком не открывается сам: человек
   // выбирает его кнопкой.
   const [selectedId, setSelectedId] = useState<string | null>(
-    data.journeys.length ? 'journey-0' : null,
+    selectFirst && data.journeys[0] ? journeyKey(data.journeys[0]) : null,
   );
   const selected = options.find((o) => o.id === selectedId) ?? null;
 
@@ -225,7 +232,7 @@ function RouteOptions({
               {ru.route.otherPoints}
             </button>
           </div>
-          {noTransit && lowFloorOnly ? (
+          {(noTransit || unavailable) && lowFloorOnly ? (
             <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a>
           ) : null}
         </StatusBlock>
@@ -233,17 +240,15 @@ function RouteOptions({
       {walkBetter ? (
         <StatusBlock title={ru.route.walkBetterTitle} text={ru.route.walkBetter} />
       ) : null}
-      {options.length > 1 || (data.journeys.length === 0 && options.length > 0) ? (
+      {options.length > 1 || (!selected && options.length > 0) ? (
         <Variants options={options} selectedId={selectedId} onSelect={setSelectedId} />
       ) : null}
       {selected?.kind === 'journey' ? (
         <JourneyView
           key={selected.id}
           initial={selected.journey}
-          points={points}
-          lowFloorOnly={lowFloorOnly}
           onJourney={onJourney}
-          onPlanAgain={onPlanAgain}
+          onPlanAgain={onFindReplacement}
         />
       ) : null}
       {selected?.kind === 'walk' ? (
@@ -340,29 +345,19 @@ function WalkView({
 
 function JourneyView({
   initial,
-  points,
-  lowFloorOnly,
   onJourney,
   onPlanAgain,
 }: {
   initial: Journey;
-  points: RoutePoints;
-  lowFloorOnly: boolean;
   onJourney: (journey: Journey | null) => void;
   onPlanAgain: () => void;
 }) {
-  // Маршрут, который человек принял, и время прибытия, обещанное в момент выбора.
-  const [base, setBase] = useState({ journey: initial, plannedArriveAt: initial.arriveAt });
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  const check = useRouteCheck(points, lowFloorOnly, base.journey, base.plannedArriveAt);
+  const check = useRouteCheck(initial);
   const now = useNow();
-
-  // Тот же маршрут с новым временем показываем сразу: это те же машины.
-  const current =
-    check.data?.current && journeyKey(check.data.current) === journeyKey(base.journey)
-      ? check.data.current
-      : null;
-  const shown = current ?? base.journey;
+  const current = check.data?.current;
+  const shown = current && journeyKey(current) === journeyKey(initial) ? current : initial;
+  const changed = check.data?.status === 'changed';
+  const unavailable = check.data?.status === 'transit_unavailable' || check.isError;
 
   useEffect(() => {
     onJourney(shown);
@@ -374,32 +369,19 @@ function JourneyView({
     [onJourney],
   );
 
-  const result = check.data;
-  const alternative = result?.alternative ?? null;
-  const showChange =
-    result !== undefined &&
-    result.status !== 'ok' &&
-    (alternative === null || journeyKey(alternative) !== dismissed);
-
   return (
     <section className="route" aria-label={ru.route.label}>
       <GreenBlock journey={shown} now={now} />
-      {showChange ? (
-        <ChangedBlock
-          base={base}
-          status={result.status}
-          stoppedForS={result.stoppedForS}
-          current={current}
-          alternative={alternative}
-          onAccept={() => {
-            if (alternative)
-              setBase({ journey: alternative, plannedArriveAt: alternative.arriveAt });
-          }}
-          onKeep={() => {
-            if (alternative) setDismissed(journeyKey(alternative));
-          }}
-          onPlanAgain={onPlanAgain}
-        />
+      {changed || unavailable ? (
+        <div className="route-changed" role="status">
+          <p className="route-changed__title">
+            {changed ? ru.route.changedTitle : ru.route.unavailableTitle}
+          </p>
+          <p>{changed ? ru.route.changed : ru.route.checkUnavailable}</p>
+          <button type="button" className="button button--outline" onClick={onPlanAgain}>
+            {ru.route.findAgain}
+          </button>
+        </div>
       ) : null}
       <Timeline journey={shown} />
       <Steps journey={shown} now={now} />
@@ -430,61 +412,6 @@ function GreenBlock({ journey, now }: { journey: Journey; now: number }) {
 
 function rideName(ride: RideStep): string {
   return lineName(ride.line.type, ride.line.number);
-}
-
-function ChangedBlock({
-  base,
-  status,
-  stoppedForS,
-  current,
-  alternative,
-  onAccept,
-  onKeep,
-  onPlanAgain,
-}: {
-  base: { journey: Journey; plannedArriveAt: string };
-  status: 'stopped' | 'late' | 'gone';
-  stoppedForS: number | null;
-  current: Journey | null;
-  alternative: Journey | null;
-  onAccept: () => void;
-  onKeep: () => void;
-  onPlanAgain: () => void;
-}) {
-  const ride = firstRide(base.journey);
-  const name = ride ? rideName(ride) : '';
-  const headlineText =
-    status === 'stopped'
-      ? ru.route.stopped(name, Math.max(1, Math.round((stoppedForS ?? 0) / 60)))
-      : status === 'late'
-        ? ru.route.late(name)
-        : ru.route.gone(name);
-  return (
-    <div className="route-changed" role="status">
-      <p className="route-changed__title">{ru.route.changedTitle}</p>
-      <p>
-        <b>{headlineText}</b>{' '}
-        {current && status !== 'gone'
-          ? ru.route.wouldArrive(formatTime(current.arriveAt), formatTime(base.plannedArriveAt))
-          : null}{' '}
-        {alternative ? ru.route.better(formatTime(alternative.arriveAt)) : ru.route.noBetter}
-      </p>
-      {alternative ? (
-        <div className="button-row">
-          <button type="button" className="button button--primary" onClick={onAccept}>
-            {ru.route.accept}
-          </button>
-          <button type="button" className="button button--outline" onClick={onKeep}>
-            {ru.route.keep}
-          </button>
-        </div>
-      ) : status === 'gone' ? (
-        <button type="button" className="button button--outline" onClick={onPlanAgain}>
-          {ru.route.findAgain}
-        </button>
-      ) : null}
-    </div>
-  );
 }
 
 function Timeline({ journey }: { journey: Journey }) {
@@ -591,14 +518,14 @@ function RideRow({ step, journey, now }: { step: RideStep; journey: Journey; now
           {ru.route.alight(step.alightStop.name, stopsText(step.stopsCount))}
         </span>
         <span className="route-step__sub">
-          {isFirst
+          {isFirst && step.vehicleId
             ? ru.route.arrivesIn(minutesUntil(step.departAt, now))
             : slack !== null
               ? ru.route.transferSlack(Math.floor(slack / 60))
               : null}{' '}
           <LowFloorBadge value={step.lowFloor} />
         </span>
-        {isFirst ? (
+        {isFirst && step.stopsAway !== null ? (
           <span className="route-step__sub">
             {ru.route.away(typeName(step.line.type).toLowerCase(), step.stopsAway)}
           </span>

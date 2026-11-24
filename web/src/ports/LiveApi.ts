@@ -28,14 +28,8 @@ export interface LiveApi {
   getVehicleDetails(vehicleId: string, signal?: AbortSignal): Promise<VehicleDetails>;
   /** Маршрут «сейчас» от А до Б. */
   planRoute(points: RoutePoints, lowFloorOnly: boolean, signal?: AbortSignal): Promise<RoutePlan>;
-  /** Пересчёт выбранного маршрута: маршрут не заменяется, решает человек. */
-  checkRoute(
-    points: RoutePoints,
-    lowFloorOnly: boolean,
-    journey: Journey,
-    plannedArriveAt: string,
-    signal?: AbortSignal,
-  ): Promise<RouteCheck>;
+  /** Обновляет времена всей выбранной цепочки рейсов. */
+  checkRoute(journey: Journey, signal?: AbortSignal): Promise<RouteCheck>;
 }
 
 /** Ошибка, которую можно показать человеку: message всегда по-русски. */

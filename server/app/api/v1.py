@@ -13,6 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.errors import ERROR_RESPONSES, AppError
+from app.api.route_results import checked_response, journey_response
 from app.api.schemas import (
     ArrivalsResponse,
     Health,
@@ -48,9 +49,10 @@ from app.ports import (
     WalkPlannerError,
 )
 from app.services.geocoding import GeocodingService
-from app.services.journey_planner import JourneyPlanner
+from app.services.journey_service import JourneyService
 from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
 from app.services.live_transport import LiveTransportService, TransitUnavailableError
+from app.services.realtime import RealtimeService
 from app.services.walking import WalkingService
 
 router = APIRouter(prefix="/api/v1", responses=ERROR_RESPONSES)
@@ -96,9 +98,14 @@ def get_walking(request: Request) -> WalkingService:
     return walking
 
 
-def get_planner(request: Request) -> JourneyPlanner:
-    planner: JourneyPlanner = request.app.state.planner
-    return planner
+def get_journey_service(request: Request) -> JourneyService:
+    service: JourneyService = request.app.state.journey_service
+    return service
+
+
+def get_realtime(request: Request) -> RealtimeService | None:
+    realtime: RealtimeService | None = request.app.state.realtime
+    return realtime
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
@@ -107,7 +114,8 @@ LiveTransportDep = Annotated[LiveTransportService, Depends(get_live_transport)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
 GeocodingDep = Annotated[GeocodingService, Depends(get_geocoding)]
 WalkingDep = Annotated[WalkingService, Depends(get_walking)]
-PlannerDep = Annotated[JourneyPlanner, Depends(get_planner)]
+JourneyDep = Annotated[JourneyService, Depends(get_journey_service)]
+RealtimeDep = Annotated[RealtimeService | None, Depends(get_realtime)]
 
 NO_TRANSIT_MESSAGE = "Транспорта сейчас нет"
 WALK_BETTER_MESSAGE = "Пешком быстрее"
@@ -269,58 +277,56 @@ def _check_points(city: CityArea, *points: LatLon) -> None:
 
 
 @router.post("/route", tags=["route"])
-async def route(body: RouteRequest, city: CityDep, planner: PlannerDep) -> RouteResponse:
-    """Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.
-
-    lowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой
-    поездки пометка lowFloor. Пешие участки по улицам, скорость из настройки.
-    """
+async def route(
+    body: RouteRequest,
+    city: CityDep,
+    service: JourneyDep,
+    live: LiveDep,
+    realtime: RealtimeDep,
+    clock: ClockDep,
+) -> RouteResponse:
+    """Поездка по расписанию с прогнозом, когда он доступен."""
     _check_points(city, body.origin, body.destination)
-    try:
-        outcome = await planner.plan(
-            body.origin, body.destination, low_floor_only=body.low_floor_only
-        )
-    except TransitUnavailableError as exc:
-        raise transit_unavailable() from exc
-    except WalkPlannerError as exc:
-        raise walk_error(exc) from exc
+    live.touch()
+    at = clock()
+    outcome = await service.plan(
+        Place(point=body.origin),
+        Place(point=body.destination),
+        graph=realtime.graph if realtime else None,
+        low_floor_only=body.low_floor_only,
+        at=at,
+    )
+    snapshot = realtime.current if realtime else None
+    vehicles = snapshot.vehicles if snapshot else {}
+    now = clock()
+    observed = live.current
     return RouteResponse(
-        journeys=outcome.journeys,
+        journeys=[
+            journey_response(option, at, body.low_floor_only, vehicles, now=now)
+            for option in outcome.options
+        ],
+        graph_version=outcome.graph_version,
         status=outcome.status,
         message=STATUS_MESSAGE.get(outcome.status),
         walk=outcome.walk,
-        diagnostics=_diagnostics(outcome.snapshot),
+        diagnostics=_diagnostics(observed) if observed else None,
     )
 
 
 @router.post("/route/check", tags=["route"])
 async def route_check(
-    body: RouteCheckRequest, city: CityDep, settings: SettingsDep, planner: PlannerDep
+    body: RouteCheckRequest, service: JourneyDep, live: LiveDep, realtime: RealtimeDep
 ) -> RouteCheckResponse:
-    """Пересчёт выбранного маршрута: машина стоит, пропала или опаздывает — есть ли вариант
-    лучше. Маршрут не заменяется: решает человек."""
-    _check_points(city, body.origin, body.destination)
-    try:
-        outcome = await planner.check(
-            body.origin,
-            body.destination,
-            low_floor_only=body.low_floor_only,
-            vehicle_id=body.vehicle_id,
-            planned_arrive_at=body.planned_arrive_at,
-            stopped_threshold=timedelta(seconds=settings.stopped_threshold_s),
-            late_threshold=timedelta(seconds=settings.late_threshold_s),
-        )
-    except TransitUnavailableError as exc:
-        raise transit_unavailable() from exc
-    except WalkPlannerError as exc:
-        raise walk_error(exc) from exc
+    """Проверка расписания и пересадок выбранной цепочки рейсов."""
+    live.touch()
+    outcome = await service.check(
+        body.selection(),
+        graph=realtime.graph if realtime else None,
+        low_floor_only=body.low_floor_only,
+        ready_at=body.ready_at,
+    )
     return RouteCheckResponse(
-        status=outcome.status,
-        stopped_for_s=outcome.stopped_for_s,
-        current=outcome.current,
-        alternative=outcome.alternative,
-        gain_s=outcome.gain_s,
-        diagnostics=_diagnostics(outcome.snapshot),
+        status=outcome.status, rides=[checked_response(ride) for ride in outcome.rides]
     )
 
 
@@ -329,7 +335,7 @@ async def live_vehicles(
     live: LiveDep,
     settings: SettingsDep,
     clock: ClockDep,
-    low_floor_only: LowFloorOnly = False,
+    low_floor_only: LowFloorOnly = True,
     bbox: Annotated[
         str | None,
         Query(description="Видимая область: south,west,north,east"),
@@ -365,7 +371,7 @@ async def live_routes(
     live: LiveDep,
     settings: SettingsDep,
     clock: ClockDep,
-    low_floor_only: LowFloorOnly = False,
+    low_floor_only: LowFloorOnly = True,
     type: TransportType | None = None,  # noqa: A002 (имя параметра из контракта)
 ) -> LinesResponse:
     snap = await _snapshot(live)
@@ -396,7 +402,7 @@ async def live_route(
     live: LiveDep,
     settings: SettingsDep,
     clock: ClockDep,
-    low_floor_only: LowFloorOnly = False,
+    low_floor_only: LowFloorOnly = True,
 ) -> LineDetails:
     try:
         line = await live.line(line_id)
@@ -456,7 +462,7 @@ async def live_stops(
 
 @router.get("/live/stops/{stop_id}/arrivals", tags=["live"])
 async def live_stop_arrivals(
-    stop_id: str, transport: LiveTransportDep, low_floor_only: LowFloorOnly = False
+    stop_id: str, transport: LiveTransportDep, low_floor_only: LowFloorOnly = True
 ) -> ArrivalsResponse:
     """Что подъезжает к остановке: машины на линии с временем прихода.
 

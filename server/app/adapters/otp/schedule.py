@@ -25,14 +25,27 @@ _DIRECTION = {"0": Direction.A, "1": Direction.B}
 _BINDINGS = TypeAdapter(dict[str, tuple[StopBinding, ...]])
 
 
+class _CityAudit(BaseModel):
+    http_complete: bool = False
+    requested_groups: int | None = None
+    parsed_groups: int | None = None
+    exported_groups: int | None = None
+
+
 class _CoverageReport(BaseModel):
     service_start: date
     service_end: date
     coverage: tuple[ServiceCoverage, ...]
+    audit: _CityAudit | None = None
 
 
 def published_coverage(data: bytes, window: ServiceWindow) -> dict[str, ServiceCoverage]:
-    report = _CoverageReport.model_validate_json(data)
+    return _published_coverage(_CoverageReport.model_validate_json(data), window)
+
+
+def _published_coverage(
+    report: _CoverageReport, window: ServiceWindow
+) -> dict[str, ServiceCoverage]:
     if (report.service_start, report.service_end) != (window.start, window.end):
         raise ArtifactError("Календарь GTFS и отчёта покрытия расходятся")
     published = [row for row in report.coverage if row.trip_count > 0]
@@ -184,7 +197,8 @@ def read_published_schedule(
     feed: Path, coverage_data: bytes, version: str, window: ServiceWindow
 ) -> ScheduleSnapshot:
     try:
-        coverage = published_coverage(coverage_data, window)
+        report = _CoverageReport.model_validate_json(coverage_data)
+        coverage = _published_coverage(report, window)
         with ZipFile(feed) as archive:
             info = list(_rows(archive, "feed_info.txt"))
             if (
@@ -222,7 +236,15 @@ def read_published_schedule(
         raise
     except (BadZipFile, csv.Error, KeyError, TypeError, ValueError) as exc:
         raise ArtifactError(f"Повреждён комплект расписания OTP: {exc}") from exc
-    return ScheduleSnapshot(version, window, services)
+    audit = report.audit
+    complete = (
+        audit is not None
+        and audit.http_complete
+        and (
+            audit.requested_groups == audit.parsed_groups == audit.exported_groups == len(services)
+        )
+    )
+    return ScheduleSnapshot(version, window, services, complete_coverage=complete)
 
 
 def load_release_schedule(release: Path, *, otp_image: str | None = None) -> ScheduleSnapshot:

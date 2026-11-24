@@ -1,4 +1,4 @@
-"""Подготовить согласованный граф и конфигурацию updater для проверки в Docker."""
+"""Подготовить согласованный граф и настройки updater для локального Docker."""
 
 from __future__ import annotations
 
@@ -38,6 +38,10 @@ def prepare(release: Path, directory: Path) -> str:
     runtime = directory / "runtime" / manifest.version
     runtime.mkdir(parents=True, exist_ok=True)
     (runtime / "router-config.json").write_text(json.dumps(config, indent=2) + "\n", "utf-8")
+    demo_config = {"server": {"apiProcessingTimeout": "10s"}, "updaters": config["updaters"]}
+    (runtime / "router-config.demo.json").write_text(
+        json.dumps(demo_config, indent=2) + "\n", "utf-8"
+    )
     scenario = directory / "scenario"
     scenario.mkdir(exist_ok=True)
     if not (scenario / "step").exists():

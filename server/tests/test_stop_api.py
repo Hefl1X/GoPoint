@@ -40,7 +40,6 @@ def client(clock: ManualClock) -> TestClient:
         clock=clock,
         start_poller=False,
     )
-    del app.state.planner  # Карточки и прибытия должны пережить замену поиска.
     return TestClient(app)
 
 

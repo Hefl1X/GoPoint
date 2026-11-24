@@ -22,7 +22,7 @@ services:
     ports:
       - "127.0.0.1:18821:8080"
   caddy:
-    image: gopoint-web:local
+    image: "${GOPOINT_RT_WEB_IMAGE:-gopoint-web:local}"
     pull_policy: never
     volumes:
       - ../../web/Caddyfile:/etc/caddy/Caddyfile:ro

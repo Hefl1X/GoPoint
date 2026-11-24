@@ -234,17 +234,17 @@ class WalkLeg(DomainModel):
 
 
 class TransitLeg(DomainModel):
-    """Поездка на конкретной машине."""
+    """Поездка на транспорте. Связь с машиной зависит от текущих наблюдений."""
 
     kind: Literal["transit"] = "transit"
-    vehicle_id: str
+    vehicle_id: str | None
     line: Line
     low_floor: Accessibility
     board_stop: Stop
     alight_stop: Stop
     wait_s: int = Field(ge=0, description="Ожидание машины на остановке посадки")
     stops_count: int = Field(ge=1, description="Сколько остановок ехать до выхода")
-    stops_away: int = Field(
+    stops_away: int | None = Field(
         ge=0, description="Сколько остановок машине осталось до посадки (0: следующая)"
     )
     toward: str | None = Field(
@@ -255,7 +255,7 @@ class TransitLeg(DomainModel):
     )
     depart_at: datetime
     arrive_at: datetime
-    diagnostics: EtaDiagnostics
+    diagnostics: EtaDiagnostics | None
 
 
 Leg = Annotated[WalkLeg | TransitLeg, Field(discriminator="kind")]
@@ -265,10 +265,9 @@ Leg = Annotated[WalkLeg | TransitLeg, Field(discriminator="kind")]
 VariantLabel = Literal["fastest", "fewest_transfers", "least_walking"]
 
 
-class Journey(DomainModel):
-    """Один вариант маршрута от А до Б с разбивкой по шагам."""
+class JourneySummary(DomainModel):
+    """Время и признаки варианта маршрута."""
 
-    legs: list[Leg]
     depart_at: datetime
     arrive_at: datetime
     duration_s: int = Field(ge=0)
@@ -281,6 +280,12 @@ class Journey(DomainModel):
             "пересадок, least_walking — меньше пешком; пусто у запасного варианта"
         ),
     )
+
+
+class Journey(JourneySummary):
+    """Вариант маршрута прежнего поиска на машинах."""
+
+    legs: list[Leg]
 
 
 class ApiError(DomainModel):

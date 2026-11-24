@@ -15,6 +15,7 @@ from app.adapters.gtfs_rt import GtfsRealtimeEncoder
 from app.adapters.local_places import LocalPlacesProvider
 from app.adapters.osm_boundary.load import DEFAULT_FILE, load_polygons
 from app.adapters.otp.schedule import load_release_schedule
+from app.adapters.otp.transit import OtpTransitPlanner
 from app.adapters.otp.walk import OtpWalkPlanner
 from app.adapters.photon.geocoder import PhotonGeocoder
 from app.adapters.tsugaet.feed import TsugaetFeed
@@ -23,7 +24,7 @@ from app.domain.area import CityArea
 from app.domain.models import Stop
 from app.domain.schedule_snapshot import ScheduleSnapshot
 from app.domain.trip_match import DEFAULT_MATCH_SETTINGS
-from app.ports import Geocoder, TransitFeed, WalkPlanner
+from app.ports import Geocoder, TransitFeed, TransitPlanner, WalkPlanner
 from app.services.live_snapshot import Clock, LiveSnapshotService
 from app.services.realtime import RealtimeService
 
@@ -70,6 +71,20 @@ def build_walk_planner(settings: Settings) -> tuple[WalkPlanner, Callable[[], Aw
     planner = OtpWalkPlanner(
         base_url=settings.otp_url,
         speed_mps=settings.walk_speed_mps,
+        timeout_s=settings.otp_timeout_s,
+    )
+    return planner, planner.aclose
+
+
+def build_transit_planner(
+    settings: Settings,
+) -> tuple[TransitPlanner, Callable[[], Awaitable[None]]]:
+    planner = OtpTransitPlanner(
+        base_url=settings.otp_url,
+        speed_mps=settings.walk_speed_mps,
+        board_slack_s=settings.board_margin_s,
+        transfer_slack_s=settings.transfer_margin_s,
+        horizon_min=settings.horizon_min,
         timeout_s=settings.otp_timeout_s,
     )
     return planner, planner.aclose

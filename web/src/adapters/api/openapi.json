@@ -87,6 +87,61 @@
         "title": "Bounds",
         "type": "object"
       },
+      "CheckedLeg": {
+        "additionalProperties": false,
+        "properties": {
+          "alightSequence": {
+            "minimum": 2.0,
+            "title": "Alightsequence",
+            "type": "integer"
+          },
+          "arriveAt": {
+            "format": "date-time",
+            "title": "Arriveat",
+            "type": "string"
+          },
+          "boardSequence": {
+            "minimum": 1.0,
+            "title": "Boardsequence",
+            "type": "integer"
+          },
+          "departAt": {
+            "format": "date-time",
+            "title": "Departat",
+            "type": "string"
+          },
+          "serviceDate": {
+            "format": "date",
+            "title": "Servicedate",
+            "type": "string"
+          },
+          "timeSource": {
+            "enum": [
+              "scheduled",
+              "realtime"
+            ],
+            "title": "Timesource",
+            "type": "string"
+          },
+          "tripId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tripid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tripId",
+          "serviceDate",
+          "boardSequence",
+          "alightSequence",
+          "departAt",
+          "arriveAt",
+          "timeSource"
+        ],
+        "title": "CheckedLeg",
+        "type": "object"
+      },
       "Direction": {
         "description": "Направление маршрута: A прямое, B обратное.",
         "enum": [
@@ -135,80 +190,6 @@
           }
         },
         "title": "Health",
-        "type": "object"
-      },
-      "Journey": {
-        "additionalProperties": false,
-        "description": "Один вариант маршрута от А до Б с разбивкой по шагам.",
-        "properties": {
-          "arriveAt": {
-            "format": "date-time",
-            "title": "Arriveat",
-            "type": "string"
-          },
-          "departAt": {
-            "format": "date-time",
-            "title": "Departat",
-            "type": "string"
-          },
-          "durationS": {
-            "minimum": 0.0,
-            "title": "Durations",
-            "type": "integer"
-          },
-          "labels": {
-            "description": "Чем вариант лучше других: fastest — быстрее всего, fewest_transfers — меньше пересадок, least_walking — меньше пешком; пусто у запасного варианта",
-            "items": {
-              "enum": [
-                "fastest",
-                "fewest_transfers",
-                "least_walking"
-              ],
-              "type": "string"
-            },
-            "title": "Labels",
-            "type": "array"
-          },
-          "legs": {
-            "items": {
-              "discriminator": {
-                "mapping": {
-                  "transit": "#/components/schemas/TransitLeg",
-                  "walk": "#/components/schemas/WalkLeg"
-                },
-                "propertyName": "kind"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/WalkLeg"
-                },
-                {
-                  "$ref": "#/components/schemas/TransitLeg"
-                }
-              ]
-            },
-            "title": "Legs",
-            "type": "array"
-          },
-          "lowFloorOnly": {
-            "title": "Lowflooronly",
-            "type": "boolean"
-          },
-          "transfers": {
-            "minimum": 0.0,
-            "title": "Transfers",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "legs",
-          "departAt",
-          "arriveAt",
-          "durationS",
-          "transfers",
-          "lowFloorOnly"
-        ],
-        "title": "Journey",
         "type": "object"
       },
       "LatLon": {
@@ -411,7 +392,7 @@
             "$ref": "#/components/schemas/Bounds"
           },
           "lowFloorOnlyDefault": {
-            "default": false,
+            "default": true,
             "title": "Lowflooronlydefault",
             "type": "boolean"
           },
@@ -564,36 +545,37 @@
       "RouteCheckRequest": {
         "additionalProperties": false,
         "properties": {
-          "destination": {
-            "$ref": "#/components/schemas/LatLon"
+          "graphVersion": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Graphversion",
+            "type": "string"
           },
           "lowFloorOnly": {
-            "default": false,
+            "default": true,
             "title": "Lowflooronly",
             "type": "boolean"
           },
-          "origin": {
-            "$ref": "#/components/schemas/LatLon"
-          },
-          "plannedArriveAt": {
-            "description": "Когда человек должен был приехать (UTC)",
+          "readyAt": {
+            "description": "Время, с которого можно начинать путь от точки А",
             "format": "date-time",
-            "title": "Plannedarriveat",
+            "title": "Readyat",
             "type": "string"
           },
-          "vehicleId": {
-            "description": "Машина первой поездки",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Vehicleid",
-            "type": "string"
+          "rides": {
+            "items": {
+              "$ref": "#/components/schemas/SelectedLeg"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Rides",
+            "type": "array"
           }
         },
         "required": [
-          "origin",
-          "destination",
-          "vehicleId",
-          "plannedArriveAt"
+          "graphVersion",
+          "readyAt",
+          "rides"
         ],
         "title": "RouteCheckRequest",
         "type": "object"
@@ -601,71 +583,28 @@
       "RouteCheckResponse": {
         "additionalProperties": false,
         "properties": {
-          "alternative": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Journey"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Предложение: решает человек"
-          },
-          "current": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Journey"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Тот же маршрут с новым временем"
-          },
-          "diagnostics": {
-            "$ref": "#/components/schemas/SnapshotDiagnostics"
-          },
-          "gainS": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Насколько раньше по предложению, с",
-            "title": "Gains"
+          "rides": {
+            "description": "Новые времена выбранной цепочки",
+            "items": {
+              "$ref": "#/components/schemas/CheckedLeg"
+            },
+            "maxItems": 3,
+            "title": "Rides",
+            "type": "array"
           },
           "status": {
-            "description": "ok: всё по плану; stopped: машина стоит; late: опаздывает; gone: пропала",
             "enum": [
               "ok",
-              "stopped",
-              "late",
-              "gone"
+              "changed",
+              "transit_unavailable"
             ],
             "title": "Status",
             "type": "string"
-          },
-          "stoppedForS": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stoppedfors"
           }
         },
         "required": [
           "status",
-          "current",
-          "alternative",
-          "diagnostics"
+          "rides"
         ],
         "title": "RouteCheckResponse",
         "type": "object"
@@ -677,7 +616,7 @@
             "$ref": "#/components/schemas/LatLon"
           },
           "lowFloorOnly": {
-            "default": false,
+            "default": true,
             "title": "Lowflooronly",
             "type": "boolean"
           },
@@ -696,11 +635,29 @@
         "additionalProperties": false,
         "properties": {
           "diagnostics": {
-            "$ref": "#/components/schemas/SnapshotDiagnostics"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "graphVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graphversion"
           },
           "journeys": {
             "items": {
-              "$ref": "#/components/schemas/Journey"
+              "$ref": "#/components/schemas/ScheduledJourney"
             },
             "maxItems": 3,
             "title": "Journeys",
@@ -719,7 +676,7 @@
             "title": "Message"
           },
           "status": {
-            "description": "no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти; transit_unavailable: данных для проверки транспорта недостаточно",
+            "description": "no_transit: в проверенном расписании нет подходящих рейсов; walk_better: предложенный путь пешком быстрее транспортных вариантов; transit_unavailable: данных для проверки транспорта недостаточно",
             "enum": [
               "ok",
               "no_transit",
@@ -743,10 +700,230 @@
         },
         "required": [
           "journeys",
+          "graphVersion",
           "status",
           "diagnostics"
         ],
         "title": "RouteResponse",
+        "type": "object"
+      },
+      "ScheduledJourney": {
+        "additionalProperties": false,
+        "properties": {
+          "arriveAt": {
+            "format": "date-time",
+            "title": "Arriveat",
+            "type": "string"
+          },
+          "departAt": {
+            "format": "date-time",
+            "title": "Departat",
+            "type": "string"
+          },
+          "durationS": {
+            "minimum": 0.0,
+            "title": "Durations",
+            "type": "integer"
+          },
+          "labels": {
+            "description": "Чем вариант лучше других: fastest — быстрее всего, fewest_transfers — меньше пересадок, least_walking — меньше пешком; пусто у запасного варианта",
+            "items": {
+              "enum": [
+                "fastest",
+                "fewest_transfers",
+                "least_walking"
+              ],
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "legs": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "transit": "#/components/schemas/ScheduledTransitLeg",
+                  "walk": "#/components/schemas/WalkLeg"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/WalkLeg"
+                },
+                {
+                  "$ref": "#/components/schemas/ScheduledTransitLeg"
+                }
+              ]
+            },
+            "title": "Legs",
+            "type": "array"
+          },
+          "lowFloorOnly": {
+            "title": "Lowflooronly",
+            "type": "boolean"
+          },
+          "transfers": {
+            "minimum": 0.0,
+            "title": "Transfers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "departAt",
+          "arriveAt",
+          "durationS",
+          "transfers",
+          "lowFloorOnly",
+          "legs"
+        ],
+        "title": "ScheduledJourney",
+        "type": "object"
+      },
+      "ScheduledTransitLeg": {
+        "additionalProperties": false,
+        "properties": {
+          "alightSequence": {
+            "minimum": 2.0,
+            "title": "Alightsequence",
+            "type": "integer"
+          },
+          "alightStop": {
+            "$ref": "#/components/schemas/Stop"
+          },
+          "arriveAt": {
+            "format": "date-time",
+            "title": "Arriveat",
+            "type": "string"
+          },
+          "boardSequence": {
+            "minimum": 1.0,
+            "title": "Boardsequence",
+            "type": "integer"
+          },
+          "boardStop": {
+            "$ref": "#/components/schemas/Stop"
+          },
+          "departAt": {
+            "format": "date-time",
+            "title": "Departat",
+            "type": "string"
+          },
+          "diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EtaDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geometry": {
+            "description": "Линия маршрута от посадки до выхода",
+            "items": {
+              "$ref": "#/components/schemas/LatLon"
+            },
+            "title": "Geometry",
+            "type": "array"
+          },
+          "kind": {
+            "const": "transit",
+            "default": "transit",
+            "title": "Kind",
+            "type": "string"
+          },
+          "line": {
+            "$ref": "#/components/schemas/Line"
+          },
+          "lowFloor": {
+            "$ref": "#/components/schemas/Accessibility"
+          },
+          "serviceDate": {
+            "format": "date",
+            "title": "Servicedate",
+            "type": "string"
+          },
+          "stopsAway": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Сколько остановок машине осталось до посадки (0: следующая)",
+            "title": "Stopsaway"
+          },
+          "stopsCount": {
+            "description": "Сколько остановок ехать до выхода",
+            "minimum": 1.0,
+            "title": "Stopscount",
+            "type": "integer"
+          },
+          "timeSource": {
+            "enum": [
+              "scheduled",
+              "realtime"
+            ],
+            "title": "Timesource",
+            "type": "string"
+          },
+          "toward": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Конечная, куда едет машина; null у кольцевых",
+            "title": "Toward"
+          },
+          "tripId": {
+            "title": "Tripid",
+            "type": "string"
+          },
+          "vehicleId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicleid"
+          },
+          "waitS": {
+            "description": "Ожидание машины на остановке посадки",
+            "minimum": 0.0,
+            "title": "Waits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "vehicleId",
+          "line",
+          "lowFloor",
+          "boardStop",
+          "alightStop",
+          "waitS",
+          "stopsCount",
+          "stopsAway",
+          "departAt",
+          "arriveAt",
+          "diagnostics",
+          "tripId",
+          "serviceDate",
+          "boardSequence",
+          "alightSequence",
+          "timeSource"
+        ],
+        "title": "ScheduledTransitLeg",
         "type": "object"
       },
       "SearchResponse": {
@@ -764,6 +941,47 @@
           "places"
         ],
         "title": "SearchResponse",
+        "type": "object"
+      },
+      "SelectedLeg": {
+        "additionalProperties": false,
+        "properties": {
+          "alightSequence": {
+            "minimum": 2.0,
+            "title": "Alightsequence",
+            "type": "integer"
+          },
+          "boardSequence": {
+            "minimum": 1.0,
+            "title": "Boardsequence",
+            "type": "integer"
+          },
+          "serviceDate": {
+            "format": "date",
+            "title": "Servicedate",
+            "type": "string"
+          },
+          "tripId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tripid",
+            "type": "string"
+          },
+          "walkBeforeS": {
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Walkbefores",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tripId",
+          "serviceDate",
+          "boardSequence",
+          "alightSequence",
+          "walkBeforeS"
+        ],
+        "title": "SelectedLeg",
         "type": "object"
       },
       "SnapshotDiagnostics": {
@@ -870,100 +1088,6 @@
           "stops"
         ],
         "title": "StopsResponse",
-        "type": "object"
-      },
-      "TransitLeg": {
-        "additionalProperties": false,
-        "description": "Поездка на конкретной машине.",
-        "properties": {
-          "alightStop": {
-            "$ref": "#/components/schemas/Stop"
-          },
-          "arriveAt": {
-            "format": "date-time",
-            "title": "Arriveat",
-            "type": "string"
-          },
-          "boardStop": {
-            "$ref": "#/components/schemas/Stop"
-          },
-          "departAt": {
-            "format": "date-time",
-            "title": "Departat",
-            "type": "string"
-          },
-          "diagnostics": {
-            "$ref": "#/components/schemas/EtaDiagnostics"
-          },
-          "geometry": {
-            "description": "Линия маршрута от посадки до выхода",
-            "items": {
-              "$ref": "#/components/schemas/LatLon"
-            },
-            "title": "Geometry",
-            "type": "array"
-          },
-          "kind": {
-            "const": "transit",
-            "default": "transit",
-            "title": "Kind",
-            "type": "string"
-          },
-          "line": {
-            "$ref": "#/components/schemas/Line"
-          },
-          "lowFloor": {
-            "$ref": "#/components/schemas/Accessibility"
-          },
-          "stopsAway": {
-            "description": "Сколько остановок машине осталось до посадки (0: следующая)",
-            "minimum": 0.0,
-            "title": "Stopsaway",
-            "type": "integer"
-          },
-          "stopsCount": {
-            "description": "Сколько остановок ехать до выхода",
-            "minimum": 1.0,
-            "title": "Stopscount",
-            "type": "integer"
-          },
-          "toward": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Конечная, куда едет машина; null у кольцевых",
-            "title": "Toward"
-          },
-          "vehicleId": {
-            "title": "Vehicleid",
-            "type": "string"
-          },
-          "waitS": {
-            "description": "Ожидание машины на остановке посадки",
-            "minimum": 0.0,
-            "title": "Waits",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "vehicleId",
-          "line",
-          "lowFloor",
-          "boardStop",
-          "alightStop",
-          "waitS",
-          "stopsCount",
-          "stopsAway",
-          "departAt",
-          "arriveAt",
-          "diagnostics"
-        ],
-        "title": "TransitLeg",
         "type": "object"
       },
       "TransportType": {
@@ -1200,7 +1324,7 @@
     }
   },
   "info": {
-    "description": "Транспорт Новосибирска на линии сейчас и маршруты по низкопольным машинам.",
+    "description": "Маршруты по расписанию и транспорт Новосибирска на линии.",
     "title": "GoPoint API",
     "version": "0.1.0"
   },
@@ -1267,7 +1391,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": false,
+              "default": true,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"
@@ -1357,7 +1481,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": false,
+              "default": true,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"
@@ -1497,7 +1621,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": false,
+              "default": true,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"
@@ -1562,7 +1686,7 @@
             "name": "lowFloorOnly",
             "required": false,
             "schema": {
-              "default": false,
+              "default": true,
               "description": "true: только машины с низким полом (yes); false: все машины на линии с пометкой",
               "title": "Lowflooronly",
               "type": "boolean"
@@ -1751,7 +1875,7 @@
     },
     "/api/v1/route": {
       "post": {
-        "description": "Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.\n\nlowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой\nпоездки пометка lowFloor. Пешие участки по улицам, скорость из настройки.",
+        "description": "Поездка по расписанию с прогнозом, когда он доступен.",
         "operationId": "route_api_v1_route_post",
         "requestBody": {
           "content": {
@@ -1813,7 +1937,7 @@
     },
     "/api/v1/route/check": {
       "post": {
-        "description": "Пересчёт выбранного маршрута: машина стоит, пропала или опаздывает — есть ли вариант\nлучше. Маршрут не заменяется: решает человек.",
+        "description": "Проверка расписания и пересадок выбранной цепочки рейсов.",
         "operationId": "route_check_api_v1_route_check_post",
         "requestBody": {
           "content": {

@@ -5,10 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from types import MappingProxyType
 
+from app.domain.live import is_usable
 from app.domain.low_floor import LowFloorSnapshot, TripOccurrence
+from app.domain.models import Accessibility, LiveVehicle
 from app.domain.realtime import TripDelay
 from app.domain.schedule_snapshot import ScheduleSnapshot
 from app.domain.trip_match import (
@@ -18,6 +22,7 @@ from app.domain.trip_match import (
     TripScheduleIndex,
     match_trips,
 )
+from app.domain.trip_plan import RoutingGraph
 from app.ports import RealtimeEncoder
 from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
 
@@ -26,10 +31,20 @@ log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
+class MatchedVehicle:
+    vehicle_id: str | None
+    low_floor: Accessibility
+    next_sequence: int
+    observed_at: datetime
+    valid_until: datetime
+
+
+@dataclass(frozen=True)
 class RealtimeSnapshot:
     all_payload: bytes
     low_payload: bytes
     low_access: LowFloorSnapshot
+    vehicles: Mapping[TripOccurrence, MatchedVehicle]
 
 
 def _occurrences(schedule: ScheduleSnapshot) -> tuple[TripOccurrence, ...]:
@@ -57,6 +72,7 @@ class RealtimeService:
         settings: MatchSettings,
     ) -> None:
         self._live = live
+        self.graph = RoutingGraph(schedule.version, schedule.complete_coverage)
         self._index = TripScheduleIndex(schedule)
         self._calendar = _occurrences(schedule)
         self._published = frozenset(self._calendar)
@@ -89,15 +105,18 @@ class RealtimeService:
         matches = match_trips(
             self._index, observations, now=now, previous=previous, settings=self._settings
         )
-        self._current = self._payloads(matches, now)
+        self._current = self._payloads(matches, observations, now)
         self._matches = matches
         self._last_live = observed
 
-    def _payloads(self, matches: TripMatches, now: datetime) -> RealtimeSnapshot:
+    def _payloads(
+        self, matches: TripMatches, observations: Mapping[str, LiveVehicle], now: datetime
+    ) -> RealtimeSnapshot:
         delays: list[TripDelay] = []
         confirmed: dict[TripOccurrence, datetime] = {}
+        matched: dict[TripOccurrence, MatchedVehicle] = {}
         expires = _FAR_FUTURE
-        for match in matches.vehicles.values():
+        for vehicle_id, match in matches.vehicles.items():
             candidate = match.assignment
             if (
                 match.status is not MatchStatus.CONFIRMED
@@ -109,6 +128,17 @@ class RealtimeService:
             expires = min(expires, match.valid_until)
             if match.low_floor_occurrence is not None:
                 confirmed[candidate.occurrence] = match.valid_until
+            observation = observations.get(vehicle_id)
+            visible = observation is not None and is_usable(
+                observation, now, self._settings.stale_s, False
+            )
+            matched[candidate.occurrence] = MatchedVehicle(
+                vehicle_id if visible else None,
+                match.low_floor,
+                candidate.stop_sequence,
+                match.observed_at,
+                match.valid_until,
+            )
             if candidate.delay_s is not None:
                 delays.append(
                     TripDelay(
@@ -127,6 +157,7 @@ class RealtimeService:
                 generated_at=now,
             ),
             LowFloorSnapshot(matches.version, expires, confirmed),
+            MappingProxyType(matched),
         )
 
     async def run(self) -> None:

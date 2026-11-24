@@ -18,7 +18,6 @@ def make_client() -> TestClient:
         clock=ManualClock(),
         start_poller=False,
     )
-    del app.state.planner
     return TestClient(app)
 
 

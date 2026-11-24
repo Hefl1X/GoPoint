@@ -4,6 +4,7 @@
 import { onlineManager, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 import type { Journey, RouteCheck, RoutePlan, RoutePoints } from '../domain/journey';
+import { journeyKey, selectedRides } from '../domain/journey';
 import type {
   Bounds,
   LineDetails,
@@ -195,30 +196,23 @@ export function useRoutePlan(
 }
 
 /** Проверка выбранного маршрута раз в 30 с, пока вкладка открыта. */
-export function useRouteCheck(
-  points: RoutePoints | null,
-  lowFloorOnly: boolean,
-  journey: Journey | null,
-  plannedArriveAt: string | null,
-): UseQueryResult<RouteCheck> {
+export function useRouteCheck(journey: Journey | null): UseQueryResult<RouteCheck> {
   const { api } = useServices();
   const { refreshMs } = useLiveTiming();
-  const vehicles = journey
-    ? journey.steps.flatMap((s) => (s.kind === 'ride' ? [s.vehicleId] : []))
-    : [];
+  const selected = journey ? selectedRides(journey) : [];
   return useQuery({
     queryKey: [
       'route-check',
-      points ? pointKey(points) : null,
-      lowFloorOnly,
-      vehicles.join('>'),
-      plannedArriveAt,
+      journey ? journeyKey(journey) : null,
+      journey?.lowFloorOnly,
+      journey?.departAt,
+      selected.map((ride) => ride.walkBeforeS),
     ],
     queryFn: ({ signal }) => {
-      if (!points || !journey || !plannedArriveAt) throw new Error('нет маршрута');
-      return api.checkRoute(points, lowFloorOnly, journey, plannedArriveAt, signal);
+      if (!journey) throw new Error('нет маршрута');
+      return api.checkRoute(journey, signal);
     },
-    enabled: points !== null && journey !== null && plannedArriveAt !== null && vehicles.length > 0,
+    enabled: Boolean(journey?.graphVersion && selected.length > 0),
     refetchInterval: refreshMs,
     refetchIntervalInBackground: false,
     staleTime: refreshMs / 2,

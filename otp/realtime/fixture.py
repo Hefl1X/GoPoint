@@ -9,10 +9,14 @@ from app.adapters.otp.schedule import load_release_schedule
 from app.config import get_settings
 from app.domain.models import (
     Accessibility,
+    Bounds,
     Direction,
+    LatLon,
     Line,
     LinePath,
     LiveVehicle,
+    PlaceKind,
+    PlaceSuggestion,
     TransportType,
     Vehicle,
     VehicleState,
@@ -41,6 +45,7 @@ _TIMES_S = (
     _TRIP.stop_times[2].arrival + 120,
     _TRIP.stop_times[2].arrival + 181,
     _TRIP.stop_times[2].arrival + 420,
+    5 * 3600 + 58 * 60,
 )
 
 
@@ -70,7 +75,7 @@ class _Feed:
 
     async def vehicles(self, line_ids: Sequence[str]) -> list[LiveVehicle]:
         step = _step()
-        if step == 4:
+        if step in {4, 5}:
             raise TransitFeedError("Отказ контрольного GPS-источника")
         if step == 0 or _LINE.id not in line_ids:
             return []
@@ -94,4 +99,22 @@ class _Feed:
         ]
 
 
-app = create_app(feed=_Feed(), clock=_clock, start_poller=False)
+class _Geocoder:
+    async def search(
+        self, query: str, *, limit: int, bounds: Bounds, near: LatLon
+    ) -> list[PlaceSuggestion]:
+        matches = {
+            row.stop.id: row.stop
+            for row in _PATH.stops
+            if query.casefold() in row.stop.name.casefold() and bounds.contains(row.stop.point)
+        }
+        return [
+            PlaceSuggestion(id=stop.id, title=stop.name, kind=PlaceKind.STOP, point=stop.point)
+            for stop in list(matches.values())[:limit]
+        ]
+
+    async def reverse(self, point: LatLon) -> PlaceSuggestion | None:
+        return None
+
+
+app = create_app(feed=_Feed(), geocoder=_Geocoder(), clock=_clock, start_poller=False)

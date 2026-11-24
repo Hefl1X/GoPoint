@@ -94,8 +94,9 @@ class JourneyService:
         *,
         graph: RoutingGraph | None,
         low_floor_only: bool,
+        at: datetime | None = None,
     ) -> JourneyChoices:
-        at = self._clock()
+        at = at or self._clock()
         before = self._low_floor() if low_floor_only else None
         try:
             result = await self._planner.plan(
@@ -231,11 +232,10 @@ class JourneyService:
             first, last = trip.calls[board - 1], trip.calls[alight - 1]
             depart_at, arrive_at = first.depart_at, last.arrive_at
             slack = self._s.board_slack_s + (self._s.transfer_slack_s if checked else 0)
-            earliest = ready + timedelta(seconds=slack + selected.walk_before_s)
             if (
                 depart_at is None
                 or arrive_at is None
-                or depart_at < earliest
+                or (depart_at - ready).total_seconds() < slack + selected.walk_before_s
                 or arrive_at < depart_at
             ):
                 return JourneyCheck("changed")

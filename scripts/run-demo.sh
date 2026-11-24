@@ -24,8 +24,13 @@ fi
 port="$(grep -E '^GOPOINT_HTTP_PORT=' .env | cut -d= -f2 || true)"
 port="${port:-8080}"
 
+compose=(docker compose)
+if [ -n "${GOPOINT_RT_DIR:-}${GOPOINT_RT_VERSION:-}" ]; then
+  compose+=(-f docker-compose.yml -f otp/release/demo.compose.yml)
+fi
+
 echo "Собираю и запускаю GoPoint (первый раз это может занять несколько минут)..."
-docker compose up -d --build
+"${compose[@]}" up -d --build
 
 echo -n "Жду, пока сервис ответит"
 for _ in $(seq 1 60); do
@@ -39,19 +44,19 @@ done
 if ! curl -fsS "http://localhost:${port}/health" >/dev/null 2>&1; then
   echo
   echo "Сервис не ответил за 2 минуты. Что показывают контейнеры:"
-  docker compose ps
+  "${compose[@]}" ps
   echo "Подробности: docker compose logs --tail 50"
   exit 1
 fi
 
 # База поиска адресов собирается отдельно (один раз, около 5 минут).
-if ! docker compose exec -T photon test -d /data/photon_data >/dev/null 2>&1; then
+if ! "${compose[@]}" exec -T photon test -d /data/photon_data >/dev/null 2>&1; then
   echo
   echo "Внимание: база поиска адресов ещё не собрана, подсказки адресов работать не будут."
   echo "Соберите её один раз: bash scripts/build-photon-db.sh"
 fi
 
-if [ ! -f data/otp/graph.obj ]; then
+if [ -z "${GOPOINT_RT_VERSION:-}" ] && [ ! -f data/otp/graph.obj ]; then
   echo
   echo "Внимание: граф улиц не собран, пешие участки считаться не будут."
   echo "Соберите его один раз: bash scripts/build-otp-graph.sh"

@@ -17,14 +17,15 @@ from app.api.errors import install_error_handlers
 from app.api.rate_limit import RateLimitMiddleware
 from app.api.schemas import Health
 from app.config import APP_NAME, APP_VERSION, Settings, get_settings
-from app.domain.journey_search import SearchParams
 from app.domain.linear import EtaParams
+from app.domain.low_floor import LowFloorSnapshot
 from app.domain.schedule_snapshot import ScheduleSnapshot
-from app.ports import Geocoder, TransitFeed, WalkPlanner
+from app.ports import Geocoder, TransitFeed, TransitPlanner, WalkPlanner
 from app.services.geocoding import CachePolicy, GeocodingService
-from app.services.journey_planner import JourneyPlanner, PlannerSettings
+from app.services.journey_service import JourneyService, JourneySettings
 from app.services.live_snapshot import Clock, LiveSnapshotService, utc_now
 from app.services.live_transport import LiveTransportService, LiveTransportSettings
+from app.services.realtime import RealtimeService
 from app.services.walking import WalkingService
 from app.wiring import (
     build_city_area,
@@ -32,6 +33,7 @@ from app.wiring import (
     build_local_places,
     build_realtime,
     build_transit_feed,
+    build_transit_planner,
     build_walk_planner,
 )
 
@@ -69,12 +71,19 @@ async def _stop_tasks(tasks: list[asyncio.Task[None]]) -> None:
             await task
 
 
+def _low_floor(app: FastAPI) -> LowFloorSnapshot | None:
+    realtime: RealtimeService | None = app.state.realtime
+    snapshot = realtime.current if realtime else None
+    return snapshot.low_access if snapshot else None
+
+
 def create_app(
     settings: Settings | None = None,
     *,
     feed: TransitFeed | None = None,
     geocoder: Geocoder | None = None,
     walk_planner: WalkPlanner | None = None,
+    transit_planner: TransitPlanner | None = None,
     clock: Clock = utc_now,
     start_poller: bool = True,
     realtime_schedule: ScheduleSnapshot | None = None,
@@ -98,6 +107,9 @@ def create_app(
     close_walk: Callable[[], Awaitable[None]] | None = None
     if walk_planner is None:
         walk_planner, close_walk = build_walk_planner(settings)
+    close_transit: Callable[[], Awaitable[None]] | None = None
+    if transit_planner is None:
+        transit_planner, close_transit = build_transit_planner(settings)
     walking = WalkingService(walk_planner, cache_ttl_s=settings.walk_cache_ttl_s)
     live = LiveSnapshotService(
         feed,
@@ -123,17 +135,14 @@ def create_app(
         finally:
             await _stop_tasks(tasks)
             _app.state.realtime = None
-            if close_feed:
-                await close_feed()
-            if close_geocoder:
-                await close_geocoder()
-            if close_walk:
-                await close_walk()
+            for close in (close_transit, close_walk, close_geocoder, close_feed):
+                if close:
+                    await close()
 
     app = FastAPI(
         title=f"{APP_NAME} API",
         version=APP_VERSION,
-        description="Транспорт Новосибирска на линии сейчас и маршруты по низкопольным машинам.",
+        description="Маршруты по расписанию и транспорт Новосибирска на линии.",
         docs_url="/api/docs",
         redoc_url=None,
         openapi_url="/api/openapi.json",
@@ -147,11 +156,14 @@ def create_app(
     geocoding.set_local(build_local_places(live.known_stops))
     app.state.geocoding = geocoding
     app.state.walking = walking
-    app.state.planner = JourneyPlanner(
-        live_transport,
+    app.state.journey_service = JourneyService(
+        transit_planner,
         walking,
         clock=clock,
-        settings=planner_settings(settings),
+        low_floor=lambda: _low_floor(app),
+        settings=JourneySettings(
+            settings.walk_option_max_m, settings.board_margin_s, settings.transfer_margin_s
+        ),
     )
     app.state.clock = clock
     _install_api(app, settings, clock)
@@ -186,23 +198,6 @@ def live_transport_settings(settings: Settings) -> LiveTransportSettings:
         max_vehicle_offset_m=settings.max_vehicle_offset_m,
         horizon=timedelta(minutes=settings.horizon_min),
         snapshot_max_age=timedelta(seconds=settings.snapshot_max_age_s),
-    )
-
-
-def planner_settings(settings: Settings) -> PlannerSettings:
-    return PlannerSettings(
-        search=SearchParams(
-            board_margin_s=settings.board_margin_s,
-            transfer_margin_s=settings.transfer_margin_s,
-            board_within_s=settings.horizon_min * 60,
-        ),
-        transfer_radius_m=settings.transfer_radius_m,
-        access_stops=settings.access_stops,
-        horizon=timedelta(minutes=settings.horizon_min),
-        walk_speed_mps=settings.walk_speed_mps,
-        walk_option_max_m=settings.walk_option_max_m,
-        access_radius_m=settings.access_radius_m,
-        access_stops_max=settings.access_stops_max,
     )
 
 

@@ -44,3 +44,4 @@ class ScheduleSnapshot:
     version: str
     window: ServiceWindow
     services: tuple[ScheduledService, ...]
+    complete_coverage: bool = False

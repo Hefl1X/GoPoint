@@ -2,7 +2,13 @@
 // в клиенте не зашит, поэтому один и тот же код работает на Mac и на сервере.
 // Каждый ответ проверяется схемой zod: повреждённые данные не ломают интерфейс.
 import { z } from 'zod';
-import { firstRide, type Journey, type JourneyStep, type WalkStep } from '../../domain/journey';
+import {
+  selectedRides,
+  withCheckedTimes,
+  type Journey,
+  type JourneyStep,
+  type WalkStep,
+} from '../../domain/journey';
 import type {
   LatLon,
   LineDetails,
@@ -149,19 +155,31 @@ const walkLegSchema = z.object({
   hasStairs: z.boolean().default(false),
 });
 
+const rideReferenceFields = {
+  tripId: z.string().min(1),
+  serviceDate: z.iso.date(),
+  boardSequence: z.number().int().min(1),
+  alightSequence: z.number().int().min(2),
+};
+const rideTimeFields = {
+  departAt: z.iso.datetime({ offset: true }),
+  arriveAt: z.iso.datetime({ offset: true }),
+  timeSource: z.enum(['scheduled', 'realtime']),
+};
+
 const transitLegSchema = z.object({
   kind: z.literal('transit'),
-  vehicleId: z.string(),
+  ...rideReferenceFields,
+  ...rideTimeFields,
+  vehicleId: z.string().nullable(),
   line: lineSchema,
   lowFloor: accessibility,
   boardStop: stopSchema,
   alightStop: stopSchema,
   waitS: z.number().int().min(0),
   stopsCount: z.number().int().min(1),
-  stopsAway: z.number().int().min(0),
+  stopsAway: z.number().int().min(0).nullable(),
   toward: z.string().nullable().default(null),
-  departAt: z.string(),
-  arriveAt: z.string(),
   geometry: z.array(latLon).default([]),
 });
 
@@ -175,22 +193,21 @@ const journeySchema = z.object({
   labels: z.array(z.enum(['fastest', 'fewest_transfers', 'least_walking'])).default([]),
 });
 
-const routeSchema = z.object({
-  journeys: z.array(journeySchema).max(3),
-  status: z.enum(['ok', 'no_transit', 'walk_better', 'transit_unavailable']),
-  message: z.string().nullable().optional(),
-  walk: walkLegSchema.nullable().default(null),
-  diagnostics,
-});
+const routeSchema = z
+  .object({
+    journeys: z.array(journeySchema).max(3),
+    graphVersion: z.string().min(1).nullable(),
+    status: z.enum(['ok', 'no_transit', 'walk_better', 'transit_unavailable']),
+    message: z.string().nullable().optional(),
+    walk: walkLegSchema.nullable().default(null),
+    diagnostics: diagnostics.nullable(),
+  })
+  .refine((route) => route.journeys.length === 0 || route.graphVersion !== null);
 
 const routeCheckSchema = z.object({
-  status: z.enum(['ok', 'stopped', 'late', 'gone']),
-  stoppedForS: z.number().int().nullable().default(null),
-  current: journeySchema.nullable(),
-  alternative: journeySchema.nullable(),
-  gainS: z.number().int().nullable().optional(),
-  diagnostics,
-});
+  status: z.enum(['ok', 'changed', 'transit_unavailable']),
+  rides: z.array(z.object({ ...rideReferenceFields, ...rideTimeFields })).max(3),
+}) satisfies z.ZodType<Schemas['RouteCheckResponse']>;
 
 const apiErrorSchema = z.object({
   code: z.string(),
@@ -308,13 +325,18 @@ function toWalkStep(leg: z.infer<typeof walkLegSchema>): WalkStep {
   };
 }
 
-function toJourney(j: JourneyBody): Journey {
+function toJourney(j: JourneyBody, graphVersion: string | null): Journey {
   // Служебные поля (способ расчёта, время снимка) сайту не нужны и не показываются.
   const steps: JourneyStep[] = j.legs.map((leg) =>
     leg.kind === 'walk'
       ? toWalkStep(leg)
       : {
           kind: 'ride',
+          tripId: leg.tripId,
+          serviceDate: leg.serviceDate,
+          boardSequence: leg.boardSequence,
+          alightSequence: leg.alightSequence,
+          timeSource: leg.timeSource,
           vehicleId: leg.vehicleId,
           line: leg.line,
           lowFloor: leg.lowFloor,
@@ -330,6 +352,7 @@ function toJourney(j: JourneyBody): Journey {
         },
   );
   return {
+    graphVersion,
     steps,
     departAt: j.departAt,
     arriveAt: j.arriveAt,
@@ -359,30 +382,27 @@ const routeApi: Pick<LiveApi, 'planRoute' | 'checkRoute'> = {
     });
     return {
       status: body.status,
-      journeys: body.journeys.map(toJourney),
+      journeys: body.journeys.map((journey) => toJourney(journey, body.graphVersion)),
       walk: body.walk ? toWalkStep(body.walk) : null,
     };
   },
 
-  async checkRoute(points, lowFloorOnly, journey, plannedArriveAt, signal) {
-    const ride = firstRide(journey);
-    if (!ride) throw new ApiError(0, 'BAD_REQUEST', BAD_RESPONSE);
+  async checkRoute(journey, signal) {
+    const rides = selectedRides(journey);
+    if (!journey.graphVersion || rides.length === 0)
+      throw new ApiError(0, 'BAD_REQUEST', BAD_RESPONSE);
     const body = await requestJson('/route/check', routeCheckSchema, signal, {
       body: {
-        origin: point(points.origin),
-        destination: point(points.destination),
-        lowFloorOnly,
-        vehicleId: ride.vehicleId,
-        plannedArriveAt,
+        graphVersion: journey.graphVersion,
+        lowFloorOnly: journey.lowFloorOnly,
+        readyAt: journey.departAt,
+        rides,
       },
       timeoutMs: ROUTE_TIMEOUT_MS,
     });
-    return {
-      status: body.status,
-      stoppedForS: body.stoppedForS,
-      current: body.current ? toJourney(body.current) : null,
-      alternative: body.alternative ? toJourney(body.alternative) : null,
-    };
+    if (body.status !== 'ok') return { status: body.status, current: null };
+    const current = withCheckedTimes(journey, body.rides);
+    return current ? { status: 'ok', current } : { status: 'changed', current: null };
   },
 };
 

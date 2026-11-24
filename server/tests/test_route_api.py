@@ -1,4 +1,4 @@
-"""POST /api/v1/route и /route/check на образцах ЦУГАЭТ (машины 04.11.2026 12:28).
+"""Сценарии прежнего поиска на образцах ЦУГАЭТ (машины 04.11.2026 12:28).
 
 Пешие участки считает заглушка: по прямой с поправкой 1,3 при скорости обычного профиля.
 """
@@ -20,6 +20,7 @@ from app.domain.models import Direction, LatLon, Place, WalkLeg
 from app.main import create_app
 from app.ports import NoWalkRouteError, WalkPlannerError, WalkPlannerUnavailableError
 from tests.conftest import SAMPLES, ManualClock
+from tests.legacy_route_fixture import with_legacy_routes
 
 WALK_SPEED = Settings().walk_speed_mps
 
@@ -73,14 +74,15 @@ def clock() -> ManualClock:
 
 @pytest.fixture
 def client(walker: StraightWalker, clock: ManualClock) -> TestClient:
+    settings = Settings(transit_feed="fake", access_stops=4)
     app = create_app(
-        Settings(transit_feed="fake", access_stops=4),
+        settings,
         feed=FakeTransitFeed(SAMPLES),
         walk_planner=walker,
         clock=clock,
         start_poller=False,
     )
-    return TestClient(app)
+    return TestClient(with_legacy_routes(app, settings, clock))
 
 
 # Автобус 3 в сторону Северной короны: от «Библиотеки им. Лермонтова» до конечной.
