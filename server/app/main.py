@@ -24,6 +24,7 @@ from app.ports import Geocoder, TransitFeed, WalkPlanner
 from app.services.geocoding import CachePolicy, GeocodingService
 from app.services.journey_planner import JourneyPlanner, PlannerSettings
 from app.services.live_snapshot import Clock, LiveSnapshotService, utc_now
+from app.services.live_transport import LiveTransportService, LiveTransportSettings
 from app.services.walking import WalkingService
 from app.wiring import (
     build_city_area,
@@ -105,6 +106,9 @@ def create_app(
         active_window_s=settings.active_window_s,
         lines_ttl_s=settings.lines_ttl_s,
     )
+    live_transport = LiveTransportService(
+        live, clock=clock, settings=live_transport_settings(settings)
+    )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -139,16 +143,22 @@ def create_app(
     app.state.realtime = None
     app.state.city = city
     app.state.live = live
+    app.state.live_transport = live_transport
     geocoding.set_local(build_local_places(live.known_stops))
     app.state.geocoding = geocoding
     app.state.walking = walking
     app.state.planner = JourneyPlanner(
-        live,
+        live_transport,
         walking,
         clock=clock,
         settings=planner_settings(settings),
     )
     app.state.clock = clock
+    _install_api(app, settings, clock)
+    return app
+
+
+def _install_api(app: FastAPI, settings: Settings, clock: Clock) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -164,28 +174,32 @@ def create_app(
     async def root_health() -> Health:
         return Health()
 
-    return app
 
-
-def planner_settings(settings: Settings) -> PlannerSettings:
-    return PlannerSettings(
+def live_transport_settings(settings: Settings) -> LiveTransportSettings:
+    return LiveTransportSettings(
         eta=EtaParams(
             min_speed_mps=settings.vehicle_min_speed_kmh / 3.6,
             max_speed_mps=settings.vehicle_max_speed_kmh / 3.6,
             dwell_s=settings.dwell_s,
         ),
+        stale_seconds=settings.stale_seconds,
+        max_vehicle_offset_m=settings.max_vehicle_offset_m,
+        horizon=timedelta(minutes=settings.horizon_min),
+        snapshot_max_age=timedelta(seconds=settings.snapshot_max_age_s),
+    )
+
+
+def planner_settings(settings: Settings) -> PlannerSettings:
+    return PlannerSettings(
         search=SearchParams(
             board_margin_s=settings.board_margin_s,
             transfer_margin_s=settings.transfer_margin_s,
             board_within_s=settings.horizon_min * 60,
         ),
-        stale_seconds=settings.stale_seconds,
-        max_vehicle_offset_m=settings.max_vehicle_offset_m,
         transfer_radius_m=settings.transfer_radius_m,
         access_stops=settings.access_stops,
         horizon=timedelta(minutes=settings.horizon_min),
         walk_speed_mps=settings.walk_speed_mps,
-        snapshot_max_age=timedelta(seconds=settings.snapshot_max_age_s),
         walk_option_max_m=settings.walk_option_max_m,
         access_radius_m=settings.access_radius_m,
         access_stops_max=settings.access_stops_max,

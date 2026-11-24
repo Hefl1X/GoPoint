@@ -48,8 +48,9 @@ from app.ports import (
     WalkPlannerError,
 )
 from app.services.geocoding import GeocodingService
-from app.services.journey_planner import JourneyPlanner, TransitUnavailableError
+from app.services.journey_planner import JourneyPlanner
 from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
+from app.services.live_transport import LiveTransportService, TransitUnavailableError
 from app.services.walking import WalkingService
 
 router = APIRouter(prefix="/api/v1", responses=ERROR_RESPONSES)
@@ -75,6 +76,11 @@ def get_live(request: Request) -> LiveSnapshotService:
     return live
 
 
+def get_live_transport(request: Request) -> LiveTransportService:
+    transport: LiveTransportService = request.app.state.live_transport
+    return transport
+
+
 def get_clock(request: Request) -> Clock:
     clock: Clock = request.app.state.clock
     return clock
@@ -97,6 +103,7 @@ def get_planner(request: Request) -> JourneyPlanner:
 
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 LiveDep = Annotated[LiveSnapshotService, Depends(get_live)]
+LiveTransportDep = Annotated[LiveTransportService, Depends(get_live_transport)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
 GeocodingDep = Annotated[GeocodingService, Depends(get_geocoding)]
 WalkingDep = Annotated[WalkingService, Depends(get_walking)]
@@ -337,10 +344,10 @@ async def live_vehicles(
 
 
 @router.get("/live/vehicles/{vehicle_id}", tags=["live"])
-async def live_vehicle(vehicle_id: str, planner: PlannerDep) -> VehicleDetails:
+async def live_vehicle(vehicle_id: str, transport: LiveTransportDep) -> VehicleDetails:
     """Машина на линии и когда она придёт на остановки впереди (карточка машины)."""
     try:
-        outcome = await planner.vehicle_details(vehicle_id)
+        outcome = await transport.vehicle_details(vehicle_id)
     except TransitUnavailableError as exc:
         raise transit_unavailable() from exc
     if outcome.vehicle is None:
@@ -429,7 +436,7 @@ async def live_route(
 
 @router.get("/live/stops", tags=["live"])
 async def live_stops(
-    planner: PlannerDep,
+    transport: LiveTransportDep,
     bbox: Annotated[str, Query(description="Видимая область: south,west,north,east")],
 ) -> StopsResponse:
     """Остановки в видимой области карты. Область больше ~15 км по стороне не принимаем:
@@ -441,7 +448,7 @@ async def live_stops(
     ):
         raise bad_bbox()
     try:
-        stops = await planner.stops_in(bounds)
+        stops = await transport.stops_in(bounds)
     except TransitUnavailableError as exc:
         raise transit_unavailable() from exc
     return StopsResponse(stops=stops)
@@ -449,14 +456,14 @@ async def live_stops(
 
 @router.get("/live/stops/{stop_id}/arrivals", tags=["live"])
 async def live_stop_arrivals(
-    stop_id: str, planner: PlannerDep, low_floor_only: LowFloorOnly = False
+    stop_id: str, transport: LiveTransportDep, low_floor_only: LowFloorOnly = False
 ) -> ArrivalsResponse:
     """Что подъезжает к остановке: машины на линии с временем прихода.
 
     lowFloorOnly = true: только машины с низким полом (yes); false: любые с пометкой.
     """
     try:
-        outcome = await planner.stop_arrivals(stop_id, low_floor_only=low_floor_only)
+        outcome = await transport.stop_arrivals(stop_id, low_floor_only=low_floor_only)
     except TransitUnavailableError as exc:
         raise transit_unavailable() from exc
     if outcome.stop is None:

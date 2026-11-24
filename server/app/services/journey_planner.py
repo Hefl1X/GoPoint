@@ -28,69 +28,49 @@ from app.domain.journey_search import (
     search,
     with_transfer_times,
 )
-from app.domain.linear import (
-    EtaParams,
-    LineGeometry,
-    StopCall,
-    build_geometry,
-    locate,
-    stop_calls,
-)
-from app.domain.live import usable_vehicles
 from app.domain.models import (
-    Bounds,
-    Direction,
     EtaDiagnostics,
     Journey,
     LatLon,
     Leg,
     Line,
-    LinePath,
     LiveVehicle,
-    NextStop,
     Place,
     Stop,
-    StopArrival,
     TransitLeg,
-    Vehicle,
     WalkLeg,
 )
 from app.ports import (
     PointNotOnStreetError,
-    TransitFeedError,
     WalkPlannerError,
     WalkPlannerUnavailableError,
 )
-from app.services.live_snapshot import Clock, LiveSnapshotService, Snapshot
+from app.services.live_snapshot import Clock, Snapshot
+from app.services.live_transport import (
+    RIDE_EXTRA,
+    LiveNetwork,
+    LiveTransportService,
+    TransitUnavailableError,
+)
 from app.services.walking import WalkingService
 
 log = logging.getLogger(__name__)
 
 # Пешая пересадка по прямой короче, чем по улицам: множитель для оценки в поиске.
 TRANSFER_DETOUR = 1.4
-# Насколько дальше горизонта посадки смотреть время прихода на остановки (длинные поездки).
-RIDE_EXTRA = timedelta(minutes=90)
 # Сколько пеших запросов к OTP одновременно.
 WALK_CONCURRENCY = 4
 # Сколько раз искать заново, если пешая пересадка по улицам оказалась дольше оценки.
 TRANSFER_RETRIES = 2
 
 
-class TransitUnavailableError(Exception):
-    """Нет ни свежего, ни годного прошлого снимка машин."""
-
-
 @dataclass(frozen=True)
 class PlannerSettings:
-    eta: EtaParams
     search: SearchParams
-    stale_seconds: int
-    max_vehicle_offset_m: float
     transfer_radius_m: float
     access_stops: int
     horizon: timedelta
     walk_speed_mps: float
-    snapshot_max_age: timedelta
     walk_option_max_m: float = 2000.0
     # Кроме access_stops ближайших: ближайшая остановка каждого маршрута и направления
     # в этом радиусе, всего не больше access_stops_max.
@@ -106,27 +86,6 @@ class RouteOutcome:
     snapshot: Snapshot
     # Путь пешком от А до Б: отдельный выбор рядом с транспортом, маршрут им не подменяется.
     walk: WalkLeg | None = None
-
-
-@dataclass(frozen=True)
-class ArrivalsOutcome:
-    stop: Stop | None  # None: такой остановки нет ни на одном маршруте
-    arrivals: list[StopArrival]
-    snapshot: Snapshot
-
-
-@dataclass(frozen=True)
-class VehicleOutcome:
-    vehicle: Vehicle | None  # None: машины нет на линии (или положение устарело)
-    toward: str | None
-    next_stops: list[NextStop]
-    snapshot: Snapshot
-
-
-# Сколько ближайших машин одного маршрута и направления показывать на остановке.
-ARRIVALS_PER_LINE = 2
-# Сколько остановок впереди показывать в карточке машины.
-VEHICLE_NEXT_STOPS = 8
 
 
 CheckStatus = Literal["ok", "stopped", "late", "gone"]
@@ -175,22 +134,20 @@ class _Context:
 class _Network:
     """Линии, остановки и пешие пересадки (пересчитываются, когда меняются линии)."""
 
-    source: dict[tuple[str, Direction], LinePath]
-    geometry: dict[tuple[str, Direction], LineGeometry]
-    stops: dict[str, Stop]
+    live: LiveNetwork
     transfers: dict[str, list[tuple[str, int]]]
 
 
 class JourneyPlanner:
     def __init__(
         self,
-        live: LiveSnapshotService,
+        transport: LiveTransportService,
         walking: WalkingService,
         *,
         clock: Clock,
         settings: PlannerSettings,
     ) -> None:
-        self._live = live
+        self._transport = transport
         self._walking = walking
         self._clock = clock
         self._s = settings
@@ -202,28 +159,10 @@ class JourneyPlanner:
 
     # ------------------------------------------------------------ данные
 
-    async def _snapshot(self) -> Snapshot:
-        try:
-            snap = await self._live.snapshot()
-        except TransitFeedError as exc:
-            raise TransitUnavailableError(str(exc)) from exc
-        if self._clock() - snap.fetched_at > self._s.snapshot_max_age:
-            raise TransitUnavailableError("последний снимок слишком старый")
-        return snap
-
     async def _load_network(self) -> _Network:
-        try:
-            source = await self._live.network()
-        except TransitFeedError as exc:
-            raise TransitUnavailableError(str(exc)) from exc
-        if self._network is not None and self._network.source is source:
-            return self._network
-        geometry = {key: build_geometry(path) for key, path in source.items()}
-        stops: dict[str, Stop] = {}
-        for path in source.values():
-            for rs in path.stops:
-                stops.setdefault(rs.stop.id, rs.stop)
-        self._network = _Network(source, geometry, stops, self._transfers(stops))
+        live = await self._transport.network()
+        if self._network is None or self._network.live is not live:
+            self._network = _Network(live, self._transfers(live.stops))
         return self._network
 
     def _transfers(self, stops: dict[str, Stop]) -> dict[str, list[tuple[str, int]]]:
@@ -255,47 +194,6 @@ class JourneyPlanner:
                         result.setdefault(a.id, []).append((b.id, seconds))
         return result
 
-    def _vehicle_calls(
-        self,
-        network: _Network,
-        snap: Snapshot,
-        now: datetime,
-        low_floor_only: bool,
-        ring_lines: frozenset[str],
-        horizon: datetime,
-    ) -> dict[str, tuple[list[StopCall], LiveVehicle]]:
-        """Машины на линии и время их прихода на остановки впереди (до horizon)."""
-        usable = {
-            v.id for v in usable_vehicles(snap.vehicles, now, self._s.stale_seconds, low_floor_only)
-        }
-        result: dict[str, tuple[list[StopCall], LiveVehicle]] = {}
-        for live in snap.vehicles:
-            v = live.vehicle
-            if v.id not in usable:
-                continue
-            geom = network.geometry.get((v.line_id, v.direction))
-            if geom is None:
-                continue  # у маршрута нет линии в этом направлении
-            proj = locate(
-                geom,
-                v.point,
-                max_offset_m=self._s.max_vehicle_offset_m,
-                segment_order=live.stops_passed,
-            )
-            if proj is None:
-                continue  # машина в стороне от линии: не на маршруте
-            calls = stop_calls(
-                geom,
-                proj,
-                live,
-                now=now,
-                horizon=horizon,
-                params=self._s.eta,
-                ring=v.line_id in ring_lines,
-            )
-            result[v.id] = (calls, live)
-        return result
-
     def _trips(
         self,
         network: _Network,
@@ -308,29 +206,18 @@ class JourneyPlanner:
         horizon = now + self._s.horizon + RIDE_EXTRA
         return {
             vid: (Trip(vid, calls), live)
-            for vid, (calls, live) in self._vehicle_calls(
-                network, snap, now, low_floor_only, ring_lines, horizon
+            for vid, (calls, live) in self._transport.vehicle_calls(
+                network.live, snap, now, low_floor_only, ring_lines, horizon
             ).items()
             if len(calls) >= 2
         }
-
-    @staticmethod
-    def _toward_of(v: Vehicle, lines: dict[str, Line], network: _Network) -> str | None:
-        """Конечная направления, куда едет машина. У кольцевых конечной нет."""
-        line = lines.get(v.line_id)
-        if line is not None and line.ring:
-            return None
-        geom = network.geometry.get((v.line_id, v.direction))
-        if geom is None or not geom.path.stops:
-            return None
-        return geom.path.stops[-1].stop.name
 
     async def _walks(
         self, network: _Network, point: LatLon, *, to_point: bool
     ) -> tuple[dict[str, WalkLeg], list[WalkPlannerError]]:
         """Пешком от точки до ближайших остановок (или от них до точки)."""
         chosen = choose_access_stops(
-            network.source.values(),
+            network.live.source.values(),
             point,
             nearest=self._s.access_stops,
             radius_m=self._s.access_radius_m,
@@ -372,9 +259,9 @@ class JourneyPlanner:
     ) -> RouteOutcome:
         """Варианты «сейчас». compare_walk: отбросить поездки хуже пути пешком (не для проверки
         уже выбранного маршрута: там нужна именно выбранная машина)."""
-        snap = await self._snapshot()
+        snap = await self._transport.snapshot()
         network = await self._load_network()
-        lines = await self._lines()
+        lines = await self._transport.lines()
         ring_lines = frozenset(i for i, line in lines.items() if line.ring)
         now = self._clock()
 
@@ -450,91 +337,6 @@ class JourneyPlanner:
             return None
         return walk if walk.distance_m <= self._s.walk_option_max_m else None
 
-    async def stops_in(self, bounds: Bounds) -> list[Stop]:
-        """Остановки всех маршрутов в области карты (без повторов, по названию)."""
-        network = await self._load_network()
-        found = [s for s in network.stops.values() if bounds.contains(s.point)]
-        return sorted(found, key=lambda s: (s.name, s.id))
-
-    async def stop_arrivals(self, stop_id: str, *, low_floor_only: bool) -> ArrivalsOutcome:
-        """Что подъезжает к остановке в пределах горизонта, по времени прихода.
-
-        От каждого маршрута и направления не больше ARRIVALS_PER_LINE ближайших машин.
-        """
-        snap = await self._snapshot()
-        network = await self._load_network()
-        stop = network.stops.get(stop_id)
-        if stop is None:
-            return ArrivalsOutcome(None, [], snap)
-        lines = await self._lines()
-        ring_lines = frozenset(i for i, line in lines.items() if line.ring)
-        now = self._clock()
-        found: list[StopArrival] = []
-        for calls, live in self._vehicle_calls(
-            network, snap, now, low_floor_only, ring_lines, now + self._s.horizon
-        ).values():
-            for away, call in enumerate(calls):
-                if call.stop.id != stop_id:
-                    continue
-                v = live.vehicle
-                found.append(
-                    StopArrival(
-                        vehicle=v,
-                        toward=self._toward_of(v, lines, network),
-                        stops_away=away,
-                        arrive_at=call.arrive_at,
-                        diagnostics=EtaDiagnostics(
-                            method=call.method, position_observed_at=v.position_observed_at
-                        ),
-                    )
-                )
-                break  # у кольцевых та же остановка может встретиться дважды: берём ближнюю
-        found.sort(key=lambda a: a.arrive_at)
-        per_line: dict[tuple[str, Direction], int] = {}
-        arrivals: list[StopArrival] = []
-        for item in found:
-            key = (item.vehicle.line_id, item.vehicle.direction)
-            if per_line.get(key, 0) < ARRIVALS_PER_LINE:
-                per_line[key] = per_line.get(key, 0) + 1
-                arrivals.append(item)
-        return ArrivalsOutcome(stop, arrivals, snap)
-
-    async def vehicle_details(self, vehicle_id: str) -> VehicleOutcome:
-        """Машина и время её прихода на остановки впереди (для карточки машины).
-
-        Машину открывают нажатием на карте, поэтому настройка «Низкопольный транспорт»
-        здесь не фильтрует: правила «на линии» и «свежее положение» те же.
-        """
-        snap = await self._snapshot()
-        network = await self._load_network()
-        lines = await self._lines()
-        ring_lines = frozenset(i for i, line in lines.items() if line.ring)
-        now = self._clock()
-        usable = usable_vehicles(snap.vehicles, now, self._s.stale_seconds, False)
-        vehicle = next((v for v in usable if v.id == vehicle_id), None)
-        if vehicle is None:
-            return VehicleOutcome(None, None, [], snap)
-        calls, _ = self._vehicle_calls(
-            network, snap, now, False, ring_lines, now + self._s.horizon + RIDE_EXTRA
-        ).get(vehicle_id, ([], None))
-        next_stops = [
-            NextStop(
-                stop=call.stop,
-                arrive_at=call.arrive_at,
-                diagnostics=EtaDiagnostics(
-                    method=call.method, position_observed_at=vehicle.position_observed_at
-                ),
-            )
-            for call in calls[:VEHICLE_NEXT_STOPS]
-        ]
-        return VehicleOutcome(vehicle, self._toward_of(vehicle, lines, network), next_stops, snap)
-
-    async def _lines(self) -> dict[str, Line]:
-        try:
-            return {line.id: line for line in await self._live.lines()}
-        except TransitFeedError as exc:
-            raise TransitUnavailableError(str(exc)) from exc
-
     async def check(
         self,
         origin: LatLon,
@@ -560,10 +362,9 @@ class JourneyPlanner:
         )
         snap = current_outcome.snapshot
         current = current_outcome.journeys[0] if current_outcome.journeys else None
-        still = self._live.still_for(vehicle_id, now)
+        still = self._transport.still_for(vehicle_id, now)
         on_line = any(
-            v.id == vehicle_id
-            for v in usable_vehicles(snap.vehicles, now, self._s.stale_seconds, low_floor_only)
+            v.id == vehicle_id for v in self._transport.visible_vehicles(snap, now, low_floor_only)
         )
         status: CheckStatus
         if not on_line or current is None:
@@ -655,17 +456,17 @@ class JourneyPlanner:
             labels=list(plan.labels),
         )
 
-    @classmethod
-    def _toward(cls, ride: Ride, ctx: _Context) -> str | None:
+    @staticmethod
+    def _toward(ride: Ride, ctx: _Context) -> str | None:
         _, live = ctx.trips[ride.trip.vehicle_id]
-        return cls._toward_of(live.vehicle, ctx.lines, ctx.network)
+        return ctx.network.live.toward(live.vehicle, ctx.lines)
 
     @staticmethod
     def _ride_path(ride: Ride, ctx: _Context) -> list[LatLon]:
         """Кусок линии маршрута от остановки посадки до остановки выхода."""
         _, live = ctx.trips[ride.trip.vehicle_id]
         v = live.vehicle
-        geom = ctx.network.geometry.get((v.line_id, v.direction))
+        geom = ctx.network.live.geometry.get((v.line_id, v.direction))
         if geom is None:
             return []
         index = {s.order: s.point_index for s in geom.path.stops}
