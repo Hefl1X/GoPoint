@@ -53,6 +53,22 @@ class _Manifest(BaseModel):
     requests: list[_Sample]
 
 
+@dataclass(frozen=True)
+class GpsFrame:
+    sequence: int
+    received_at: datetime
+    observations: dict[str, LiveVehicle] = field(default_factory=dict)
+    skipped: int = 0
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class GpsArchive:
+    manifest: _Manifest
+    min_interval_s: float | None
+    frames: tuple[GpsFrame, ...]
+
+
 def _verify_manifest(manifest: _Manifest) -> float | None:
     if (
         (manifest.url, manifest.routes) != (str(GPS_URL), ROUTES)
@@ -167,6 +183,24 @@ def _observations(body: bytes) -> tuple[dict[str, LiveVehicle], int]:
     return observations, parsed.skipped
 
 
+def read_gps_archive(archive: Path) -> GpsArchive:
+    manifest = _Manifest.model_validate_json((archive / "manifest.json").read_bytes())
+    min_interval = _verify_manifest(manifest)
+    frames: list[GpsFrame] = []
+    for sequence, sample in enumerate(manifest.requests, 1):
+        body = _read_sample(archive, sequence, sample)
+        if body is None:
+            frames.append(GpsFrame(sequence, sample.received_at))
+            continue
+        try:
+            observations, skipped = _observations(body)
+        except ValueError as exc:
+            frames.append(GpsFrame(sequence, sample.received_at, error=str(exc)))
+        else:
+            frames.append(GpsFrame(sequence, sample.received_at, observations, skipped))
+    return GpsArchive(manifest, min_interval, tuple(frames))
+
+
 def _event(sample: int, observation: LiveVehicle, match: VehicleMatch) -> dict[str, object]:
     vehicle = observation.vehicle
     used = match.observed_at == vehicle.position_observed_at
@@ -198,30 +232,20 @@ def _event(sample: int, observation: LiveVehicle, match: VehicleMatch) -> dict[s
 
 
 def replay(archive: Path, snapshot: ScheduleSnapshot) -> dict[str, object]:
-    manifest = _Manifest.model_validate_json((archive / "manifest.json").read_bytes())
-    min_interval = _verify_manifest(manifest)
+    captured = read_gps_archive(archive)
+    manifest = captured.manifest
     index = TripScheduleIndex(snapshot)
     previous: TripMatches | None = None
     metrics: dict[str, _DirectionMetrics] = {}
     events: list[dict[str, object]] = []
-    invalid_samples: dict[int, str] = {}
-    skipped_records = 0
-    for sequence, sample in enumerate(manifest.requests, 1):
-        body = _read_sample(archive, sequence, sample)
-        observations: dict[str, LiveVehicle] = {}
-        if body is not None:
-            try:
-                observations, skipped = _observations(body)
-                skipped_records += skipped
-            except ValueError as exc:
-                invalid_samples[sequence] = str(exc)
-        current = match_trips(index, observations, now=sample.received_at, previous=previous)
-        for vehicle_id, observation in observations.items():
+    for frame in captured.frames:
+        current = match_trips(index, frame.observations, now=frame.received_at, previous=previous)
+        for vehicle_id, observation in frame.observations.items():
             match = current.vehicles[vehicle_id]
             key = f"{observation.vehicle.line_id}:{observation.vehicle.direction.value}"
             stats = metrics.setdefault(key, _DirectionMetrics())
-            if stats.record(observation, match, sample.received_at):
-                events.append(_event(sequence, observation, match))
+            if stats.record(observation, match, frame.received_at):
+                events.append(_event(frame.sequence, observation, match))
         previous = current
 
     return {
@@ -239,10 +263,12 @@ def replay(archive: Path, snapshot: ScheduleSnapshot) -> dict[str, object]:
         "requests": len(manifest.requests),
         "bytes": sum(item.size for item in manifest.requests),
         "saved": sum(row.file is not None for row in manifest.requests),
-        "min_interval_s": min_interval,
+        "min_interval_s": captured.min_interval_s,
         "http_issues": dict(Counter(row.issue for row in manifest.requests if row.issue)),
-        "invalid_samples": invalid_samples,
-        "skipped_records": skipped_records,
+        "invalid_samples": {
+            frame.sequence: frame.error for frame in captured.frames if frame.error
+        },
+        "skipped_records": sum(frame.skipped for frame in captured.frames),
         "directions": {key: stats.summary() for key, stats in metrics.items()},
         "observations": events,
     }
