@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from app.adapters.tsugaet.feed import TRASSES_BATCH
+from app.adapters.tsugaet.feed import DEFAULT_BASE_URL, TRASSES_BATCH
 from app.adapters.tsugaet.parse import RouteInfo, TsugaetFormatError, parse_traces
 from app.adapters.tsugaet.schedule_parse import (
     parse_schedule_day,
@@ -22,6 +22,7 @@ from app.domain.models import Direction, LinePath
 from app.domain.schedule import RouteSchedule, ScheduleRoute
 
 _GRASP = "https://nskgortrans.ru/components/com_planrasp/helpers/grasp.php"
+CATALOG_URL = f"{DEFAULT_BASE_URL}/listmarsh.php"
 _TRACES = "https://map.nskgortrans.ru/trasses.php"
 _TRANSIENT_STATUS = frozenset({408, 429, 500, 502, 503, 504})
 _PAUSE = 1.5
@@ -31,6 +32,16 @@ _MAX_RETRY_AFTER = 30
 
 class ScheduleSourceError(RuntimeError):
     """Сбой HTTP или исчерпанный бюджет загрузки."""
+
+
+class ScheduleBudgetError(ScheduleSourceError):
+    """Общий лимит не позволяет продолжить запуск."""
+
+
+@dataclass(frozen=True)
+class MetadataReply:
+    url: str
+    body: bytes
 
 
 @dataclass(frozen=True)
@@ -106,7 +117,7 @@ class TsugaetScheduleSource:
         async for chunk in response.aiter_bytes():
             self.payload_bytes += len(chunk)
             if self.payload_bytes > self._budget.payload_bytes:
-                raise ScheduleSourceError("Превышен бюджет байтов расписания")
+                raise ScheduleBudgetError("Превышен бюджет байтов расписания")
             body.extend(chunk)
         return body
 
@@ -126,9 +137,9 @@ class TsugaetScheduleSource:
         failure = ""
         for attempt in range(_MAX_ATTEMPTS):
             if self.requests_made >= self._budget.requests:
-                raise ScheduleSourceError("Исчерпан бюджет запросов расписания")
+                raise ScheduleBudgetError("Исчерпан бюджет запросов расписания")
             if self.payload_bytes >= self._budget.payload_bytes:
-                raise ScheduleSourceError("Исчерпан бюджет байтов расписания")
+                raise ScheduleBudgetError("Исчерпан бюджет байтов расписания")
             if self._last_finished is not None:
                 wait = self._last_finished + pause - self._clock()
                 if wait > 0:
@@ -157,6 +168,21 @@ class TsugaetScheduleSource:
             finally:
                 self._last_finished = self._clock()
         raise ScheduleSourceError(f"ЦУГАЭТ расписание: {failure}")
+
+    async def _metadata(self, url: str, params: dict[str, str]) -> MetadataReply:
+        body = await self._get(url, params)
+        return MetadataReply(str(httpx.URL(url, params=params)), bytes(body))
+
+    async def catalog_metadata(self) -> MetadataReply:
+        return await self._metadata(CATALOG_URL, {"r": "true"})
+
+    async def directions_metadata(self, route: RouteInfo) -> MetadataReply:
+        return await self._metadata(_GRASP, {"m": route.marsh, "t": str(route.type_code)})
+
+    async def days_metadata(self, route: RouteInfo, direction: Direction) -> MetadataReply:
+        return await self._metadata(
+            _GRASP, {"m": route.marsh, "t": str(route.type_code), "r": direction.value}
+        )
 
     async def load(self, route: RouteInfo, direction: Direction, day_id: str) -> ScheduleLoad:
         """Возвращает одну согласованную таблицу и геометрию после приёма всех ответов."""

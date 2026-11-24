@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from app.adapters.tsugaet.parse import parse_routes
 from app.adapters.tsugaet.schedule import (
+    CATALOG_URL,
     ScheduleBudget,
     ScheduleGroup,
     ScheduleSourceError,
@@ -24,7 +25,7 @@ from app.domain.gtfs import ServiceWindow, build_gtfs
 from app.domain.models import Direction
 from tools.build_gtfs import SAMPLES, write_snapshot
 
-_CATALOG = httpx.URL("https://map.nskgortrans.ru/listmarsh.php?r=true")
+_CATALOG = httpx.URL(CATALOG_URL, params={"r": "true"})
 _ARCHIVE_ENDPOINTS = frozenset(
     {"/listmarsh.php", "/trasses.php", "/components/com_planrasp/helpers/grasp.php"}
 )
@@ -47,7 +48,7 @@ def _request_key(url: httpx.URL) -> tuple[str, tuple[tuple[str, str], ...]]:
     return str(url.copy_with(query=None)), tuple(sorted(url.params.multi_items()))
 
 
-class _Archive:
+class ScheduleArchive:
     def __init__(self, directory: Path) -> None:
         self.directory = directory
         manifest = _Manifest.model_validate_json((directory / "manifest.json").read_bytes())
@@ -105,7 +106,7 @@ async def prepare_snapshot(
         raise FileExistsError(f"Укажите новый каталог снимка: {output}")
     if not keys or len(set(keys)) != len(keys):
         raise ValueError("Укажите неповторяющиеся группы расписания")
-    archive = _Archive(archive_dir)
+    archive = ScheduleArchive(archive_dir)
     groups = archive.groups(keys)
     expected = planned_requests(groups)
     catalog = archive.entries[_request_key(_CATALOG)]

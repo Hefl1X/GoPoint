@@ -35,6 +35,13 @@ class UnsupportedScheduleDayError(TsugaetFormatError):
     """Справочник валиден, но календарное значение типа дня пока неизвестно."""
 
 
+@dataclass(frozen=True)
+class ScheduleDayMetadata:
+    source_id: str
+    title: str
+    kind: ScheduleDayKind | None
+
+
 def _xml_entries(xml: str, root_tag: str, entry_tag: str) -> tuple[tuple[str, str], ...]:
     # В справочниках нет DTD или объявлений сущностей.
     if "<!DOCTYPE" in xml:
@@ -62,16 +69,21 @@ def _xml_entries(xml: str, root_tag: str, entry_tag: str) -> tuple[tuple[str, st
     return tuple(entries.items())
 
 
+def parse_schedule_days(xml: str) -> tuple[ScheduleDayMetadata, ...]:
+    return tuple(
+        ScheduleDayMetadata(source_id, title, _DAY_KINDS.get(title.casefold()))
+        for source_id, title in _xml_entries(xml, "schedules", "schedule")
+    )
+
+
 def parse_schedule_day(xml: str, source_id: str) -> ScheduleDay:
     """Интерпретировать выбранный тип дня по заголовку, сохраняя исходный ID."""
-    days = dict(_xml_entries(xml, "schedules", "schedule"))
-    title = days.get(source_id)
-    if title is None:
+    day = next((item for item in parse_schedule_days(xml) if item.source_id == source_id), None)
+    if day is None:
         raise TsugaetFormatError(f"grasp schedules: нет типа дня {source_id!r}")
-    kind = _DAY_KINDS.get(title.casefold())
-    if kind is None:
-        raise UnsupportedScheduleDayError(f"grasp schedules: неизвестный тип дня {title!r}")
-    return ScheduleDay(source_id, title, kind)
+    if day.kind is None:
+        raise UnsupportedScheduleDayError(f"grasp schedules: неизвестный тип дня {day.title!r}")
+    return ScheduleDay(day.source_id, day.title, day.kind)
 
 
 def parse_schedule_directions(xml: str) -> tuple[Direction, ...]:
