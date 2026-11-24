@@ -69,6 +69,9 @@ def test_replay_distinguishes_repeated_observations_and_http_failures(tmp_path: 
     assert bus["age_s_p50"] == 21
     assert bus["matches"] == {"unmatched": 1}
     assert bus["low_floor_observations"] == 0
+    observations = result["observations"]
+    assert isinstance(observations, list)
+    assert observations[0]["candidates"] == []
 
 
 def test_replay_rejects_corrupt_http_body_before_parsing(tmp_path: Path) -> None:

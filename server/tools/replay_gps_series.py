@@ -184,6 +184,16 @@ def _event(sample: int, observation: LiveVehicle, match: VehicleMatch) -> dict[s
         "service_date": assignment.occurrence.service_date.isoformat() if assignment else None,
         "delay_s": assignment.delay_s if assignment else None,
         "candidate_count": len(match.candidates) if used else None,
+        "candidates": [
+            {
+                "trip_id": candidate.occurrence.trip_id,
+                "service_date": candidate.occurrence.service_date.isoformat(),
+                "delay_s": candidate.delay_s,
+            }
+            for candidate in match.candidates
+        ]
+        if used
+        else None,
     }
 
 
