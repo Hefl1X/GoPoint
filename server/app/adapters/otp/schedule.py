@@ -6,7 +6,7 @@ import csv
 import io
 from collections import defaultdict
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from itertools import pairwise
 from pathlib import Path
@@ -52,6 +52,33 @@ def _published_coverage(
     result = {row.service_id: row for row in published}
     if len(result) != len(published):
         raise ArtifactError("Повторная опубликованная группа в отчёте покрытия")
+    for row in published:
+        if not row.variants:
+            continue
+        del result[row.service_id]
+        if sum(variant.trip_count for variant in row.variants) != row.trip_count:
+            raise ArtifactError(f"Число рейсов вариантов группы {row.service_id} не совпало")
+        for variant in row.variants:
+            sequences = variant.stop_sequences
+            if (
+                variant.service_id in result
+                or (
+                    variant.service_id != row.service_id
+                    and not variant.service_id.startswith(f"{row.service_id}-variant-")
+                )
+                or variant.trip_count < 1
+                or len(sequences) < 2
+                or any(not 1 <= position <= len(row.bindings) for position in sequences)
+                or any(a >= b for a, b in pairwise(sequences))
+            ):
+                raise ArtifactError(f"Некорректный вариант группы {row.service_id}")
+            result[variant.service_id] = replace(
+                row,
+                service_id=variant.service_id,
+                trip_count=variant.trip_count,
+                bindings=tuple(row.bindings[position - 1] for position in sequences),
+                variants=(),
+            )
     return result
 
 
@@ -241,7 +268,10 @@ def read_published_schedule(
         audit is not None
         and audit.http_complete
         and (
-            audit.requested_groups == audit.parsed_groups == audit.exported_groups == len(services)
+            audit.requested_groups
+            == audit.parsed_groups
+            == audit.exported_groups
+            == sum(row.trip_count > 0 for row in report.coverage)
         )
     )
     return ScheduleSnapshot(version, window, services, complete_coverage=complete)

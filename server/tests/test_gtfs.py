@@ -117,6 +117,20 @@ def test_review_becomes_stale_when_source_stop_changes() -> None:
     assert not result.stops and result.issues[0].kind is BindingIssueKind.INVALID_REVIEW
 
 
+def test_review_with_trip_variants_also_expires_when_departures_change() -> None:
+    schedule, path = _source()
+    review = ReviewedAlignment(
+        alignment_signature(schedule, path, include_departures=True),
+        (0, 1),
+        "Сверены площадки и времена",
+        allow_trip_variants=True,
+    )
+    first, last = schedule.stops
+    changed = replace(schedule, stops=(first, replace(last, departures=(86601,))))
+    assert not bind_stops(schedule, path, review).issues
+    assert bind_stops(changed, path, review).issues[0].kind is BindingIssueKind.INVALID_REVIEW
+
+
 def test_review_inserts_verified_platform_without_changing_original_geometry_or_times() -> None:
     schedule, path = _source()
     first, last = schedule.stops

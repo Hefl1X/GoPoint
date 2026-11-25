@@ -9,9 +9,18 @@ import pytest
 
 from app.adapters.otp.release import ArtifactError, verify_release
 from app.adapters.otp.schedule import load_release_schedule
-from app.domain.gtfs import ServiceWindow
-from app.domain.models import Direction
-from tools.build_gtfs import SAMPLES, build_pilot
+from app.domain.gtfs import ServiceWindow, build_gtfs, service_id_for
+from app.domain.models import Direction, LatLon, LinePath, RouteStop, Stop, TransportType
+from app.domain.schedule import (
+    RouteSchedule,
+    ScheduleDay,
+    ScheduleDayKind,
+    ScheduleRoute,
+    ScheduleStop,
+    StopSchedule,
+)
+from app.domain.stop_binding import ReviewedAlignment, alignment_signature
+from tools.build_gtfs import SAMPLES, build_pilot, write_snapshot
 from tools.build_otp_artifacts import STREET_FILE, prepare_release
 
 STREET = ("--buildStreet",)
@@ -92,6 +101,84 @@ def test_repacked_schedule_and_fresher_report_skip_both_builds(
     platform = service.bindings[1].platform
     assert platform.stop.id == "645"
     assert platform.stop.point == service.shape[platform.point_index]
+
+
+def test_short_origin_and_alternative_stop_survive_the_gtfs_release(tmp_path: Path) -> None:
+    osm = tmp_path / "city.pbf"
+    osm.write_bytes(b"street source")
+    day = ScheduleDay("23", "ЕЖЕДНЕВНО", ScheduleDayKind.DAILY)
+    sources: list[tuple[RouteSchedule, LinePath | None]] = []
+    reviews: dict[str, ReviewedAlignment] = {}
+    cases = (
+        ("64", (1, 2, 3), ((1200,), (600, 1260), (720, 1380))),
+        ("29", (1, 2, 2, 3), ((600, 1200), (660,), (1260,), (720, 1380))),
+    )
+    for number, source_positions, departures in cases:
+        route = ScheduleRoute(TransportType.BUS, number, number, Direction.A)
+        points = [LatLon(lat=55.0 + i * 0.001, lon=82.9) for i in range(len(departures))]
+        schedule = RouteSchedule(
+            route,
+            day,
+            tuple(
+                StopSchedule(ScheduleStop(f"s{pos}", pos, str(pos), raw), times)
+                for pos, (raw, times) in enumerate(
+                    zip(source_positions, departures, strict=True), 1
+                )
+            ),
+        )
+        path = LinePath(
+            line_id=route.line_id,
+            direction=route.direction,
+            points=points,
+            stops=[
+                RouteStop(
+                    order=i,
+                    stop=Stop(id=f"{number}-{i + 1}", name=str(i + 1), point=point),
+                    point_index=i,
+                )
+                for i, point in enumerate(points)
+            ],
+        )
+        sources.append((schedule, path))
+        reviews[service_id_for(schedule)] = ReviewedAlignment(
+            alignment_signature(schedule, path, include_departures=True),
+            tuple(range(len(path.stops))),
+            "Сверены схемы поездок",
+            allow_trip_variants=True,
+        )
+
+    assert not build_gtfs(sources, WINDOW).tables
+    build = build_gtfs(sources, WINDOW, reviews=reviews)
+    assert [row.trip_count for row in build.coverage] == [2, 2]
+    assert [len(row.variants) for row in build.coverage] == [2, 2]
+    directory = tmp_path / "schedule"
+    write_snapshot(
+        directory,
+        WINDOW,
+        build,
+        {
+            "audit": {
+                "http_complete": True,
+                "requested_groups": 2,
+                "parsed_groups": 2,
+                "exported_groups": 2,
+            }
+        },
+    )
+    release = prepare_release(tmp_path / "store", osm, directory, {}, IMAGE, _Builder())
+    snapshot = load_release_schedule(release)
+    assert snapshot.complete_coverage
+    assert {
+        tuple(binding.platform.stop.id for binding in service.bindings): tuple(
+            time.arrival for time in service.trips[0].stop_times
+        )
+        for service in snapshot.services
+    } == {
+        ("29-1", "29-2", "29-4"): (600, 660, 720),
+        ("29-1", "29-3", "29-4"): (1200, 1260, 1380),
+        ("64-1", "64-2", "64-3"): (1200, 1260, 1380),
+        ("64-2", "64-3"): (600, 720),
+    }
 
 
 def test_changed_bindings_create_version_and_inconsistent_bindings_block_publication(

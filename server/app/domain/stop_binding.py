@@ -35,6 +35,7 @@ class ReviewedAlignment:
     platform_orders: tuple[int, ...]
     evidence: str
     insertion: ReviewedPlatformInsertion | None = None
+    allow_trip_variants: bool = False
 
 
 class BindingIssueKind(StrEnum):
@@ -103,7 +104,11 @@ def _geometry_is_ordered(path: LinePath) -> bool:
 
 
 def alignment_signature(
-    schedule: RouteSchedule, path: LinePath, *, include_shape: bool = False
+    schedule: RouteSchedule,
+    path: LinePath,
+    *,
+    include_shape: bool = False,
+    include_departures: bool = False,
 ) -> str:
     """Фиксирует названия, позиции, ID и координаты площадок, сверенные при привязке."""
     stops = [
@@ -118,6 +123,9 @@ def alignment_signature(
     if include_shape:
         fields[0] = 2
         fields.append([(point.lat, point.lon) for point in path.points])
+    if include_departures:
+        fields[0] = 3
+        fields.extend((schedule.day.source_id, [row.departures for row in schedule.stops]))
     data = json.dumps(fields, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
@@ -151,7 +159,12 @@ def _bind_review(
     invalid = StopBindings(issues=(BindingIssue(BindingIssueKind.INVALID_REVIEW),))
     if (
         review.signature
-        != alignment_signature(schedule, path, include_shape=review.insertion is not None)
+        != alignment_signature(
+            schedule,
+            path,
+            include_shape=review.insertion is not None,
+            include_departures=review.allow_trip_variants,
+        )
         or not review.evidence.strip()
     ):
         return invalid

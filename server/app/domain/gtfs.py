@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -62,12 +63,20 @@ class GtfsTable:
 
 
 @dataclass(frozen=True)
+class ServiceVariant:
+    service_id: str
+    trip_count: int
+    stop_sequences: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class ServiceCoverage:
     service_id: str
     trip_count: int
     bindings: tuple[StopBinding, ...]
     binding_issues: tuple[BindingIssue, ...]
     schedule_issues: tuple[ScheduleIssue, ...]
+    variants: tuple[ServiceVariant, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -109,10 +118,10 @@ class _FeedRows:
         bindings: tuple[StopBinding, ...],
         trips: tuple[ScheduledTrip, ...],
         *,
+        service_id: str,
         corrected_geometry: bool = False,
     ) -> None:
         route = schedule.route
-        service_id = service_id_for(schedule)
         days = _DAYS[schedule.day.kind]
         if not window.serves(days):
             raise GtfsBuildError(f"Нет действующих дат для {service_id} в указанном календаре")
@@ -121,7 +130,7 @@ class _FeedRows:
         route_row = (route.line_id, AGENCY_ID, route.number, _ROUTE_TYPE[route.type])
         _insert(self.routes, route.line_id, route_row)
         shape_id = (
-            f"{service_id}-reviewed"
+            f"{service_id_for(schedule)}-reviewed"
             if corrected_geometry
             else f"{route.line_id}-{route.direction.value}"
         )
@@ -139,10 +148,10 @@ class _FeedRows:
         for trip in trips:
             trip_id = f"{service_id}-{trip.calls[0].time:06d}"
             self.trips.append((route.line_id, service_id, trip_id, direction_id, shape_id))
-            for call, binding in zip(trip.calls, bindings, strict=True):
+            for sequence, (call, binding) in enumerate(zip(trip.calls, bindings, strict=True), 1):
                 when = _gtfs_time(call.time)
                 self.stop_times.append(
-                    (trip_id, when, when, binding.platform.stop.id, str(call.stop.sequence))
+                    (trip_id, when, when, binding.platform.stop.id, str(sequence))
                 )
 
     def tables(self, window: ServiceWindow) -> tuple[GtfsTable, ...]:
@@ -215,6 +224,49 @@ class _FeedRows:
         )
 
 
+def _add_services(
+    rows: _FeedRows,
+    schedule: RouteSchedule,
+    path: LinePath,
+    window: ServiceWindow,
+    bindings: tuple[StopBinding, ...],
+    trips: tuple[ScheduledTrip, ...],
+    *,
+    corrected_geometry: bool,
+) -> tuple[ServiceVariant, ...]:
+    source_id = service_id_for(schedule)
+    original = tuple(binding.scheduled.sequence for binding in bindings)
+    by_stops: dict[tuple[int, ...], list[ScheduledTrip]] = defaultdict(list)
+    for trip in trips:
+        by_stops[tuple(call.stop.sequence for call in trip.calls)].append(trip)
+    if by_stops.keys() == {original}:
+        rows.add(
+            schedule,
+            path,
+            window,
+            bindings,
+            trips,
+            service_id=source_id,
+            corrected_geometry=corrected_geometry,
+        )
+        return ()
+
+    variants: list[ServiceVariant] = []
+    for index, (sequences, variant_trips) in enumerate(sorted(by_stops.items()), 1):
+        service_id = source_id if sequences == original else f"{source_id}-variant-{index}"
+        rows.add(
+            schedule,
+            path,
+            window,
+            tuple(bindings[i - 1] for i in sequences),
+            tuple(variant_trips),
+            service_id=service_id,
+            corrected_geometry=corrected_geometry,
+        )
+        variants.append(ServiceVariant(service_id, len(variant_trips), sequences))
+    return tuple(variants)
+
+
 def build_gtfs(
     sources: Sequence[tuple[RouteSchedule, LinePath | None]],
     window: ServiceWindow,
@@ -228,11 +280,17 @@ def build_gtfs(
         service_id = service_id_for(schedule)
         if service_id in coverage:
             raise GtfsBuildError(f"Повторная группа расписания {service_id!r}")
-        bindings = bind_stops(schedule, path, reviews.get(service_id) if reviews else None)
-        result = reconstruct_trips(schedule)
+        review = reviews.get(service_id) if reviews else None
+        bindings = bind_stops(schedule, path, review)
+        result = reconstruct_trips(
+            schedule,
+            allow_variants=bool(review and review.allow_trip_variants and not bindings.issues),
+        )
         trip_count = 0
+        variants: tuple[ServiceVariant, ...] = ()
         if path is not None and not bindings.issues and result.trips:
-            rows.add(
+            variants = _add_services(
+                rows,
                 schedule,
                 bindings.corrected_path or path,
                 window,
@@ -242,7 +300,7 @@ def build_gtfs(
             )
             trip_count = len(result.trips)
         coverage[service_id] = ServiceCoverage(
-            service_id, trip_count, bindings.stops, bindings.issues, result.issues
+            service_id, trip_count, bindings.stops, bindings.issues, result.issues, variants
         )
 
     return GtfsBuild(rows.tables(window) if rows.trips else (), tuple(coverage.values()))

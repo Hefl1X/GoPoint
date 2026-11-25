@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from app.domain.models import Direction, TransportType
@@ -10,6 +12,7 @@ from app.domain.schedule import (
     ScheduleStop,
     StopSchedule,
     reconstruct_trips,
+    reconstruct_variant_trips,
 )
 
 
@@ -61,3 +64,41 @@ def test_equal_times_at_consecutive_stops_are_preserved() -> None:
     assert not result.issues
     (trip,) = result.trips
     assert [(call.stop.sequence, call.time) for call in trip.calls] == [(1, 600), (2, 600)]
+
+
+def test_unscheduled_prefix_is_omitted_only_from_the_uniquely_short_first_trip() -> None:
+    schedule = _schedule((1200, 1800), (1260, 1860), (600, 1320, 1920), (720, 1440, 2040))
+    trips = reconstruct_variant_trips(schedule)
+    assert [[(call.stop.sequence, call.time) for call in trip.calls] for trip in trips] == [
+        [(3, 600), (4, 720)],
+        [(1, 1200), (2, 1260), (3, 1320), (4, 1440)],
+        [(1, 1800), (2, 1860), (3, 1920), (4, 2040)],
+    ]
+    assert not reconstruct_trips(schedule).trips
+
+
+def test_ragged_prefix_is_rejected_when_first_departure_may_serve_it() -> None:
+    schedule = _schedule((540, 1800), (600, 1320, 1920), (720, 1440, 2040))
+    assert not reconstruct_variant_trips(schedule)
+
+
+@pytest.mark.parametrize("first_alternative", [660, 900])
+def test_two_stops_for_one_position_require_a_unique_call_per_trip(
+    first_alternative: int,
+) -> None:
+    schedule = _schedule((600, 840), (first_alternative,), (900,), (720, 960))
+    schedule = replace(
+        schedule,
+        stops=tuple(
+            replace(row, stop=replace(row.stop, source_sequence=source_position))
+            for row, source_position in zip(schedule.stops, (1, 2, 2, 3), strict=True)
+        ),
+    )
+    trips = reconstruct_variant_trips(schedule)
+    if first_alternative == 660:
+        assert [[(call.stop.sequence, call.time) for call in trip.calls] for trip in trips] == [
+            [(1, 600), (2, 660), (4, 720)],
+            [(1, 840), (3, 900), (4, 960)],
+        ]
+    else:
+        assert not trips

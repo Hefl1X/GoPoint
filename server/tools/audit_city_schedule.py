@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import date
@@ -22,7 +23,12 @@ from app.adapters.tsugaet.schedule import (
 from app.adapters.tsugaet.schedule_parse import parse_route_schedule
 from app.domain.gtfs import ServiceWindow, build_gtfs, service_id_for
 from app.domain.models import Direction, LinePath
-from app.domain.schedule import RouteSchedule, ScheduleRoute, reconstruct_trips
+from app.domain.schedule import (
+    RouteSchedule,
+    ScheduleRoute,
+    reconstruct_trips,
+    reconstruct_variant_trips,
+)
 from app.domain.stop_binding import (
     BindingIssueKind,
     ReviewedAlignment,
@@ -53,8 +59,14 @@ def _platform_conflicts(
     signatures: dict[str, dict[tuple[str, float, float], set[str]]] = {}
     for schedule, path in sources:
         service = service_id_for(schedule)
-        bound = bind_stops(schedule, path, reviews.get(service))
-        if bound.issues or not reconstruct_trips(schedule).trips:
+        review = reviews.get(service)
+        bound = bind_stops(schedule, path, review)
+        if (
+            bound.issues
+            or not reconstruct_trips(
+                schedule, allow_variants=bool(review and review.allow_trip_variants)
+            ).trips
+        ):
             continue
         for binding in bound.stops:
             stop = binding.platform.stop
@@ -93,6 +105,23 @@ def _review_terminals(
             "shares_opposite_origin": any(item.stop == origin for item in candidates),
         }
     return report
+
+
+def _review_trip_patterns(sources: Sources, timing_issues: set[str]) -> dict[str, object]:
+    variants: dict[str, object] = {}
+    for schedule, _ in sources:
+        key = service_id_for(schedule)
+        if key not in timing_issues:
+            continue
+        trips = reconstruct_variant_trips(schedule)
+        if not trips:
+            continue
+        calls = Counter(tuple(call.stop.sequence for call in trip.calls) for trip in trips)
+        variants[key] = [
+            {"stop_sequences": positions, "trip_count": number}
+            for positions, number in sorted(calls.items())
+        ]
+    return variants
 
 
 def audit(
@@ -196,6 +225,9 @@ def audit(
         "conflicting_platforms": conflicts,
         "ambiguous_terminal_groups": len(terminals),
         "terminal_candidates": terminals,
+        "trip_patterns_for_review": _review_trip_patterns(
+            sources, {row.service_id for row in build.coverage if row.schedule_issues}
+        ),
     }
     if reviews:
         applied = {row.service_id for row in exported} & reviews.keys()
