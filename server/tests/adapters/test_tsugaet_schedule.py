@@ -165,6 +165,32 @@ def test_empty_table_is_valid_but_an_empty_response_is_an_error() -> None:
         parse_schedule_tables(_page(), stops)
 
 
+def test_empty_first_day_block_keeps_original_departures_and_exposes_count_difference() -> None:
+    empty = _table("Первая", {}).removesuffix("</table>")
+    active = _table("Первая", {5: (14,), 0: (3,)}).split("<tr>", 1)[1]
+    html = _page(empty + "<tr>" + active, _table("Вторая", {5: (8, 19), 0: (8,)}))
+    stops = (ScheduleStop("49", 1, "Первая"), ScheduleStop("50", 2, "Вторая"))
+    tables = parse_schedule_tables(html, stops)
+    assert tables[0].departures == (5 * 3600 + 14 * 60, 24 * 3600 + 3 * 60)
+    assert len(tables[1].departures) == 3
+    schedule = RouteSchedule(
+        ScheduleRoute(TransportType.BUS, "64", "64", Direction.A),
+        parse_schedule_day(_sample("bus8-A-days.xml"), "23"),
+        tables,
+    )
+    result = reconstruct_trips(schedule)
+    assert not result.trips
+    assert result.issues[0].kind is ScheduleIssueKind.DEPARTURE_COUNT
+
+
+def test_two_nonempty_day_blocks_fail_instead_of_discarding_departures() -> None:
+    first = _table("Конечная", {5: (14,)}).removesuffix("</table>")
+    second = _table("Конечная", {5: (19,)}).split("<tr>", 1)[1]
+    stops = (ScheduleStop("49", 1, "Конечная"),)
+    with pytest.raises(TsugaetFormatError, match="неоднозначные повторные блоки"):
+        parse_schedule_tables(_page(first + "<tr>" + second), stops)
+
+
 def test_duplicates_from_source_are_preserved_and_reported() -> None:
     stops = (ScheduleStop("49", 1, "Конечная"),)
     tables = parse_schedule_tables(_page(_table("Конечная", {5: (17, 17)})), stops)

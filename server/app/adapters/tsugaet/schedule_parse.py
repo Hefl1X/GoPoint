@@ -156,9 +156,29 @@ class _StopTable:
 
 
 def _stop_table(name: str, rows: list[list[_Cell]]) -> _StopTable:
-    if any(not row or len(row) % 2 for row in rows) or sum(map(len, rows)) != 48:
+    columns_per_day = 48
+    columns = sum(map(len, rows))
+    if any(not row or len(row) % 2 for row in rows) or columns not in (
+        columns_per_day,
+        2 * columns_per_day,
+    ):
         raise TsugaetFormatError("grasp HTML: неполная таблица часов и минут")
     cells = [cell for row in rows for cell in row]
+    table = _day_table(name, cells[:columns_per_day])
+    if columns == columns_per_day:
+        return table
+    # В сохранённом ответе №64 перед основным расписанием есть пустой блок тех же часов.
+    continuation = _day_table(name, cells[columns_per_day:])
+    if (
+        table.first_hour != continuation.first_hour
+        or table.departures
+        or not continuation.departures
+    ):
+        raise TsugaetFormatError("grasp HTML: неоднозначные повторные блоки расписания")
+    return continuation
+
+
+def _day_table(name: str, cells: list[_Cell]) -> _StopTable:
     first_hour = _hour(cells[0])
     departures: list[int] = []
     for offset, (hour_cell, minute_cell) in enumerate(zip(cells[::2], cells[1::2], strict=True)):
