@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from enum import StrEnum
 from itertools import pairwise
@@ -16,6 +18,15 @@ class StopBinding:
     platform: RouteStop
 
 
+@dataclass(frozen=True)
+class ReviewedAlignment:
+    """Проверенный порядок площадок для конкретной версии двух списков остановок."""
+
+    signature: str
+    platform_orders: tuple[int, ...]
+    evidence: str
+
+
 class BindingIssueKind(StrEnum):
     MISSING_GEOMETRY = "missing_geometry"
     WRONG_LINE = "wrong_line"
@@ -24,6 +35,7 @@ class BindingIssueKind(StrEnum):
     MISSING_SCHEDULE_STOP = "missing_schedule_stop"
     AMBIGUOUS_PLATFORM = "ambiguous_platform"
     STOP_ORDER = "stop_order"
+    INVALID_REVIEW = "invalid_review"
 
 
 @dataclass(frozen=True)
@@ -79,15 +91,43 @@ def _geometry_is_ordered(path: LinePath) -> bool:
     )
 
 
-def bind_stops(schedule: RouteSchedule, path: LinePath | None) -> StopBindings:
-    """Связывает последовательности при полном совпадении имён и порядка."""
-    if path is None:
-        return StopBindings(issues=(BindingIssue(BindingIssueKind.MISSING_GEOMETRY),))
-    if path.line_id != schedule.route.line_id or path.direction != schedule.route.direction:
-        return StopBindings(issues=(BindingIssue(BindingIssueKind.WRONG_LINE),))
-    if not _geometry_is_ordered(path):
-        return StopBindings(issues=(BindingIssue(BindingIssueKind.INVALID_GEOMETRY),))
+def alignment_signature(schedule: RouteSchedule, path: LinePath) -> str:
+    """Фиксирует названия, позиции, ID и координаты площадок, сверенные при привязке."""
+    stops = [
+        (s.source_id, s.sequence, s.name, s.source_sequence)
+        for s in (row.stop for row in schedule.stops)
+    ]
+    platforms = [
+        (p.order, p.point_index, p.stop.id, p.stop.name, p.stop.point.lat, p.stop.point.lon)
+        for p in path.stops
+    ]
+    data = json.dumps(
+        [1, path.line_id, path.direction.value, stops, platforms], separators=(",", ":")
+    )
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
+
+def _bind_review(
+    schedule: RouteSchedule, path: LinePath, review: ReviewedAlignment
+) -> StopBindings:
+    orders = review.platform_orders
+    if (
+        review.signature != alignment_signature(schedule, path)
+        or not review.evidence.strip()
+        or len(orders) != len(schedule.stops)
+        or any(not 0 <= order < len(path.stops) for order in orders)
+        or any(a >= b for a, b in pairwise(orders))
+    ):
+        return StopBindings(issues=(BindingIssue(BindingIssueKind.INVALID_REVIEW),))
+    return StopBindings(
+        stops=tuple(
+            StopBinding(row.stop, path.stops[order])
+            for row, order in zip(schedule.stops, orders, strict=True)
+        )
+    )
+
+
+def _bind_by_name(schedule: RouteSchedule, path: LinePath) -> StopBindings:
     scheduled = tuple(table.stop for table in schedule.stops)
     issues = _name_issues(scheduled, path.stops)
     if issues:
@@ -100,6 +140,19 @@ def bind_stops(schedule: RouteSchedule, path: LinePath | None) -> StopBindings:
                 issues=(BindingIssue(BindingIssueKind.STOP_ORDER, (stop,), (platform,)),)
             )
     return StopBindings(stops=tuple(StopBinding(stop, platform) for stop, platform in pairs))
+
+
+def bind_stops(
+    schedule: RouteSchedule, path: LinePath | None, review: ReviewedAlignment | None = None
+) -> StopBindings:
+    """Связывает последовательности по сохранённой сверке либо по полному совпадению имён."""
+    if path is None:
+        return StopBindings(issues=(BindingIssue(BindingIssueKind.MISSING_GEOMETRY),))
+    if path.line_id != schedule.route.line_id or path.direction != schedule.route.direction:
+        return StopBindings(issues=(BindingIssue(BindingIssueKind.WRONG_LINE),))
+    if not _geometry_is_ordered(path):
+        return StopBindings(issues=(BindingIssue(BindingIssueKind.INVALID_GEOMETRY),))
+    return _bind_review(schedule, path, review) if review else _bind_by_name(schedule, path)
 
 
 def ordered_terminal_candidates(schedule: RouteSchedule, path: LinePath) -> tuple[RouteStop, ...]:

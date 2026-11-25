@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 import httpx
+from pydantic import TypeAdapter
 
 from app.adapters.tsugaet.parse import TsugaetFormatError, parse_traces
 from app.adapters.tsugaet.schedule import (
@@ -22,7 +23,12 @@ from app.adapters.tsugaet.schedule_parse import parse_route_schedule
 from app.domain.gtfs import ServiceWindow, build_gtfs, service_id_for
 from app.domain.models import Direction, LinePath
 from app.domain.schedule import RouteSchedule, ScheduleRoute, reconstruct_trips
-from app.domain.stop_binding import BindingIssueKind, bind_stops, ordered_terminal_candidates
+from app.domain.stop_binding import (
+    BindingIssueKind,
+    ReviewedAlignment,
+    bind_stops,
+    ordered_terminal_candidates,
+)
 from tools.build_gtfs import write_snapshot
 from tools.capture_schedule import inventory_groups
 from tools.collect_schedule import MissingScheduleResponseError, ScheduleArchive
@@ -40,14 +46,16 @@ def _read(archive: ScheduleArchive, request: ScheduleRequest) -> bytes:
     return response.content
 
 
-def _platform_conflicts(sources: Sources) -> dict[str, list[str]]:
+def _platform_conflicts(
+    sources: Sources, reviews: Mapping[str, ReviewedAlignment]
+) -> dict[str, list[str]]:
     """Один ID с разными исходными строками исключает затронутые группы."""
     signatures: dict[str, dict[tuple[str, float, float], set[str]]] = {}
     for schedule, path in sources:
-        bound = bind_stops(schedule, path)
+        service = service_id_for(schedule)
+        bound = bind_stops(schedule, path, reviews.get(service))
         if bound.issues or not reconstruct_trips(schedule).trips:
             continue
-        service = service_id_for(schedule)
         for binding in bound.stops:
             stop = binding.platform.stop
             row = (stop.name, stop.point.lat, stop.point.lon)
@@ -93,6 +101,8 @@ def audit(
     groups: Sequence[ScheduleGroup],
     output: Path,
     window: ServiceWindow,
+    *,
+    reviews: Mapping[str, ReviewedAlignment] | None = None,
 ) -> dict[str, object]:
     if output.exists():
         raise FileExistsError(f"Укажите новый каталог GTFS: {output}")
@@ -154,7 +164,8 @@ def audit(
             continue
         sources.append((schedule, paths.get((route.line_id, direction))))
 
-    conflicts = _platform_conflicts(sources)
+    reviews = reviews or {}
+    conflicts = _platform_conflicts(sources, reviews)
     excluded = {service for related in conflicts.values() for service in related}
     build = build_gtfs(
         [
@@ -163,6 +174,7 @@ def audit(
             if service_id_for(schedule) not in excluded
         ],
         window,
+        reviews=reviews,
     )
     exported = [row for row in build.coverage if row.trip_count] if http_complete else []
     ambiguous = {
@@ -185,6 +197,12 @@ def audit(
         "ambiguous_terminal_groups": len(terminals),
         "terminal_candidates": terminals,
     }
+    if reviews:
+        applied = {row.service_id for row in exported} & reviews.keys()
+        counts["reviewed_bindings"] = {
+            key: {"exported": key in applied, "evidence": row.evidence, "signature": row.signature}
+            for key, row in sorted(reviews.items())
+        }
     write_snapshot(
         output,
         window,
@@ -199,6 +217,7 @@ def main() -> int:
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--stop-reviews", type=Path)
     parser.add_argument("--service-start", type=date.fromisoformat, required=True)
     parser.add_argument("--service-end", type=date.fromisoformat, required=True)
     args = parser.parse_args()
@@ -206,12 +225,18 @@ def main() -> int:
         archive = ScheduleArchive(args.archive)
         metadata = ScheduleArchive(args.metadata)
         groups = inventory_groups(args.metadata, metadata)
+        reviews = (
+            TypeAdapter(dict[str, ReviewedAlignment]).validate_json(args.stop_reviews.read_bytes())
+            if args.stop_reviews is not None
+            else None
+        )
         result = audit(
             archive,
             metadata,
             groups,
             args.output,
             ServiceWindow(args.service_start, args.service_end),
+            reviews=reviews,
         )
     except (OSError, ValueError) as exc:
         parser.exit(1, f"{exc}\n")

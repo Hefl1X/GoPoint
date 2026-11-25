@@ -16,7 +16,12 @@ from app.domain.schedule import (
     ScheduleStop,
     StopSchedule,
 )
-from app.domain.stop_binding import BindingIssueKind, bind_stops
+from app.domain.stop_binding import (
+    BindingIssueKind,
+    ReviewedAlignment,
+    alignment_signature,
+    bind_stops,
+)
 from tools.build_gtfs import SAMPLES, build_pilot
 
 WINDOW = ServiceWindow(date(2026, 11, 23), date(2026, 12, 6))
@@ -60,6 +65,55 @@ def test_gtfs_uses_source_stop_times_platform_ids_and_explicit_calendar() -> Non
     )
     assert "wheelchair_accessible" not in tables["trips.txt"].header
     assert "block_id" not in tables["trips.txt"].header
+
+
+def test_reviewed_alignment_preserves_original_calls_and_platforms() -> None:
+    schedule, path = _source()
+    first, last = path.stops
+    middle = LatLon(lat=55.005, lon=82.9)
+    path = path.model_copy(
+        update={
+            "points": [first.stop.point, middle, last.stop.point],
+            "stops": [
+                first,
+                RouteStop(
+                    order=1, point_index=1, stop=Stop(id="999", name="Техническая", point=middle)
+                ),
+                RouteStop(
+                    order=2, point_index=2, stop=last.stop.model_copy(update={"name": "Вторая"})
+                ),
+            ],
+        }
+    )
+    assert not build_gtfs([(schedule, path)], WINDOW).tables
+    review = ReviewedAlignment(alignment_signature(schedule, path), (0, 2), "Сверена схема")
+    result = build_gtfs([(schedule, path)], WINDOW, reviews={"bus-8-A-11": review})
+    times = next(table.rows for table in result.tables if table.name == "stop_times.txt")
+    assert [row[1:] for row in times] == [
+        ("23:59:43", "23:59:43", "201", "1"),
+        ("24:02:21", "24:02:21", "202", "2"),
+    ]
+    approved = result.coverage[0].bindings[-1]
+    assert approved.scheduled.name == "Второй" and approved.platform.stop.name == "Вторая"
+
+
+@pytest.mark.parametrize("orders", [(0, 0), (1, 0), (0, 2), (0,)])
+def test_review_rejects_invalid_platform_order(orders: tuple[int, ...]) -> None:
+    schedule, path = _source()
+    review = ReviewedAlignment(alignment_signature(schedule, path), orders, "Сверена схема")
+    result = bind_stops(schedule, path, review)
+    assert not result.stops and result.issues[0].kind is BindingIssueKind.INVALID_REVIEW
+
+
+def test_review_becomes_stale_when_source_stop_changes() -> None:
+    schedule, path = _source()
+    review = ReviewedAlignment(alignment_signature(schedule, path), (0, 1), "Сверена схема")
+    first, last = schedule.stops
+    changed = replace(
+        schedule, stops=(first, replace(last, stop=replace(last.stop, source_id="changed")))
+    )
+    result = bind_stops(changed, path, review)
+    assert not result.stops and result.issues[0].kind is BindingIssueKind.INVALID_REVIEW
 
 
 def test_invalid_calendar_or_no_applicable_service_date() -> None:

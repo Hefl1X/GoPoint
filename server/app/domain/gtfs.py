@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -14,7 +14,7 @@ from app.domain.schedule import (
     ScheduleIssue,
     reconstruct_trips,
 )
-from app.domain.stop_binding import BindingIssue, StopBinding, bind_stops
+from app.domain.stop_binding import BindingIssue, ReviewedAlignment, StopBinding, bind_stops
 
 type Row = tuple[str, ...]
 
@@ -210,7 +210,10 @@ class _FeedRows:
 
 
 def build_gtfs(
-    sources: Sequence[tuple[RouteSchedule, LinePath | None]], window: ServiceWindow
+    sources: Sequence[tuple[RouteSchedule, LinePath | None]],
+    window: ServiceWindow,
+    *,
+    reviews: Mapping[str, ReviewedAlignment] | None = None,
 ) -> GtfsBuild:
     """Формирует фид для проверенных групп и учёт покрытия для каждой группы."""
     rows = _FeedRows()
@@ -219,7 +222,7 @@ def build_gtfs(
         service_id = service_id_for(schedule)
         if service_id in coverage:
             raise GtfsBuildError(f"Повторная группа расписания {service_id!r}")
-        bindings = bind_stops(schedule, path)
+        bindings = bind_stops(schedule, path, reviews.get(service_id) if reviews else None)
         result = reconstruct_trips(schedule)
         trip_count = 0
         if path is not None and not bindings.issues and result.trips:
