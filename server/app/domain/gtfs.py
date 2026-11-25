@@ -108,6 +108,8 @@ class _FeedRows:
         window: ServiceWindow,
         bindings: tuple[StopBinding, ...],
         trips: tuple[ScheduledTrip, ...],
+        *,
+        corrected_geometry: bool = False,
     ) -> None:
         route = schedule.route
         service_id = service_id_for(schedule)
@@ -118,7 +120,11 @@ class _FeedRows:
 
         route_row = (route.line_id, AGENCY_ID, route.number, _ROUTE_TYPE[route.type])
         _insert(self.routes, route.line_id, route_row)
-        shape_id = f"{route.line_id}-{route.direction.value}"
+        shape_id = (
+            f"{service_id}-reviewed"
+            if corrected_geometry
+            else f"{route.line_id}-{route.direction.value}"
+        )
         shape = tuple(
             (shape_id, str(point.lat), str(point.lon), str(seq))
             for seq, point in enumerate(path.points, start=1)
@@ -226,7 +232,14 @@ def build_gtfs(
         result = reconstruct_trips(schedule)
         trip_count = 0
         if path is not None and not bindings.issues and result.trips:
-            rows.add(schedule, path, window, bindings.stops, result.trips)
+            rows.add(
+                schedule,
+                bindings.corrected_path or path,
+                window,
+                bindings.stops,
+                result.trips,
+                corrected_geometry=bindings.corrected_path is not None,
+            )
             trip_count = len(result.trips)
         coverage[service_id] = ServiceCoverage(
             service_id, trip_count, bindings.stops, bindings.issues, result.issues

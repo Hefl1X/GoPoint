@@ -19,6 +19,7 @@ from app.domain.schedule import (
 from app.domain.stop_binding import (
     BindingIssueKind,
     ReviewedAlignment,
+    ReviewedPlatformInsertion,
     alignment_signature,
     bind_stops,
 )
@@ -114,6 +115,49 @@ def test_review_becomes_stale_when_source_stop_changes() -> None:
     )
     result = bind_stops(changed, path, review)
     assert not result.stops and result.issues[0].kind is BindingIssueKind.INVALID_REVIEW
+
+
+def test_review_inserts_verified_platform_without_changing_original_geometry_or_times() -> None:
+    schedule, path = _source()
+    first, last = schedule.stops
+    scheduled = replace(
+        schedule,
+        stops=(
+            first,
+            StopSchedule(ScheduleStop("103", 2, "Средняя"), (86400,)),
+            replace(last, stop=replace(last.stop, sequence=3)),
+        ),
+    )
+    vertex = LatLon(lat=55.005, lon=82.9)
+    path = path.model_copy(
+        update={
+            "points": [path.points[0], vertex, path.points[1]],
+            "stops": [path.stops[0], path.stops[1].model_copy(update={"point_index": 2})],
+        }
+    )
+    point = LatLon(lat=55.0051, lon=82.9)
+    insertion = ReviewedPlatformInsertion(2, Stop(id="203", name="Средняя", point=point))
+    review = ReviewedAlignment(
+        alignment_signature(scheduled, path, include_shape=True), (0, 1, 2), "Проверено", insertion
+    )
+    weekend = replace(schedule, day=ScheduleDay("5", "ВЫХОДНОЕ", ScheduleDayKind.WEEKENDS))
+    build = build_gtfs([(scheduled, path), (weekend, path)], WINDOW, reviews={"bus-8-A-11": review})
+    tables = {table.name: table.rows for table in build.tables}
+    assert {row[-1] for row in tables["trips.txt"]} == {"bus-8-A-11-reviewed", "bus-8-A"}
+    assert [row[1:] for row in tables["stop_times.txt"] if "-11-" in row[0]] == [
+        ("23:59:43", "23:59:43", "201", "1"),
+        ("24:00:00", "24:00:00", "203", "2"),
+        ("24:02:21", "24:02:21", "202", "3"),
+    ]
+    assert [(b.platform.point_index, b.platform.stop.id) for b in build.coverage[0].bindings] == [
+        (0, "201"),
+        (2, "203"),
+        (3, "202"),
+    ]
+    assert path.points[1] == vertex and len(path.points) == 3
+
+    changed = path.model_copy(update={"points": [path.points[0], point, path.points[2]]})
+    assert bind_stops(scheduled, changed, review).issues[0].kind is BindingIssueKind.INVALID_REVIEW
 
 
 def test_invalid_calendar_or_no_applicable_service_date() -> None:

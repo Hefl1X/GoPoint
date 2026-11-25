@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from itertools import pairwise
 
-from app.domain.models import LinePath, RouteStop
+from app.domain.geo import distance_m
+from app.domain.models import LinePath, RouteStop, Stop
 from app.domain.schedule import RouteSchedule, ScheduleStop
 
 
@@ -19,12 +20,21 @@ class StopBinding:
 
 
 @dataclass(frozen=True)
+class ReviewedPlatformInsertion:
+    """Подтверждённая площадка и позиция перед вершиной исходной линии."""
+
+    before_point: int
+    stop: Stop
+
+
+@dataclass(frozen=True)
 class ReviewedAlignment:
     """Проверенный порядок площадок для конкретной версии двух списков остановок."""
 
     signature: str
     platform_orders: tuple[int, ...]
     evidence: str
+    insertion: ReviewedPlatformInsertion | None = None
 
 
 class BindingIssueKind(StrEnum):
@@ -49,6 +59,7 @@ class BindingIssue:
 class StopBindings:
     stops: tuple[StopBinding, ...] = ()
     issues: tuple[BindingIssue, ...] = ()
+    corrected_path: LinePath | None = None
 
 
 def _name_key(name: str) -> str:
@@ -91,7 +102,9 @@ def _geometry_is_ordered(path: LinePath) -> bool:
     )
 
 
-def alignment_signature(schedule: RouteSchedule, path: LinePath) -> str:
+def alignment_signature(
+    schedule: RouteSchedule, path: LinePath, *, include_shape: bool = False
+) -> str:
     """Фиксирует названия, позиции, ID и координаты площадок, сверенные при привязке."""
     stops = [
         (s.source_id, s.sequence, s.name, s.source_sequence)
@@ -101,29 +114,70 @@ def alignment_signature(schedule: RouteSchedule, path: LinePath) -> str:
         (p.order, p.point_index, p.stop.id, p.stop.name, p.stop.point.lat, p.stop.point.lon)
         for p in path.stops
     ]
-    data = json.dumps(
-        [1, path.line_id, path.direction.value, stops, platforms], separators=(",", ":")
-    )
+    fields: list[object] = [1, path.line_id, path.direction.value, stops, platforms]
+    if include_shape:
+        fields[0] = 2
+        fields.append([(point.lat, point.lon) for point in path.points])
+    data = json.dumps(fields, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def _with_inserted_platform(
+    path: LinePath, insertion: ReviewedPlatformInsertion
+) -> LinePath | None:
+    index, stop = insertion.before_point, insertion.stop
+    if (
+        not 0 < index < len(path.points)
+        or any(platform.stop.id == stop.id for platform in path.stops)
+        # Ограничиваем небольшим отклонением от сверенной вершины, сохраняя исходную линию.
+        or min(distance_m(stop.point, point) for point in path.points[index - 1 : index + 1]) > 25
+    ):
+        return None
+    points = [*path.points[:index], stop.point, *path.points[index:]]
+    before = [platform for platform in path.stops if platform.point_index < index]
+    after = [
+        platform.model_copy(
+            update={"order": platform.order + 1, "point_index": platform.point_index + 1}
+        )
+        for platform in path.stops[len(before) :]
+    ]
+    stops = [*before, RouteStop(order=len(before), point_index=index, stop=stop), *after]
+    return path.model_copy(update={"points": points, "stops": stops})
 
 
 def _bind_review(
     schedule: RouteSchedule, path: LinePath, review: ReviewedAlignment
 ) -> StopBindings:
+    invalid = StopBindings(issues=(BindingIssue(BindingIssueKind.INVALID_REVIEW),))
+    if (
+        review.signature
+        != alignment_signature(schedule, path, include_shape=review.insertion is not None)
+        or not review.evidence.strip()
+    ):
+        return invalid
+    corrected = None
+    if review.insertion is not None:
+        corrected = _with_inserted_platform(path, review.insertion)
+        if corrected is None:
+            return invalid
+        path = corrected
     orders = review.platform_orders
     if (
-        review.signature != alignment_signature(schedule, path)
-        or not review.evidence.strip()
-        or len(orders) != len(schedule.stops)
+        len(orders) != len(schedule.stops)
         or any(not 0 <= order < len(path.stops) for order in orders)
         or any(a >= b for a, b in pairwise(orders))
+        or (
+            review.insertion is not None
+            and not any(path.stops[order].stop == review.insertion.stop for order in orders)
+        )
     ):
-        return StopBindings(issues=(BindingIssue(BindingIssueKind.INVALID_REVIEW),))
+        return invalid
     return StopBindings(
         stops=tuple(
             StopBinding(row.stop, path.stops[order])
             for row, order in zip(schedule.stops, orders, strict=True)
-        )
+        ),
+        corrected_path=corrected,
     )
 
 
