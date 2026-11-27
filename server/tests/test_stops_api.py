@@ -6,9 +6,10 @@ from fastapi.testclient import TestClient
 
 from app.adapters.fake.feed import FakeTransitFeed
 from app.config import Settings
+from app.domain.models import Direction
 from app.main import create_app
 from tests.conftest import SAMPLES, ManualClock
-from tests.test_route_api import DEST, ORIGIN
+from tests.test_stop_api import bus3_stops
 
 
 def make_client() -> TestClient:
@@ -29,7 +30,10 @@ def bbox(*points: tuple[float, float], pad: float = 0.002) -> str:
 
 def test_stops_in_area_are_unique_and_inside() -> None:
     client = make_client()
-    area = bbox((ORIGIN.lat, ORIGIN.lon), (DEST.lat, DEST.lon))
+    stops = bus3_stops(Direction.A)
+    origin = next(stop.point for stop in stops if "Лермонтова" in stop.name)
+    destination = stops[-1].point
+    area = bbox((origin.lat, origin.lon), (destination.lat, destination.lon))
     response = client.get("/api/v1/live/stops", params={"bbox": area})
     assert response.status_code == 200, response.text
     stops = response.json()["stops"]

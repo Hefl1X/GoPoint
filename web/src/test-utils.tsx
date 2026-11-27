@@ -31,7 +31,7 @@ export const META: Meta = {
   version: '0.1.0',
   cityBounds: { southWest: { lat: 54.8, lon: 82.7 }, northEast: { lat: 55.2, lon: 83.2 } },
   refreshIntervalS: 30,
-  lowFloorOnlyDefault: false,
+  lowFloorOnlyDefault: true,
   staleSeconds: 300,
 };
 
@@ -151,6 +151,7 @@ export const inMinutes = (minutes: number, from = Date.now()) =>
 /** Маршрут: пешком 6 мин, автобус 3 (машина bus-3-1) через 4 мин после подхода, пешком 4 мин. */
 export function journey(overrides: Partial<Journey> = {}, start = Date.now()): Journey {
   return {
+    graphVersion: 'fixture-graph',
     steps: [
       {
         kind: 'walk',
@@ -163,6 +164,11 @@ export function journey(overrides: Partial<Journey> = {}, start = Date.now()): J
       },
       {
         kind: 'ride',
+        tripId: 'bus-3-plan',
+        serviceDate: '2026-11-24',
+        boardSequence: 1,
+        alightSequence: 8,
+        timeSource: 'realtime',
         vehicleId: 'bus-3-1',
         line: BUS_3_LINE,
         lowFloor: 'yes',
@@ -212,8 +218,8 @@ export function fakeApi(overrides: Partial<LiveApi> = {}): LiveApi {
     planRoute: vi.fn((_points, lowFloorOnly: boolean): Promise<RoutePlan> =>
       Promise.resolve({ status: 'ok', journeys: [journey({ lowFloorOnly })], walk: null }),
     ),
-    checkRoute: vi.fn((_points, _low, current: Journey): Promise<RouteCheck> =>
-      Promise.resolve({ status: 'ok', stoppedForS: null, current, alternative: null }),
+    checkRoute: vi.fn((current: Journey): Promise<RouteCheck> =>
+      Promise.resolve({ status: 'ok', current }),
     ),
     ...overrides,
   };

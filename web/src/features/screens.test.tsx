@@ -26,47 +26,49 @@ describe('Настройки', () => {
     expect(legend).toHaveTextContent('номер в рамке: не низкий пол или не указан');
   });
 
-  it('«Низкопольный транспорт» по умолчанию выключена и читается как переключатель', () => {
+  it('«Низкопольный транспорт» по умолчанию включена и читается как переключатель', () => {
     renderApp(<SettingsScreen />);
     const toggle = screen.getByRole('switch', { name: 'Низкопольный транспорт' });
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
     expect(toggle).toHaveAccessibleDescription(/Включено: маршруты и карта/);
   });
 
-  it('старое сохранённое ограничение не включается после обновления', () => {
-    renderApp(<SettingsScreen />, { store: createMemoryStore({ 'gopoint.lowFloorOnly': 'true' }) });
-    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+  it('старый выбор любого транспорта не переносится', () => {
+    renderApp(<SettingsScreen />, {
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'false' }),
+    });
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   });
 
   it('выбор запоминается на устройстве', () => {
     const store = createMemoryStore();
     const first = renderApp(<SettingsScreen />, { store });
     fireEvent.click(screen.getByRole('switch'));
-    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
-    expect(store.get('gopoint.lowFloorOnly.v2')).toBe('true');
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+    expect(store.get('gopoint.lowFloorOnly.v3')).toBe('false');
     first.unmount();
     renderApp(<SettingsScreen />, { store });
-    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
   });
 
   it('нажатие на подпись тоже переключает настройку', () => {
     renderApp(<SettingsScreen />);
     fireEvent.click(screen.getByText('Низкопольный транспорт'));
-    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
   });
 
-  it('испорченное значение в памяти: обычная поездка', () => {
+  it('испорченное значение в памяти: профиль по умолчанию', () => {
     renderApp(<SettingsScreen />, {
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': '??' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': '??' }),
     });
-    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   });
 });
 
 describe('Главный экран', () => {
   it('показывает число низкопольных машин и машины на карте', async () => {
     renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'true' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'true' }),
     });
     expect(await screen.findByText('На линии сейчас: 1 низкопольная машина')).toBeInTheDocument();
     const map = screen.getByRole('region', { name: /Карта Новосибирска/ });
@@ -74,7 +76,7 @@ describe('Главный экран', () => {
   });
 
   it('при выключенной настройке все машины с пометками', async () => {
-    const store = createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'false' });
+    const store = createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'false' });
     renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, { store });
     expect(await screen.findByText('На линии сейчас: 3 машины')).toBeInTheDocument();
     const map = screen.getByRole('region', { name: /Карта Новосибирска/ });
@@ -84,7 +86,7 @@ describe('Главный экран', () => {
 
   it('нет низкопольных: серый блок и ссылка на настройки', async () => {
     renderApp(<MapScreen route={{ name: 'map', vehicleId: null }} />, {
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'true' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'true' }),
       api: fakeApi({ getVehicles: () => Promise.resolve([]) }),
     });
     expect(await screen.findByText('Транспорта сейчас нет')).toBeInTheDocument();
@@ -214,7 +216,7 @@ describe('Транспорт сейчас', () => {
 
   it('при выключенной настройке то же самое', async () => {
     renderApp(<LiveRoutesScreen />, {
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'false' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'false' }),
     });
     expect(await screen.findByText('Автобус 36')).toBeInTheDocument();
     expect(screen.getByText('сейчас нет на линии')).toBeInTheDocument();
@@ -242,7 +244,9 @@ describe('Транспорт сейчас', () => {
 
 describe('Маршрут на линии', () => {
   it('остановки по порядку и машины перед своей следующей остановкой', async () => {
-    renderApp(<LiveRouteScreen lineId="bus-3" />);
+    renderApp(<LiveRouteScreen lineId="bus-3" />, {
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'false' }),
+    });
     const list = await screen.findByRole('list', { name: 'Остановки по порядку' });
     const items = within(list)
       .getAllByRole('listitem')
@@ -266,7 +270,7 @@ describe('Маршрут на линии', () => {
 
   it('при выключенной настройке у машин пометки', async () => {
     renderApp(<LiveRouteScreen lineId="bus-3" />, {
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'false' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'false' }),
     });
     expect(await screen.findByText('не низкий пол')).toBeInTheDocument();
   });
@@ -289,7 +293,7 @@ describe('Маршрут на линии', () => {
 describe('Остановка', () => {
   it('что подъезжает: номер, куда, минуты; только низкопольные при включённой настройке', async () => {
     renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />, {
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'true' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'true' }),
     });
     expect(await screen.findByRole('heading', { name: 'Цирк' })).toBeInTheDocument();
     expect(screen.getByText('Автобус 3 → Северный')).toBeInTheDocument();
@@ -309,7 +313,7 @@ describe('Остановка', () => {
 
   it('при выключенной настройке любой транспорт с пометкой и «≈» для дальних', async () => {
     renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />, {
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'false' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'false' }),
     });
     expect(await screen.findByText('Трамвай 13 → Писарева')).toBeInTheDocument();
     expect(screen.getByText('≈ 12 мин')).toBeInTheDocument();
@@ -326,7 +330,7 @@ describe('Остановка', () => {
     });
     renderApp(<MapScreen route={{ name: 'stop', stopId: '2' }} />, {
       api,
-      store: createMemoryStore({ 'gopoint.lowFloorOnly.v2': 'true' }),
+      store: createMemoryStore({ 'gopoint.lowFloorOnly.v3': 'true' }),
     });
     expect(await screen.findByText('Транспорта сейчас нет')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Показать любой транспорт' })).toHaveAttribute(

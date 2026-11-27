@@ -34,11 +34,11 @@ def vehicles(client: TestClient, **params: Any) -> list[dict[str, Any]]:
     return result
 
 
-def test_default_includes_all_floor_types(client: TestClient) -> None:
+def test_default_includes_confirmed_low_floor_vehicles(client: TestClient) -> None:
     result = vehicles(client)
     assert result
-    assert result == vehicles(client, lowFloorOnly="false")
-    assert {v["lowFloor"] for v in result} == {"yes", "no"}
+    assert result == vehicles(client, lowFloorOnly="true")
+    assert {v["lowFloor"] for v in result} == {"yes"}
 
 
 def test_low_floor_off_returns_all_on_line_with_mark(client: TestClient) -> None:

@@ -1,0 +1,19 @@
+{
+  "timetableUpdates": {"purgeExpiredData": false},
+  "updaters": [
+    {
+      "type": "stop-time-updater",
+      "feedId": "gopoint-all",
+      "url": "http://server:8000/internal/gtfs-rt/all",
+      "frequency": "10s",
+      "fuzzyTripMatching": false
+    },
+    {
+      "type": "stop-time-updater",
+      "feedId": "gopoint-low",
+      "url": "http://server:8000/internal/gtfs-rt/low-floor",
+      "frequency": "10s",
+      "fuzzyTripMatching": false
+    }
+  ]
+}

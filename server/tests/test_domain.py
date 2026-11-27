@@ -1,24 +1,15 @@
-from datetime import UTC, datetime
-
 import pytest
-from pydantic import TypeAdapter, ValidationError
+from pydantic import ValidationError
 
 from app.config import Settings
 from app.domain.models import (
     Accessibility,
     Bounds,
-    EtaDiagnostics,
-    EtaMethod,
     LatLon,
-    Leg,
-    Line,
     Place,
-    Stop,
     TransportType,
     WalkLeg,
 )
-
-NOW = datetime(2026, 11, 4, 5, 27, tzinfo=UTC)
 
 
 def test_latlon_rejects_out_of_range() -> None:
@@ -40,41 +31,6 @@ def test_bounds_contains() -> None:
 
 def test_accessibility_has_three_states() -> None:
     assert {a.value for a in Accessibility} == {"yes", "no", "unknown"}
-
-
-def test_leg_discriminated_by_kind() -> None:
-    adapter: TypeAdapter[Leg] = TypeAdapter(Leg)
-    stop = Stop(id="1", name="Цирк", point=LatLon(lat=55.04, lon=82.92))
-    transit = adapter.validate_python(
-        {
-            "kind": "transit",
-            "vehicleId": "v1",
-            "line": Line(id="1-3", type=TransportType.BUS, number="3", title="3").model_dump(),
-            "lowFloor": "unknown",
-            "boardStop": stop.model_dump(),
-            "alightStop": stop.model_dump(),
-            "waitS": 120,
-            "stopsCount": 3,
-            "stopsAway": 1,
-            "departAt": NOW,
-            "arriveAt": NOW,
-            "diagnostics": EtaDiagnostics(
-                method=EtaMethod.DISTANCE, position_observed_at=NOW
-            ).model_dump(),
-        }
-    )
-    assert transit.kind == "transit"
-    assert transit.low_floor is Accessibility.UNKNOWN
-
-    walk = adapter.validate_python(
-        WalkLeg(
-            origin=Place(point=stop.point),
-            destination=Place(point=stop.point),
-            distance_m=0,
-            duration_s=0,
-        ).model_dump(by_alias=True)
-    )
-    assert walk.kind == "walk"
 
 
 def test_json_uses_camel_case() -> None:

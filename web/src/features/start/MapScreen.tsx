@@ -123,7 +123,7 @@ export function MapScreen({ route }: { route: MapRoute }) {
     [trip.from, trip.to],
   );
   const journeyVehicles = useMemo(
-    () => new Set(journey ? rides(journey).map((r) => r.vehicleId) : []),
+    () => new Set(journey ? rides(journey).flatMap((r) => (r.vehicleId ? [r.vehicleId] : [])) : []),
     [journey],
   );
   const journeyLines = useMemo<MapJourneyLine[]>(

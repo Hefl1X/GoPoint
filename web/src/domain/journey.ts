@@ -15,19 +15,30 @@ export interface WalkStep {
   readonly hasStairs: boolean;
 }
 
-export interface RideStep {
+export interface RideReference {
+  readonly tripId: string;
+  readonly serviceDate: string;
+  readonly boardSequence: number;
+  readonly alightSequence: number;
+}
+
+export interface CheckedRide extends RideReference {
+  readonly departAt: string;
+  readonly arriveAt: string;
+  readonly timeSource: 'scheduled' | 'realtime';
+}
+
+export interface RideStep extends CheckedRide {
   readonly kind: 'ride';
-  readonly vehicleId: string;
+  readonly vehicleId: string | null;
   readonly line: Line;
   readonly lowFloor: Accessibility;
   readonly boardStop: Stop;
   readonly alightStop: Stop;
   readonly waitS: number;
   readonly stopsCount: number;
-  readonly stopsAway: number;
+  readonly stopsAway: number | null;
   readonly toward: string | null;
-  readonly departAt: string;
-  readonly arriveAt: string;
   readonly geometry: readonly LatLon[];
 }
 
@@ -37,6 +48,7 @@ export type JourneyStep = WalkStep | RideStep;
 export type VariantLabel = 'fastest' | 'fewest_transfers' | 'least_walking';
 
 export interface Journey {
+  readonly graphVersion: string | null;
   readonly steps: readonly JourneyStep[];
   readonly departAt: string;
   readonly arriveAt: string;
@@ -55,13 +67,11 @@ export interface RoutePlan {
   readonly walk: WalkStep | null;
 }
 
-export type CheckStatus = 'ok' | 'stopped' | 'late' | 'gone';
+export type CheckStatus = 'ok' | 'changed' | 'transit_unavailable';
 
 export interface RouteCheck {
   readonly status: CheckStatus;
-  readonly stoppedForS: number | null;
   readonly current: Journey | null;
-  readonly alternative: Journey | null;
 }
 
 export interface RoutePoints {
@@ -116,7 +126,8 @@ export function headline(journey: Journey, now: number): string {
   if (!ride) return '';
   const name = lineName(ride.line.type, ride.line.number);
   const minutes = minutesUntil(ride.departAt, now);
-  return minutes === 0 ? `${name} · подъезжает` : `${name} · ${String(minutes)} мин`;
+  if (minutes > 0) return `${name} · ${String(minutes)} мин`;
+  return `${name} · ${ride.vehicleId ? 'подъезжает' : formatTime(ride.departAt)}`;
 }
 
 /** «Приедете в 13:51 · 41 минута в пути · 1 пересадка». */
@@ -216,6 +227,7 @@ export function transferSlackS(journey: Journey, ride: RideStep): number | null 
 /** Путь пешком как маршрут из одного шага (для шкалы, шагов и карты). */
 export function walkJourney(walk: WalkStep, departAt: string): Journey {
   return {
+    graphVersion: null,
     steps: [walk],
     departAt,
     arriveAt: new Date(Date.parse(departAt) + walk.durationS * 1000).toISOString(),
@@ -246,9 +258,62 @@ export function variantSummary(journey: Journey): string {
   return `${durationText(journey.durationS)} · ${transfers} · пешком ${metresText(walkingMetres(journey))}`;
 }
 
-/** Набор машин маршрута: по нему понятно, тот же это маршрут или другой. */
+function rideKey(ride: RideReference): readonly [string, string, number, number] {
+  return [ride.tripId, ride.serviceDate, ride.boardSequence, ride.alightSequence];
+}
+
+/** Версия расписания и точная последовательность посадок и высадок. */
 export function journeyKey(journey: Journey): string {
-  return rides(journey)
-    .map((r) => r.vehicleId)
-    .join('>');
+  return JSON.stringify([journey.graphVersion, rides(journey).map(rideKey)]);
+}
+
+export function selectedRides(journey: Journey): (RideReference & { walkBeforeS: number })[] {
+  let walkBeforeS = 0;
+  return journey.steps.flatMap((step) => {
+    if (step.kind === 'walk') {
+      walkBeforeS += step.durationS;
+      return [];
+    }
+    const [tripId, serviceDate, boardSequence, alightSequence] = rideKey(step);
+    const selection = { tripId, serviceDate, boardSequence, alightSequence, walkBeforeS };
+    walkBeforeS = 0;
+    return [selection];
+  });
+}
+
+export function withCheckedTimes(
+  journey: Journey,
+  checked: readonly CheckedRide[],
+): Journey | null {
+  if (checked.length !== rides(journey).length) return null;
+  let index = 0;
+  let ready = Date.parse(journey.departAt);
+  const steps: JourneyStep[] = [];
+  for (const step of journey.steps) {
+    if (step.kind === 'walk') {
+      ready += step.durationS * 1000;
+      steps.push(step);
+      continue;
+    }
+    const next = checked[index++];
+    if (!next || JSON.stringify(rideKey(step)) !== JSON.stringify(rideKey(next))) return null;
+    const depart = Date.parse(next.departAt);
+    const arrive = Date.parse(next.arriveAt);
+    if (!Number.isFinite(depart) || !Number.isFinite(arrive) || depart < ready || arrive < depart)
+      return null;
+    steps.push({
+      ...step,
+      departAt: next.departAt,
+      arriveAt: next.arriveAt,
+      timeSource: next.timeSource,
+      waitS: Math.round((depart - ready) / 1000),
+    });
+    ready = arrive;
+  }
+  return {
+    ...journey,
+    steps,
+    arriveAt: new Date(ready).toISOString(),
+    durationS: Math.round((ready - Date.parse(journey.departAt)) / 1000),
+  };
 }

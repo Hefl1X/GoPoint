@@ -86,13 +86,11 @@ def stops_passed(geom: LineGeometry, along_m: float) -> int:
     return sum(1 for d in geom.stop_along_m if d <= along_m + _AHEAD_EPS_M)
 
 
-def locate(
-    geom: LineGeometry, point: LatLon, *, max_offset_m: float, segment_order: int | None
-) -> Projection | None:
-    """Положение машины на линии или None, если она далеко от линии."""
+def projection_candidates(
+    geom: LineGeometry, point: LatLon, *, max_offset_m: float
+) -> tuple[Projection, ...]:
+    """По одной проекции на каждый близкий проход линии мимо точки."""
     near = [p for p in _segment_projections(geom, point) if p.offset_m <= max_offset_m]
-    if not near:
-        return None
     # Подряд идущие близкие отрезки — один проход мимо точки; из каждого берём лучший.
     candidates: list[Projection] = []
     for p in sorted(near, key=lambda p: p.along_m):
@@ -101,13 +99,21 @@ def locate(
                 candidates[-1] = p
         else:
             candidates.append(p)
+    return tuple(candidates)
+
+
+def locate(
+    geom: LineGeometry, point: LatLon, *, max_offset_m: float, segment_order: int | None
+) -> Projection | None:
+    """Положение машины на линии или None, если она далеко от линии."""
+    candidates = projection_candidates(geom, point, max_offset_m=max_offset_m)
     if segment_order:
         agreeing = [
             c for c in candidates if abs(stops_passed(geom, c.along_m) - segment_order) <= 1
         ]
         if agreeing:
             return min(agreeing, key=lambda c: c.offset_m)
-    return min(candidates, key=lambda c: c.offset_m)
+    return min(candidates, key=lambda c: c.offset_m, default=None)
 
 
 @dataclass(frozen=True)

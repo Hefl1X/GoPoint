@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { firstRide } from '../../domain/journey';
+import { inMinutes, journey } from '../../test-utils';
 import { ApiError, fetchMeta, httpLiveApi } from './client';
 
 const goodMeta = {
@@ -6,7 +8,7 @@ const goodMeta = {
   version: '0.1.0',
   cityBounds: { southWest: { lat: 54.8, lon: 82.7 }, northEast: { lat: 55.2, lon: 83.2 } },
   refreshIntervalS: 30,
-  lowFloorOnlyDefault: false,
+  lowFloorOnlyDefault: true,
   staleSeconds: 300,
 };
 
@@ -16,6 +18,58 @@ function mockFetch(impl: () => Promise<Response>) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+it('проверяет всю выбранную цепочку и отклоняет замену второй посадки', async () => {
+  const now = Date.now();
+  const original = journey({}, now);
+  const first = firstRide(original);
+  if (!first) throw new Error('Нужна первая посадка');
+  const second = {
+    ...first,
+    tripId: 'second',
+    vehicleId: null,
+    stopsAway: null,
+    departAt: inMinutes(24, now),
+    arriveAt: inMinutes(29, now),
+  };
+  const selected = { ...original, steps: [...original.steps.slice(0, 2), second] };
+  const fetchMock = vi.fn<typeof fetch>(() =>
+    Promise.resolve(
+      Response.json({ status: 'ok', rides: [first, { ...second, boardSequence: 2 }] }),
+    ),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  await expect(httpLiveApi.checkRoute(selected)).resolves.toEqual({
+    status: 'changed',
+    current: null,
+  });
+  expect(fetchMock).toHaveBeenCalledWith(
+    '/api/v1/route/check',
+    expect.objectContaining({
+      body: JSON.stringify({
+        graphVersion: 'fixture-graph',
+        lowFloorOnly: true,
+        readyAt: original.departAt,
+        rides: [
+          {
+            tripId: 'bus-3-plan',
+            serviceDate: first.serviceDate,
+            boardSequence: 1,
+            alightSequence: 8,
+            walkBeforeS: 360,
+          },
+          {
+            tripId: 'second',
+            serviceDate: second.serviceDate,
+            boardSequence: 1,
+            alightSequence: 8,
+            walkBeforeS: 0,
+          },
+        ],
+      }),
+    }),
+  );
 });
 
 describe('клиент API', () => {

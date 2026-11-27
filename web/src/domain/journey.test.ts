@@ -36,6 +36,11 @@ const ride = (
 ): RideStep => ({
   kind: 'ride',
   vehicleId: `v-${number}`,
+  tripId: `trip-${number}`,
+  serviceDate: '2026-11-24',
+  boardSequence: 1,
+  alightSequence: 8,
+  timeSource: 'realtime',
   line: { id: `bus-${number}`, type: 'bus', number, title: '' },
   lowFloor: 'yes',
   boardStop: stop('Университет'),
@@ -52,6 +57,7 @@ const ride = (
 
 // 13:10 по Новосибирску = 06:10 UTC.
 const JOURNEY: Journey = {
+  graphVersion: 'fixture-graph',
   steps: [
     walk(360), // до 06:16
     ride('8', '2026-11-04T06:20:00Z', '2026-11-04T06:32:00Z'),
@@ -120,7 +126,13 @@ describe('подписи маршрута', () => {
   });
 
   it('ключ маршрута по машинам', () => {
-    expect(journeyKey(JOURNEY)).toBe('v-8>v-2');
+    expect(JSON.parse(journeyKey(JOURNEY))).toEqual([
+      'fixture-graph',
+      [
+        ['trip-8', '2026-11-24', 1, 8],
+        ['trip-2', '2026-11-24', 1, 8],
+      ],
+    ]);
   });
 });
 

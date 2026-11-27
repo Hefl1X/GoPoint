@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Protocol
 
+from app.domain.low_floor import TripOccurrence
 from app.domain.models import (
     Bounds,
     Direction,
@@ -16,6 +18,32 @@ from app.domain.models import (
     PlaceSuggestion,
     WalkLeg,
 )
+from app.domain.realtime import TripDelay
+from app.domain.trip_plan import TripLookup, TripPlan
+
+
+class TransitPlannerUnavailableError(Exception):
+    """Планировщик поездок не ответил или вернул непригодный ответ."""
+
+
+class TransitPlanner(Protocol):
+    async def plan(
+        self, origin: Place, destination: Place, *, at: datetime, low_floor_only: bool
+    ) -> TripPlan: ...
+
+    async def timetable(
+        self, occurrence: TripOccurrence, *, low_floor_only: bool
+    ) -> TripLookup: ...
+
+
+class RealtimeEncoder(Protocol):
+    def encode(
+        self,
+        delays: Sequence[TripDelay],
+        cancellations: Sequence[TripOccurrence],
+        *,
+        generated_at: datetime,
+    ) -> bytes: ...
 
 
 class TransitFeedError(Exception):

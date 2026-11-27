@@ -20,7 +20,12 @@ export function ListMapView({
       a.id.localeCompare(b.id),
   );
   return (
-    <section className="map-list" aria-label={label} data-testid="map-list">
+    <section
+      className="map-list"
+      aria-label={label}
+      data-testid="map-list"
+      tabIndex={sorted.length === 0 ? 0 : undefined}
+    >
       <p className="map-list__note" role="status">
         {note}
       </p>

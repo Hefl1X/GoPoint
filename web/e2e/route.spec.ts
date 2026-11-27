@@ -1,7 +1,7 @@
 // Главный путь: открыл сайт, поставил А и Б, увидел время и шаги. Плюс состояния маршрута.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { mockServer } from './fixtures';
+import { mockServer, useAnyTransport } from './fixtures';
 
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -27,6 +27,7 @@ async function setPoints(page: Page) {
 
 test('открыл сайт, поставил А и Б, увидел время и шаги', async ({ page }) => {
   await mockServer(page);
+  await useAnyTransport(page);
   await setPoints(page);
   const route = page.getByRole('region', { name: 'Маршрут', exact: true });
   await expect(route.getByRole('heading', { name: /^Автобус 3 · (9|10) мин$/ })).toBeVisible();
@@ -52,12 +53,10 @@ test('открыл сайт, поставил А и Б, увидел время 
   await noAxeViolations(page);
 });
 
-test('явно включённый фильтр применяется и при построении поездки', async ({ page }) => {
+test('фильтр по умолчанию применяется и при построении поездки', async ({ page }) => {
   await mockServer(page);
   await page.goto('/#/settings');
   const toggle = page.getByRole('switch', { name: 'Низкопольный транспорт' });
-  await expect(toggle).toHaveAttribute('aria-checked', 'false');
-  await toggle.click();
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('link', { name: 'Карта' }).click();
   await choose(page, 'Откуда', 'аура', /Аура/);
@@ -86,16 +85,38 @@ test('медленный расчёт: «Ищем маршрут…», пото�
   await expect(page.getByRole('heading', { name: /^Автобус 3 · / })).toBeVisible();
 });
 
-test('машина встала: «Маршрут изменился», решает человек', async ({ page }) => {
-  await mockServer(page, { vehicleStopped: true });
+test('посадка недоступна: маршрут меняется после явного пересчёта', async ({ page }) => {
+  await mockServer(page, { routeChanged: true });
   await setPoints(page);
   await expect(page.getByText('Маршрут изменился')).toBeVisible();
-  await expect(page.getByText('Автобус 3 стоит на месте уже 9 минут.')).toBeVisible();
+  await expect(page.getByText('Одна из посадок или пересадок больше недоступна.')).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Автобус 3 · / })).toBeVisible();
   await noAxeViolations(page);
-  await page.getByRole('button', { name: 'Принять новый' }).click();
+  await page.getByRole('button', { name: 'Найти заново' }).click();
+  const options = page.getByRole('group', { name: 'Варианты маршрута' });
+  await expect(options).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Автобус 36 · / })).toHaveCount(0);
+  await options.getByRole('button', { name: /Быстрее всего/ }).click();
   await expect(page.getByRole('heading', { name: /^Автобус 36 · / })).toBeVisible();
   await expect(page.getByText('Маршрут изменился')).toHaveCount(0);
+});
+
+test('плановый рейс без машины проверяется, резервный список доступен с клавиатуры', async ({
+  page,
+}) => {
+  await mockServer(page, { scheduledOnly: true, failLive: true, mapDown: true });
+  const checked = page.waitForRequest('**/api/v1/route/check');
+  await setPoints(page);
+  const route = page.getByRole('region', { name: 'Маршрут', exact: true });
+  await expect(route.getByRole('heading', { name: /^Автобус 3 · / })).toBeVisible();
+  await expect(route.getByText(/остановках от вас/)).toHaveCount(0);
+  await expect(page.getByTestId('map-list')).toHaveAttribute('tabindex', '0');
+  const body: unknown = (await checked).postDataJSON();
+  expect(body).toMatchObject({
+    graphVersion: 'fixture-graph',
+    rides: [{ tripId: 'bus-3-plan', boardSequence: 1, alightSequence: 8 }],
+  });
+  await noAxeViolations(page);
 });
 
 test('точки рядом: карточки «транспорт» и «Пешком», выбирает человек', async ({ page }) => {

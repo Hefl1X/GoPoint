@@ -163,10 +163,7 @@ export interface paths {
         put?: never;
         /**
          * Route
-         * @description Маршрут «сейчас» по машинам на линии: до 3 вариантов с шагами и временем.
-         *
-         *     lowFloorOnly = true: только машины с низким полом (yes); false: любые, у каждой
-         *     поездки пометка lowFloor. Пешие участки по улицам, скорость из настройки.
+         * @description Поездка по расписанию с прогнозом, когда он доступен.
          */
         post: operations["route_api_v1_route_post"];
         delete?: never;
@@ -186,8 +183,7 @@ export interface paths {
         put?: never;
         /**
          * Route Check
-         * @description Пересчёт выбранного маршрута: машина стоит, пропала или опаздывает — есть ли вариант
-         *     лучше. Маршрут не заменяется: решает человек.
+         * @description Проверка расписания и пересадок выбранной цепочки рейсов.
          */
         post: operations["route_check_api_v1_route_check_post"];
         delete?: never;
@@ -299,6 +295,35 @@ export interface components {
             northEast: components["schemas"]["LatLon"];
             southWest: components["schemas"]["LatLon"];
         };
+        /** CheckedLeg */
+        CheckedLeg: {
+            /** Alightsequence */
+            alightSequence: number;
+            /**
+             * Arriveat
+             * Format: date-time
+             */
+            arriveAt: string;
+            /** Boardsequence */
+            boardSequence: number;
+            /**
+             * Departat
+             * Format: date-time
+             */
+            departAt: string;
+            /**
+             * Servicedate
+             * Format: date
+             */
+            serviceDate: string;
+            /**
+             * Timesource
+             * @enum {string}
+             */
+            timeSource: "scheduled" | "realtime";
+            /** Tripid */
+            tripId: string;
+        };
         /**
          * Direction
          * @description Направление маршрута: A прямое, B обратное.
@@ -330,35 +355,6 @@ export interface components {
              * @default ok
              */
             status: string;
-        };
-        /**
-         * Journey
-         * @description Один вариант маршрута от А до Б с разбивкой по шагам.
-         */
-        Journey: {
-            /**
-             * Arriveat
-             * Format: date-time
-             */
-            arriveAt: string;
-            /**
-             * Departat
-             * Format: date-time
-             */
-            departAt: string;
-            /** Durations */
-            durationS: number;
-            /**
-             * Labels
-             * @description Чем вариант лучше других: fastest — быстрее всего, fewest_transfers — меньше пересадок, least_walking — меньше пешком; пусто у запасного варианта
-             */
-            labels?: ("fastest" | "fewest_transfers" | "least_walking")[];
-            /** Legs */
-            legs: (components["schemas"]["WalkLeg"] | components["schemas"]["TransitLeg"])[];
-            /** Lowflooronly */
-            lowFloorOnly: boolean;
-            /** Transfers */
-            transfers: number;
         };
         /**
          * LatLon
@@ -440,7 +436,7 @@ export interface components {
             cityBounds: components["schemas"]["Bounds"];
             /**
              * Lowflooronlydefault
-             * @default false
+             * @default true
              */
             lowFloorOnlyDefault: boolean;
             /** Refreshintervals */
@@ -502,61 +498,52 @@ export interface components {
         };
         /** RouteCheckRequest */
         RouteCheckRequest: {
-            destination: components["schemas"]["LatLon"];
+            /** Graphversion */
+            graphVersion: string;
             /**
              * Lowflooronly
-             * @default false
+             * @default true
              */
             lowFloorOnly: boolean;
-            origin: components["schemas"]["LatLon"];
             /**
-             * Plannedarriveat
+             * Readyat
              * Format: date-time
-             * @description Когда человек должен был приехать (UTC)
+             * @description Время, с которого можно начинать путь от точки А
              */
-            plannedArriveAt: string;
-            /**
-             * Vehicleid
-             * @description Машина первой поездки
-             */
-            vehicleId: string;
+            readyAt: string;
+            /** Rides */
+            rides: components["schemas"]["SelectedLeg"][];
         };
         /** RouteCheckResponse */
         RouteCheckResponse: {
-            /** @description Предложение: решает человек */
-            alternative: components["schemas"]["Journey"] | null;
-            /** @description Тот же маршрут с новым временем */
-            current: components["schemas"]["Journey"] | null;
-            diagnostics: components["schemas"]["SnapshotDiagnostics"];
             /**
-             * Gains
-             * @description Насколько раньше по предложению, с
+             * Rides
+             * @description Новые времена выбранной цепочки
              */
-            gainS?: number | null;
+            rides: components["schemas"]["CheckedLeg"][];
             /**
              * Status
-             * @description ok: всё по плану; stopped: машина стоит; late: опаздывает; gone: пропала
              * @enum {string}
              */
-            status: "ok" | "stopped" | "late" | "gone";
-            /** Stoppedfors */
-            stoppedForS?: number | null;
+            status: "ok" | "changed" | "transit_unavailable";
         };
         /** RouteRequest */
         RouteRequest: {
             destination: components["schemas"]["LatLon"];
             /**
              * Lowflooronly
-             * @default false
+             * @default true
              */
             lowFloorOnly: boolean;
             origin: components["schemas"]["LatLon"];
         };
         /** RouteResponse */
         RouteResponse: {
-            diagnostics: components["schemas"]["SnapshotDiagnostics"];
+            diagnostics: components["schemas"]["SnapshotDiagnostics"] | null;
+            /** Graphversion */
+            graphVersion: string | null;
             /** Journeys */
-            journeys: components["schemas"]["Journey"][];
+            journeys: components["schemas"]["ScheduledJourney"][];
             /**
              * Message
              * @description Что сказать человеку, по-русски
@@ -564,17 +551,125 @@ export interface components {
             message?: string | null;
             /**
              * Status
-             * @description no_transit: подходящих машин сейчас нет (пешим маршрутом не подменяем); walk_better: машины есть, но пешком (поле walk) быстрее и меньше идти; transit_unavailable: данных для проверки транспорта недостаточно
+             * @description no_transit: в проверенном расписании нет подходящих рейсов; walk_better: предложенный путь пешком быстрее транспортных вариантов; transit_unavailable: данных для проверки транспорта недостаточно
              * @enum {string}
              */
             status: "ok" | "no_transit" | "walk_better" | "transit_unavailable";
             /** @description Путь пешком от А до Б: отдельный выбор рядом с транспортом (если он не намного дольше транспорта); null — не показывать */
             walk?: components["schemas"]["WalkLeg"] | null;
         };
+        /** ScheduledJourney */
+        ScheduledJourney: {
+            /**
+             * Arriveat
+             * Format: date-time
+             */
+            arriveAt: string;
+            /**
+             * Departat
+             * Format: date-time
+             */
+            departAt: string;
+            /** Durations */
+            durationS: number;
+            /**
+             * Labels
+             * @description Чем вариант лучше других: fastest — быстрее всего, fewest_transfers — меньше пересадок, least_walking — меньше пешком; пусто у запасного варианта
+             */
+            labels?: ("fastest" | "fewest_transfers" | "least_walking")[];
+            /** Legs */
+            legs: (components["schemas"]["WalkLeg"] | components["schemas"]["ScheduledTransitLeg"])[];
+            /** Lowflooronly */
+            lowFloorOnly: boolean;
+            /** Transfers */
+            transfers: number;
+        };
+        /** ScheduledTransitLeg */
+        ScheduledTransitLeg: {
+            /** Alightsequence */
+            alightSequence: number;
+            alightStop: components["schemas"]["Stop"];
+            /**
+             * Arriveat
+             * Format: date-time
+             */
+            arriveAt: string;
+            /** Boardsequence */
+            boardSequence: number;
+            boardStop: components["schemas"]["Stop"];
+            /**
+             * Departat
+             * Format: date-time
+             */
+            departAt: string;
+            diagnostics: components["schemas"]["EtaDiagnostics"] | null;
+            /**
+             * Geometry
+             * @description Линия маршрута от посадки до выхода
+             */
+            geometry?: components["schemas"]["LatLon"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "transit";
+            line: components["schemas"]["Line"];
+            lowFloor: components["schemas"]["Accessibility"];
+            /**
+             * Servicedate
+             * Format: date
+             */
+            serviceDate: string;
+            /**
+             * Stopsaway
+             * @description Сколько остановок машине осталось до посадки (0: следующая)
+             */
+            stopsAway: number | null;
+            /**
+             * Stopscount
+             * @description Сколько остановок ехать до выхода
+             */
+            stopsCount: number;
+            /**
+             * Timesource
+             * @enum {string}
+             */
+            timeSource: "scheduled" | "realtime";
+            /**
+             * Toward
+             * @description Конечная, куда едет машина; null у кольцевых
+             */
+            toward?: string | null;
+            /** Tripid */
+            tripId: string;
+            /** Vehicleid */
+            vehicleId: string | null;
+            /**
+             * Waits
+             * @description Ожидание машины на остановке посадки
+             */
+            waitS: number;
+        };
         /** SearchResponse */
         SearchResponse: {
             /** Places */
             places: components["schemas"]["PlaceSuggestion"][];
+        };
+        /** SelectedLeg */
+        SelectedLeg: {
+            /** Alightsequence */
+            alightSequence: number;
+            /** Boardsequence */
+            boardSequence: number;
+            /**
+             * Servicedate
+             * Format: date
+             */
+            serviceDate: string;
+            /** Tripid */
+            tripId: string;
+            /** Walkbefores */
+            walkBeforeS: number;
         };
         /**
          * SnapshotDiagnostics
@@ -630,59 +725,6 @@ export interface components {
              * @description Остановки в области карты, без повторов
              */
             stops: components["schemas"]["Stop"][];
-        };
-        /**
-         * TransitLeg
-         * @description Поездка на конкретной машине.
-         */
-        TransitLeg: {
-            alightStop: components["schemas"]["Stop"];
-            /**
-             * Arriveat
-             * Format: date-time
-             */
-            arriveAt: string;
-            boardStop: components["schemas"]["Stop"];
-            /**
-             * Departat
-             * Format: date-time
-             */
-            departAt: string;
-            diagnostics: components["schemas"]["EtaDiagnostics"];
-            /**
-             * Geometry
-             * @description Линия маршрута от посадки до выхода
-             */
-            geometry?: components["schemas"]["LatLon"][];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            kind: "transit";
-            line: components["schemas"]["Line"];
-            lowFloor: components["schemas"]["Accessibility"];
-            /**
-             * Stopsaway
-             * @description Сколько остановок машине осталось до посадки (0: следующая)
-             */
-            stopsAway: number;
-            /**
-             * Stopscount
-             * @description Сколько остановок ехать до выхода
-             */
-            stopsCount: number;
-            /**
-             * Toward
-             * @description Конечная, куда едет машина; null у кольцевых
-             */
-            toward?: string | null;
-            /** Vehicleid */
-            vehicleId: string;
-            /**
-             * Waits
-             * @description Ожидание машины на остановке посадки
-             */
-            waitS: number;
         };
         /**
          * TransportType

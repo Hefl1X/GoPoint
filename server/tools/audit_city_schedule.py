@@ -1,0 +1,280 @@
+"""Аудит полного архива ЦУГАЭТ и GTFS на проверенных группах."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from collections import Counter
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from datetime import date
+from pathlib import Path
+
+import httpx
+from pydantic import TypeAdapter
+
+from app.adapters.tsugaet.parse import TsugaetFormatError, parse_traces
+from app.adapters.tsugaet.schedule import (
+    ScheduleGroup,
+    ScheduleRequest,
+    group_content_requests,
+    schedule_geometry_requests,
+)
+from app.adapters.tsugaet.schedule_parse import parse_route_schedule
+from app.domain.gtfs import ServiceWindow, build_gtfs, service_id_for
+from app.domain.models import Direction, LinePath
+from app.domain.schedule import (
+    RouteSchedule,
+    ScheduleRoute,
+    reconstruct_trips,
+    reconstruct_variant_trips,
+)
+from app.domain.stop_binding import (
+    BindingIssueKind,
+    ReviewedAlignment,
+    bind_stops,
+    ordered_terminal_candidates,
+)
+from tools.build_gtfs import write_snapshot
+from tools.capture_schedule import inventory_groups
+from tools.collect_schedule import MissingScheduleResponseError, ScheduleArchive
+
+type Sources = list[tuple[RouteSchedule, LinePath | None]]
+
+
+def _read(archive: ScheduleArchive, request: ScheduleRequest) -> bytes:
+    url = httpx.URL(request.url, params=request.params)
+    response = archive.response(httpx.Request("GET", url))
+    if response.status_code != httpx.codes.OK:
+        raise MissingScheduleResponseError(
+            f"Архивный {request.kind} вернул HTTP {response.status_code}"
+        )
+    return response.content
+
+
+def _platform_conflicts(
+    sources: Sources, reviews: Mapping[str, ReviewedAlignment]
+) -> dict[str, list[str]]:
+    """Один ID с разными исходными строками исключает затронутые группы."""
+    signatures: dict[str, dict[tuple[str, float, float], set[str]]] = {}
+    for schedule, path in sources:
+        service = service_id_for(schedule)
+        review = reviews.get(service)
+        bound = bind_stops(schedule, path, review)
+        if (
+            bound.issues
+            or not reconstruct_trips(
+                schedule, allow_variants=bool(review and review.allow_trip_variants)
+            ).trips
+        ):
+            continue
+        for binding in bound.stops:
+            stop = binding.platform.stop
+            row = (stop.name, stop.point.lat, stop.point.lon)
+            signatures.setdefault(stop.id, {}).setdefault(row, set()).add(service)
+    return {
+        stop_id: sorted(set().union(*rows.values()))
+        for stop_id, rows in sorted(signatures.items())
+        if len(rows) > 1
+    }
+
+
+def _review_terminals(
+    sources: Sources, paths: dict[tuple[str, Direction], LinePath], ambiguous: set[str]
+) -> dict[str, object]:
+    report: dict[str, object] = {}
+    for schedule, path in sources:
+        service = service_id_for(schedule)
+        if service not in ambiguous or path is None:
+            continue
+        candidates = ordered_terminal_candidates(schedule, path)
+        if len(candidates) < 2:
+            continue
+        opposite = Direction.B if path.direction is Direction.A else Direction.A
+        reverse = paths.get((path.line_id, opposite))
+        origin = reverse.stops[0].stop if reverse and reverse.stops else None
+        terminal = schedule.stops[-1].stop
+        report[service] = {
+            "name": terminal.name,
+            "source_id": terminal.source_id,
+            "candidates": [
+                {"platform_id": item.stop.id, "point_index": item.point_index}
+                for item in candidates
+            ],
+            "opposite_origin": origin.id if origin is not None else None,
+            "shares_opposite_origin": any(item.stop == origin for item in candidates),
+        }
+    return report
+
+
+def _review_trip_patterns(sources: Sources, timing_issues: set[str]) -> dict[str, object]:
+    variants: dict[str, object] = {}
+    for schedule, _ in sources:
+        key = service_id_for(schedule)
+        if key not in timing_issues:
+            continue
+        trips = reconstruct_variant_trips(schedule)
+        if not trips:
+            continue
+        calls = Counter(tuple(call.stop.sequence for call in trip.calls) for trip in trips)
+        variants[key] = [
+            {"stop_sequences": positions, "trip_count": number}
+            for positions, number in sorted(calls.items())
+        ]
+    return variants
+
+
+def audit(
+    archive: ScheduleArchive,
+    metadata: ScheduleArchive,
+    groups: Sequence[ScheduleGroup],
+    output: Path,
+    window: ServiceWindow,
+    *,
+    reviews: Mapping[str, ReviewedAlignment] | None = None,
+) -> dict[str, object]:
+    if output.exists():
+        raise FileExistsError(f"Укажите новый каталог GTFS: {output}")
+    http_complete = True
+    paths: dict[tuple[str, Direction], LinePath] = {}
+    geometry_issues: list[dict[str, object]] = []
+    for direction, routes, request in schedule_geometry_requests(groups):
+        wanted = [(route.line_id, route.marsh) for route in routes]
+        try:
+            body = _read(archive, request)
+        except MissingScheduleResponseError as exc:
+            http_complete = False
+            geometry_issues.append(
+                {
+                    "direction": direction.value,
+                    "lines": [line for line, _ in wanted],
+                    "error": str(exc),
+                }
+            )
+            continue
+        try:
+            batch = parse_traces(json.loads(body), wanted, direction)
+        except ValueError as exc:
+            geometry_issues.append(
+                {
+                    "direction": direction.value,
+                    "lines": [line for line, _ in wanted],
+                    "error": str(exc),
+                }
+            )
+            continue
+        for line_id, path in batch.items():
+            paths[line_id, direction] = path
+
+    sources: Sources = []
+    schedule_errors: dict[str, str] = {}
+    for group in sorted(groups, key=lambda group: group.key):
+        stops, table = group_content_requests(group)
+        day_params = {key: value for key, value in stops.params.items() if key != "sch"}
+        try:
+            stops_body, table_body = _read(archive, stops), _read(archive, table)
+            raw_days = _read(metadata, ScheduleRequest("stops", stops.url, day_params))
+        except MissingScheduleResponseError as exc:
+            http_complete = False
+            schedule_errors["-".join(group.key)] = str(exc)
+            continue
+        route_info, direction = group.route, group.direction
+        route = ScheduleRoute(route_info.type, route_info.marsh, route_info.name, direction)
+        try:
+            schedule = parse_route_schedule(
+                table_body.decode("utf-8"),
+                stops_body.decode("utf-8"),
+                raw_days.decode("utf-8"),
+                route=route,
+                day_id=group.day_id,
+            )
+        except (TsugaetFormatError, UnicodeError) as exc:
+            schedule_errors["-".join(group.key)] = str(exc)
+            continue
+        sources.append((schedule, paths.get((route.line_id, direction))))
+
+    reviews = reviews or {}
+    conflicts = _platform_conflicts(sources, reviews)
+    excluded = {service for related in conflicts.values() for service in related}
+    build = build_gtfs(
+        [
+            (schedule, path)
+            for schedule, path in sources
+            if service_id_for(schedule) not in excluded
+        ],
+        window,
+        reviews=reviews,
+    )
+    exported = [row for row in build.coverage if row.trip_count] if http_complete else []
+    ambiguous = {
+        row.service_id
+        for row in build.coverage
+        if any(issue.kind is BindingIssueKind.AMBIGUOUS_PLATFORM for issue in row.binding_issues)
+    }
+    terminals = _review_terminals(sources, paths, ambiguous)
+    counts: dict[str, object] = {
+        "http_complete": http_complete,
+        "requested_groups": len(groups),
+        "parsed_groups": len(sources),
+        "geometry_directions": len(paths),
+        "exported_groups": len(exported),
+        "exported_trips": sum(row.trip_count for row in exported),
+        "exported_lines": len({row.service_id.rsplit("-", 2)[0] for row in exported}),
+        "schedule_errors": schedule_errors,
+        "geometry_errors": geometry_issues,
+        "conflicting_platforms": conflicts,
+        "ambiguous_terminal_groups": len(terminals),
+        "terminal_candidates": terminals,
+        "trip_patterns_for_review": _review_trip_patterns(
+            sources, {row.service_id for row in build.coverage if row.schedule_issues}
+        ),
+    }
+    if reviews:
+        applied = {row.service_id for row in exported} & reviews.keys()
+        counts["reviewed_bindings"] = {
+            key: {"exported": key in applied, "evidence": row.evidence, "signature": row.signature}
+            for key, row in sorted(reviews.items())
+        }
+    write_snapshot(
+        output,
+        window,
+        build if http_complete else replace(build, tables=()),
+        {"sources": metadata.checksums | archive.checksums, "audit": counts},
+    )
+    return counts
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--metadata", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--stop-reviews", type=Path)
+    parser.add_argument("--service-start", type=date.fromisoformat, required=True)
+    parser.add_argument("--service-end", type=date.fromisoformat, required=True)
+    args = parser.parse_args()
+    try:
+        archive = ScheduleArchive(args.archive)
+        metadata = ScheduleArchive(args.metadata)
+        groups = inventory_groups(args.metadata, metadata)
+        reviews = (
+            TypeAdapter(dict[str, ReviewedAlignment]).validate_json(args.stop_reviews.read_bytes())
+            if args.stop_reviews is not None
+            else None
+        )
+        result = audit(
+            archive,
+            metadata,
+            groups,
+            args.output,
+            ServiceWindow(args.service_start, args.service_end),
+            reviews=reviews,
+        )
+    except (OSError, ValueError) as exc:
+        parser.exit(1, f"{exc}\n")
+    print(json.dumps({key: value for key, value in result.items() if isinstance(value, int)}))
+    return 0 if result["exported_groups"] else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

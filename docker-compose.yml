@@ -1,5 +1,5 @@
-# GoPoint: запуск одной командой (scripts/run-demo.sh или docker compose up -d --build).
-# Наружу открыт только caddy. Сервер, поиск адресов (photon) и (позже) OpenTripPlanner
+# GoPoint: запуск с транспортным комплектом одной командой — bash scripts/run-demo.sh.
+# Наружу открыт только caddy. Сервер, поиск адресов (photon) и OpenTripPlanner
 # живут во внутренней сети.
 name: gopoint
 
@@ -33,7 +33,7 @@ services:
     networks: [internal]
 
   otp:
-    # OpenTripPlanner 2.10.0 только для пеших участков (граф улиц: scripts/build-otp-graph.sh).
+    # Граф улиц по умолчанию. Транспортный комплект подключается через otp/release/demo.compose.yml.
     image: opentripplanner/opentripplanner:2.10.0
     command: ["--load", "--serve"]
     environment:

@@ -56,7 +56,12 @@ const inMin = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
 const bus = (number: string) => ({ id: `bus-${number}`, type: 'bus', number, title: '' });
 
 /** Маршрут в форме ответа сервера: пешком 6 мин, автобус через 10 мин, пешком 4 мин. */
-export function journeyBody(number = '3', vehicleId = 'bus-3-1', lowFloor = 'yes', arrive = 26) {
+export function journeyBody(
+  number = '3',
+  vehicleId: string | null = 'bus-3-1',
+  lowFloor = 'yes',
+  arrive = 26,
+) {
   return {
     legs: [
       {
@@ -70,6 +75,11 @@ export function journeyBody(number = '3', vehicleId = 'bus-3-1', lowFloor = 'yes
       },
       {
         kind: 'transit',
+        tripId: `bus-${number}-plan`,
+        serviceDate: '2026-11-24',
+        boardSequence: 1,
+        alightSequence: 8,
+        timeSource: vehicleId ? 'realtime' : 'scheduled',
         vehicleId,
         line: bus(number),
         lowFloor,
@@ -77,11 +87,11 @@ export function journeyBody(number = '3', vehicleId = 'bus-3-1', lowFloor = 'yes
         alightStop: stop('11', 'Площадь Маркса'),
         waitS: 240,
         stopsCount: 7,
-        stopsAway: 2,
+        stopsAway: vehicleId ? 2 : null,
         toward: 'Северный',
         departAt: inMin(10),
         arriveAt: inMin(arrive - 4),
-        diagnostics: { method: 'distance', positionObservedAt: observed },
+        diagnostics: vehicleId ? { method: 'distance', positionObservedAt: observed } : null,
         geometry: [point(55.03, 82.93), point(55.04, 82.91)],
       },
       {
@@ -116,6 +126,12 @@ export const WALK_BODY = {
 
 export const ALL_VEHICLES = [vehicle('bus-3-1', 'yes'), vehicle('bus-3-2', 'no', 'B')];
 
+export async function useAnyTransport(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    localStorage.setItem('gopoint.lowFloorOnly.v3', 'false');
+  });
+}
+
 export async function mockServer(
   page: Page,
   options: {
@@ -125,8 +141,9 @@ export async function mockServer(
     searchDelayMs?: number;
     noTransit?: boolean;
     routeDelayMs?: number;
-    /** Первая машина маршрута встала: пересчёт предлагает другой автобус. */
-    vehicleStopped?: boolean;
+    /** Выбранная цепочка стала недоступной. Новый расчёт возвращает другой рейс. */
+    routeChanged?: boolean;
+    scheduledOnly?: boolean;
     /** Сервер карты недоступен: не отдаёт тайлы. */
     mapDown?: boolean;
     /** Точки рядом: сервер присылает и путь пешком. */
@@ -136,6 +153,7 @@ export async function mockServer(
   } = {},
 ): Promise<{ vehicleCalls: () => number; searchQueries: () => string[] }> {
   let vehicleCalls = 0;
+  let routeCalls = 0;
   const searchQueries: string[] = [];
   // Подложка загружается тем же путём, что и в Docker; подменяем только изображение.
   await page.route('https://tile.openstreetmap.org/**', (route) =>
@@ -158,7 +176,7 @@ export async function mockServer(
           version: '0.1.0',
           cityBounds: { southWest: point(54.8, 82.7), northEast: point(55.2, 83.2) },
           refreshIntervalS: 30,
-          lowFloorOnlyDefault: false,
+          lowFloorOnlyDefault: true,
           staleSeconds: 300,
         },
       });
@@ -187,11 +205,13 @@ export async function mockServer(
       return route.fulfill({ status, json: { code, message } });
     }
     if (path === '/route') {
+      routeCalls += 1;
       if (options.routeDelayMs) await new Promise((r) => setTimeout(r, options.routeDelayMs));
       if (options.noTransit) {
         return route.fulfill({
           json: {
             journeys: [],
+            graphVersion: 'fixture-graph',
             status: 'no_transit',
             message: 'Транспорта сейчас нет',
             walk: options.walkOption ? WALK_BODY : null,
@@ -200,9 +220,17 @@ export async function mockServer(
         });
       }
       const body = route.request().postDataJSON() as { lowFloorOnly: boolean };
+      const number = options.routeChanged && routeCalls > 1 ? '36' : '3';
       return route.fulfill({
         json: {
-          journeys: [journeyBody('3', 'bus-3-1', body.lowFloorOnly ? 'yes' : 'no')],
+          journeys: [
+            journeyBody(
+              number,
+              options.scheduledOnly ? null : `bus-${number}-1`,
+              body.lowFloorOnly ? 'yes' : options.scheduledOnly ? 'unknown' : 'no',
+            ),
+          ],
+          graphVersion: 'fixture-graph',
           status: 'ok',
           message: null,
           walk: options.walkOption ? WALK_BODY : null,
@@ -211,27 +239,23 @@ export async function mockServer(
       });
     }
     if (path === '/route/check') {
-      const body = route.request().postDataJSON() as { vehicleId: string; lowFloorOnly: boolean };
-      const low = body.lowFloorOnly ? 'yes' : 'no';
-      if (options.vehicleStopped && body.vehicleId === 'bus-3-1') {
-        return route.fulfill({
-          json: {
-            status: 'stopped',
-            stoppedForS: 540,
-            current: journeyBody('3', 'bus-3-1', 'yes', 35),
-            alternative: journeyBody('36', 'bus-36-1', 'yes', 24),
-            gainS: 660,
-            diagnostics,
-          },
-        });
+      const { rides, readyAt } = route.request().postDataJSON() as {
+        rides: { tripId: string }[];
+        readyAt: string;
+      };
+      if (options.routeChanged && rides.some((ride) => ride.tripId === 'bus-3-plan')) {
+        return route.fulfill({ json: { status: 'changed', rides: [] } });
       }
+      const ready = Date.parse(readyAt);
       return route.fulfill({
         json: {
           status: 'ok',
-          stoppedForS: null,
-          current: journeyBody(body.vehicleId === 'bus-36-1' ? '36' : '3', body.vehicleId, low),
-          alternative: null,
-          diagnostics,
+          rides: rides.map((ride) => ({
+            ...ride,
+            departAt: new Date(ready + 600_000).toISOString(),
+            arriveAt: new Date(ready + 1_320_000).toISOString(),
+            timeSource: options.scheduledOnly ? 'scheduled' : 'realtime',
+          })),
         },
       });
     }

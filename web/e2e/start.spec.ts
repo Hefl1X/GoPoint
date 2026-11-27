@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { mockServer } from './fixtures';
+import { mockServer, useAnyTransport } from './fixtures';
 
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -24,7 +24,7 @@ test('главный экран: карта, число машин, подпис
   await mockServer(page);
   await page.goto('/');
   await expect(page).toHaveTitle('GoPoint');
-  await expect(page.getByText('На линии сейчас: 2 машины')).toBeVisible();
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
   await expect(page.getByTestId('map-maplibre')).toBeVisible();
   await expect(page.locator('.map-attribution')).toContainText('© OpenStreetMap contributors');
   // Карта на весь экран: меню и панель лежат поверх неё.
@@ -46,7 +46,7 @@ test('сервер карты недоступен: машины списком 
     page.getByText('Карта сейчас не загружается. Транспорт на линии — списком ниже.'),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Автобус 3, низкий пол' })).toBeVisible();
-  await expect(page.getByText('На линии сейчас: 2 машины')).toBeVisible();
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Выбрать на карте' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Куда', exact: true }).click();
   await expect(page.getByRole('searchbox')).toBeVisible();
@@ -57,7 +57,7 @@ test('сервер карты недоступен: машины списком 
 test('панель сворачивается движением вниз и открывает карту', async ({ page }) => {
   await mockServer(page);
   await page.goto('/');
-  await expect(page.getByText('На линии сейчас: 2 машины')).toBeVisible();
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
   const grip = page.getByRole('button', { name: 'Свернуть панель' });
   const box = await grip.boundingBox();
   if (!box) throw new Error('нет ручки панели');
@@ -70,11 +70,11 @@ test('панель сворачивается движением вниз и о�
   await page.mouse.up();
   const expand = page.getByRole('button', { name: 'Развернуть панель' });
   await expect(expand).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByText('На линии сейчас: 2 машины')).toBeHidden();
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeHidden();
   await noAxeViolations(page);
   await expand.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText('На линии сейчас: 2 машины')).toBeVisible();
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
 });
 
 test('без WebGL (список вместо карты) машины выбираются с клавиатуры', async ({ page }) => {
@@ -94,6 +94,7 @@ test('без WebGL (список вместо карты) машины выби�
 
 test('«Транспорт»: список, маршрут, «Назад»', async ({ page }) => {
   await mockServer(page);
+  await useAnyTransport(page);
   await page.goto('/?map=list');
   await page.getByRole('link', { name: 'Транспорт' }).click();
   await expect(page.getByRole('heading', { name: 'Транспорт сейчас' })).toBeVisible();
@@ -111,6 +112,7 @@ test('«Транспорт»: список, маршрут, «Назад»', asy
 
 test('остановка: что подъезжает, «Проложить маршрут отсюда»', async ({ page }) => {
   await mockServer(page);
+  await useAnyTransport(page);
   await page.goto('/?map=list#/transport/bus-3');
   await page.getByRole('link', { name: 'Остановка «Цирк»: что подъезжает' }).first().click();
   await expect(page.getByRole('heading', { name: 'Цирк' })).toBeVisible();
@@ -156,23 +158,23 @@ test('настройка «Низкопольный транспорт»: кла
 }) => {
   await mockServer(page);
   await page.addInitScript(() => {
-    localStorage.setItem('gopoint.lowFloorOnly', 'true');
+    localStorage.setItem('gopoint.lowFloorOnly.v2', 'false');
   });
   await page.goto('/?map=list#/settings');
   const toggle = page.getByRole('switch', { name: 'Низкопольный транспорт' });
-  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
   await noAxeViolations(page);
   await toggle.focus();
   await page.keyboard.press('Space');
-  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
   await page.reload();
   await expect(page.getByRole('switch', { name: 'Низкопольный транспорт' })).toHaveAttribute(
     'aria-checked',
-    'true',
+    'false',
   );
   await page.getByRole('link', { name: 'Карта' }).click();
-  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Автобус 3, не низкий пол' })).toHaveCount(0);
+  await expect(page.getByText('На линии сейчас: 2 машины')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Автобус 3, не низкий пол' })).toHaveCount(1);
 });
 
 test('«О приложении»: источники и подпись OpenStreetMap', async ({ page }) => {
@@ -198,7 +200,7 @@ test('медленная сеть: видна загрузка, потом да�
   await mockServer(page, { vehiclesDelayMs: 2_000 });
   await page.goto('/?map=list');
   await expect(page.getByText('Загружаем…')).toBeVisible();
-  await expect(page.getByText('На линии сейчас: 2 машины')).toBeVisible({
+  await expect(page.getByText('На линии сейчас: 1 низкопольная машина')).toBeVisible({
     timeout: 10_000,
   });
 });
