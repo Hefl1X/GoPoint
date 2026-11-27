@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     search_cache_ttl_s: int = Field(default=86_400, ge=60)
     search_cache_size: int = Field(default=2_000, ge=10)
 
-    # Пешие участки: OpenTripPlanner во внутренней сети Docker.
+    # Поиск поездок и пеших путей: OpenTripPlanner во внутренней сети Docker.
     otp_url: str = "http://otp:8080"
     otp_timeout_s: float = Field(default=10.0, gt=0)
     # Каталог принятой версии OTP для внутренних потоков GTFS-Realtime.
@@ -73,8 +73,7 @@ class Settings(BaseSettings):
     walk_speed_mps: float = Field(default=1.3, gt=0.1, le=3.0)
     walk_cache_ttl_s: int = Field(default=86_400, ge=60)
 
-    # Расчёт маршрута «сейчас». Значения по умолчанию и источники: docs/DECISIONS.md.
-    # Скорость машины для расчёта прихода: текущая, но не ниже и не выше этих, км/ч.
+    # Скорость машины для прогноза прибытий: текущая в заданном диапазоне, км/ч.
     vehicle_min_speed_kmh: float = Field(default=15.0, gt=0)
     vehicle_max_speed_kmh: float = Field(default=40.0, gt=0)
     # Стоянка машины на каждой промежуточной остановке, с.
@@ -83,24 +82,12 @@ class Settings(BaseSettings):
     board_margin_s: int = Field(default=30, ge=0)
     # Дополнительный запас на пересадке, с.
     transfer_margin_s: int = Field(default=60, ge=0)
-    # Машина «стоит», если не двигается дольше, с; «опаздывает», если позже плана на, с.
-    stopped_threshold_s: int = Field(default=300, ge=60)
-    late_threshold_s: int = Field(default=180, ge=60)
     # Машину дальше этого от линии своего маршрута в расчёт не берём, м.
     max_vehicle_offset_m: float = Field(default=200.0, gt=0)
-    # Пересадка пешком между остановками не дальше, м (по прямой).
-    transfer_radius_m: float = Field(default=300.0, ge=0)
-    # Сколько ближайших остановок у точек А и Б рассматривать. Остановки разных
-    # направлений считаются отдельно, поэтому 20 — это примерно 8–10 мест вокруг точки.
-    access_stops: int = Field(default=20, ge=1, le=40)
-    # Кроме них: ближайшая остановка каждого маршрута и направления в этом радиусе, м,
-    # чтобы на узлах не терялось нужное направление; всего не больше access_stops_max.
-    access_radius_m: float = Field(default=1500.0, ge=0)
-    access_stops_max: int = Field(default=40, ge=1, le=80)
     # Путь пешком от А до Б показывается рядом с транспортом (отдельной карточкой), если он
     # не длиннее столько метров, независимо от транспорта (решение владельца 14.11.2026).
     walk_option_max_m: float = Field(default=2000.0, ge=0)
-    # Насколько вперёд смотреть, мин.
+    # Окно поиска OTP и горизонт ближайших прибытий, мин.
     horizon_min: int = Field(default=60, ge=10, le=180)
     # Прошлый снимок машин годится для расчёта, если ЦУГАЭТ не отвечает, не дольше, с.
     snapshot_max_age_s: int = Field(default=300, ge=60)

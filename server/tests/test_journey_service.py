@@ -12,6 +12,7 @@ from app.domain.trip_plan import (
     JourneySelection,
     PlannedJourney,
     PlannedRide,
+    PlannedWalk,
     RoutingGraph,
     SelectedRide,
     TimetabledCall,
@@ -20,7 +21,7 @@ from app.domain.trip_plan import (
     TripSegment,
     TripTimetable,
 )
-from app.ports import TransitPlannerUnavailableError
+from app.ports import TransitPlannerUnavailableError, WalkPlannerUnavailableError
 from app.services.journey_service import JourneyService, JourneySettings
 from tests.conftest import ManualClock
 
@@ -107,8 +108,19 @@ class _Planner:
 
 
 class _Walker:
+    distance_m = 200
+    duration_s = 30 * 60
+    available = True
+
     async def walk(self, origin: Place, destination: Place) -> WalkLeg:
-        return WalkLeg(origin=origin, destination=destination, distance_m=200, duration_s=30 * 60)
+        if not self.available:
+            raise WalkPlannerUnavailableError
+        return WalkLeg(
+            origin=origin,
+            destination=destination,
+            distance_m=self.distance_m,
+            duration_s=self.duration_s,
+        )
 
 
 def _service(
@@ -180,6 +192,32 @@ async def test_search_reports_unavailable_when_graph_is_partial_expired_or_offli
             A, B, graph=GRAPH, low_floor_only=False
         )
         assert response.status == "transit_unavailable" and response.walk
+
+
+@pytest.mark.parametrize(("walk_s", "status"), [(600, "ok"), (480, "walk_better")])
+async def test_transit_must_beat_direct_walking(walk_s: int, status: str) -> None:
+    short_access = PlannedWalk(
+        WalkLeg(origin=A, destination=A, distance_m=50, duration_s=30),
+        NOW,
+        NOW + timedelta(seconds=30),
+    )
+    long_access = PlannedWalk(
+        WalkLeg(origin=A, destination=A, distance_m=600, duration_s=1800), NOW, _at(30)
+    )
+    short_ride = PlannedJourney((short_access, FIRST))
+    long_ride = PlannedJourney((long_access, replace(FIRST, depart_at=_at(31), arrive_at=_at(36))))
+    walk = PlannedWalk(
+        WalkLeg(origin=A, destination=B, distance_m=200, duration_s=walk_s), NOW, _at(walk_s // 60)
+    )
+    planner = _Planner(
+        TripPlan(GRAPH.version, (short_ride, long_ride, PlannedJourney((walk,))), frozenset())
+    )
+    result = await _service(planner, lambda: None).plan(A, B, graph=GRAPH, low_floor_only=False)
+    assert result.status == status
+    assert result.walk == walk.leg
+    assert tuple(option.journey for option in result.options) == (
+        (short_ride,) if status == "ok" else ()
+    )
 
 
 @pytest.mark.parametrize("second_ride_changed", [False, True])

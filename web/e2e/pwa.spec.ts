@@ -105,15 +105,15 @@ test('без сети: сайт открывается, маршруты и ос
   await mockServer(context);
   await page.goto('/?map=list#/transport');
   await expect(page.getByRole('link', { name: /Автобус 3/ })).toBeVisible();
-  // Ждём, пока service worker возьмёт страницу под контроль, и открываем маршрут,
-  // чтобы его остановки сохранились.
+  // Service worker берёт открытую страницу под контроль при активации.
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
-  await page.reload();
   await expect
     .poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null))
     .toBe(true);
+  // Заново загружаем список уже через worker, чтобы сохранить его в кэше.
+  await page.reload();
   await page.getByRole('link', { name: /Автобус 3/ }).click();
   await expect(page.getByText('едет к «Цирк»')).toBeVisible();
 

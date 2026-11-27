@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -258,9 +258,6 @@ class TransitLeg(DomainModel):
     diagnostics: EtaDiagnostics | None
 
 
-Leg = Annotated[WalkLeg | TransitLeg, Field(discriminator="kind")]
-
-
 # Чем вариант лучше других (экран показывает до трёх вариантов с такими пометками).
 VariantLabel = Literal["fastest", "fewest_transfers", "least_walking"]
 
@@ -280,12 +277,6 @@ class JourneySummary(DomainModel):
             "пересадок, least_walking — меньше пешком; пусто у запасного варианта"
         ),
     )
-
-
-class Journey(JourneySummary):
-    """Вариант маршрута прежнего поиска на машинах."""
-
-    legs: list[Leg]
 
 
 class ApiError(DomainModel):

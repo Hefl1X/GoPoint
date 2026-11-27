@@ -8,14 +8,12 @@ from app.adapters.fake.feed import FakeTransitFeed
 from app.config import Settings
 from app.main import create_app
 from tests.conftest import SAMPLES, ManualClock
-from tests.test_route_api import StraightWalker
 
 
 def client(limit: int, clock: ManualClock) -> TestClient:
     app = create_app(
         Settings(transit_feed="fake", rate_limit_per_min=limit),
         feed=FakeTransitFeed(SAMPLES),
-        walk_planner=StraightWalker(),
         clock=clock,
         start_poller=False,
     )

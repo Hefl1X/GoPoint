@@ -42,11 +42,16 @@ def feed() -> FakeTransitFeed:
 
 
 @pytest.fixture
-def client(planner: _Planner, feed: FakeTransitFeed) -> Iterator[TestClient]:
+def walker() -> _Walker:
+    return _Walker()
+
+
+@pytest.fixture
+def client(planner: _Planner, feed: FakeTransitFeed, walker: _Walker) -> Iterator[TestClient]:
     app = create_app(
         Settings(),
         feed=feed,
-        walk_planner=_Walker(),
+        walk_planner=walker,
         transit_planner=planner,
         clock=ManualClock(NOW),
         start_poller=False,
@@ -70,6 +75,9 @@ def test_general_route_returns_a_scheduled_bus_during_cold_gps_failure(
     assert ride["tripId"] == FIRST.segment.occurrence.trip_id
     assert ride["serviceDate"] == DAY.isoformat()
     assert ride["boardSequence"] == 1 and ride["alightSequence"] == 2
+    assert ride["boardStop"]["id"] == FIRST.board_stop.id
+    assert ride["alightStop"]["id"] == FIRST.alight_stop.id
+    assert ride["stopsCount"] == 1
     assert ride["timeSource"] == "scheduled" and ride["lowFloor"] == "unknown"
     assert ride["vehicleId"] is ride["stopsAway"] is ride["diagnostics"] is None
     assert ride["waitS"] == 60
@@ -93,6 +101,25 @@ def test_short_walk_survives_cold_otp_and_gps_failure(
     assert data["walk"]["distanceM"] == 200
     assert data["diagnostics"] is None
     assert feed.vehicle_requests == 0
+
+
+@pytest.mark.parametrize(("distance_m", "available"), [(2001, True), (200, False)])
+def test_scheduled_route_survives_without_a_direct_walk(
+    client: TestClient, walker: _Walker, distance_m: int, available: bool
+) -> None:
+    walker.distance_m = distance_m
+    walker.available = available
+    data = client.post("/api/v1/route", json={**POINTS, "lowFloorOnly": False}).json()
+    assert data["status"] == "ok"
+    assert data["walk"] is None
+    assert data["journeys"][0]["legs"][0]["tripId"] == FIRST.segment.occurrence.trip_id
+
+
+def test_outside_city_is_rejected_before_otp(client: TestClient, planner: _Planner) -> None:
+    response = client.post("/api/v1/route", json={**POINTS, "origin": {"lat": 56.5, "lon": 84.9}})
+    assert response.status_code == 422
+    assert response.json()["code"] == "OUTSIDE_CITY"
+    assert planner.plan_calls == 0
 
 
 def _selected() -> dict[str, Any]:

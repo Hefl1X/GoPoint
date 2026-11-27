@@ -72,6 +72,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // При ручной регистрации Workbox активирует обновление и берёт страницу
+        // под контроль сразу, в том числе в окне установленной PWA.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // Файл карты MapLibre около 1 МБ: тоже сохраняется для работы без сети.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,

@@ -15,7 +15,6 @@ from app.config import Settings
 from app.domain.models import Direction, Stop
 from app.main import create_app
 from tests.conftest import SAMPLES, ManualClock
-from tests.test_route_api import StraightWalker
 
 
 def bus3_stops(direction: Direction) -> list[Stop]:
@@ -36,7 +35,6 @@ def client(clock: ManualClock) -> TestClient:
     app = create_app(
         Settings(transit_feed="fake"),
         feed=FakeTransitFeed(SAMPLES),
-        walk_planner=StraightWalker(),
         clock=clock,
         start_poller=False,
     )
