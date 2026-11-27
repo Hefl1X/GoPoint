@@ -21,12 +21,29 @@ if [ ! -f .env ]; then
   echo "Создан файл настроек .env (из .env.example)."
 fi
 
-port="$(grep -E '^GOPOINT_HTTP_PORT=' .env | cut -d= -f2 || true)"
+port="${GOPOINT_HTTP_PORT:-$(grep -E '^GOPOINT_HTTP_PORT=' .env | cut -d= -f2 || true)}"
 port="${port:-8080}"
 
-compose=(docker compose)
-if [ -n "${GOPOINT_RT_DIR:-}${GOPOINT_RT_VERSION:-}" ]; then
-  compose+=(-f docker-compose.yml -f otp/release/demo.compose.yml)
+export GOPOINT_RT_DIR="${GOPOINT_RT_DIR:-$PWD/data/otp/demo}"
+if [ -z "${GOPOINT_RT_VERSION:-}" ] && [ -f "$GOPOINT_RT_DIR/current" ]; then
+  GOPOINT_RT_VERSION="$(cat "$GOPOINT_RT_DIR/current")"
+fi
+if [ -z "${GOPOINT_RT_VERSION:-}" ]; then
+  echo "Транспортное расписание не подготовлено. Запуск без него не строит поездки."
+  echo "Выполните один раз: bash scripts/prepare-demo.sh ДАТА-КОНЦА (например 2026-12-20)."
+  exit 1
+fi
+export GOPOINT_RT_VERSION
+GOPOINT_RT_DIR="$(cd "$GOPOINT_RT_DIR" && pwd)"
+(cd server && uv run --locked python -m tools.demo_release \
+  --store "$GOPOINT_RT_DIR" --version "$GOPOINT_RT_VERSION")
+compose=(docker compose -f docker-compose.yml -f otp/release/demo.compose.yml)
+
+# Старый проверочный стенд использовал тот же том Photon и мешает открыть базу.
+stage8="$(docker ps -q --filter label=com.docker.compose.project=gopoint-stage8)"
+if [ -n "$stage8" ]; then
+  echo "Останавливаю тестовый stage8, чтобы освободить общую базу поиска."
+  docker stop $stage8 >/dev/null
 fi
 
 echo "Собираю и запускаю GoPoint (первый раз это может занять несколько минут)..."
@@ -34,18 +51,29 @@ echo "Собираю и запускаю GoPoint (первый раз это м�
 
 echo -n "Жду, пока сервис ответит"
 for _ in $(seq 1 60); do
-  if curl -fsS "http://localhost:${port}/health" >/dev/null 2>&1; then
+  if curl -fsS "http://localhost:${port}/health" >/dev/null 2>&1 && \
+    "${compose[@]}" exec -T server python -c '
+import json, os, urllib.request
+request = urllib.request.Request("http://otp:8080/otp/gtfs/v1",
+    data=json.dumps({"query": "{ feeds { feedId version } }"}).encode(),
+    headers={"Content-Type": "application/json"})
+with urllib.request.urlopen(request, timeout=2) as response:
+    feeds = {item["feedId"]: item["version"] for item in json.load(response)["data"]["feeds"]}
+version = os.environ["GOPOINT_REALTIME_RELEASE"].rsplit("/", 1)[-1]
+assert feeds == {"gopoint-all": version, "gopoint-low": version}
+' >/dev/null 2>&1; then
     echo " готово."
+    ready=1
     break
   fi
   echo -n "."
   sleep 2
 done
-if ! curl -fsS "http://localhost:${port}/health" >/dev/null 2>&1; then
+if [ "${ready:-0}" != 1 ]; then
   echo
   echo "Сервис не ответил за 2 минуты. Что показывают контейнеры:"
   "${compose[@]}" ps
-  echo "Подробности: docker compose logs --tail 50"
+  echo "Подробности: docker compose logs --tail 50 server otp"
   exit 1
 fi
 
@@ -54,12 +82,6 @@ if ! "${compose[@]}" exec -T photon test -d /data/photon_data >/dev/null 2>&1; t
   echo
   echo "Внимание: база поиска адресов ещё не собрана, подсказки адресов работать не будут."
   echo "Соберите её один раз: bash scripts/build-photon-db.sh"
-fi
-
-if [ -z "${GOPOINT_RT_VERSION:-}" ] && [ ! -f data/otp/graph.obj ]; then
-  echo
-  echo "Внимание: граф улиц не собран, пешие участки считаться не будут."
-  echo "Соберите его один раз: bash scripts/build-otp-graph.sh"
 fi
 
 lan_ip=""

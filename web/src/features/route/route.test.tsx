@@ -87,6 +87,25 @@ describe('маршрут найден', () => {
 });
 
 describe('нет маршрута и ошибки', () => {
+  it('«Показать любой транспорт» перестраивает маршрут с теми же точками', async () => {
+    const planRoute = vi.fn((_points: unknown, lowFloorOnly: boolean) =>
+      Promise.resolve(
+        lowFloorOnly
+          ? { status: 'transit_unavailable' as const, journeys: [], walk: null }
+          : { status: 'ok' as const, journeys: [journey({ lowFloorOnly: false })], walk: null },
+      ),
+    );
+    renderRoute(fakeApi({ planRoute }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Показать любой транспорт' }));
+    expect(await screen.findByRole('region', { name: 'Маршрут' })).toBeVisible();
+    expect(planRoute).toHaveBeenLastCalledWith(
+      { origin: TRIP.from.point, destination: TRIP.to.point },
+      false,
+      expect.any(AbortSignal),
+    );
+    expect(window.location.hash).not.toBe('#/settings');
+  });
+
   it('транспорта нет: серый блок, «Обновить», «Выбрать другие точки», без пешего маршрута', async () => {
     const planRoute = vi.fn(() =>
       Promise.resolve({ status: 'no_transit' as const, journeys: [], walk: null }),
@@ -94,7 +113,7 @@ describe('нет маршрута и ошибки', () => {
     renderRoute(fakeApi({ planRoute }));
     expect(await screen.findByText('Транспорта сейчас нет')).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Маршрут' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Показать любой транспорт' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Показать любой транспорт' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
     await vi.waitFor(() => {
       expect(planRoute).toHaveBeenCalledTimes(2);
@@ -359,7 +378,7 @@ describe('варианты маршрута и путь пешком (запро
     renderRoute(api);
     expect(await screen.findByText(title)).toBeVisible();
     expect(screen.queryByText('Транспорта сейчас нет')).toBeNull();
-    expect(Boolean(screen.queryByRole('link', { name: 'Показать любой транспорт' }))).toBe(
+    expect(Boolean(screen.queryByRole('button', { name: 'Показать любой транспорт' }))).toBe(
       status === 'transit_unavailable',
     );
     expect(screen.queryByRole('region', { name: 'Маршрут' })).toBeNull();

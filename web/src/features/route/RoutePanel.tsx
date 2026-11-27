@@ -31,8 +31,9 @@ import { lineName, TYPE_COLOR, typeName } from '../../domain/transport';
 import { ApiError } from '../../ports/LiveApi';
 import { LowFloorBadge, Pill, StatusBlock } from '../../shared/components';
 import { useOnline, useRouteCheck, useRoutePlan } from '../../shared/queries';
-import { navigate, routeHref } from '../../shared/router';
+import { navigate } from '../../shared/router';
 import { ru } from '../../shared/ru';
+import { useSettings } from '../../shared/settings';
 import { useNow } from '../../shared/useNow';
 
 const chooseOtherPoints = () => {
@@ -180,6 +181,7 @@ function RouteOptions({
   selectFirst: boolean;
   onFindReplacement: () => void;
 }) {
+  const { setLowFloorOnly } = useSettings();
   // Один и тот же набор объектов на весь расчёт: карта получает маршрут без лишних перерисовок.
   const options = useMemo(() => {
     const list: Option[] = data.journeys.map((journey) => ({
@@ -233,7 +235,15 @@ function RouteOptions({
             </button>
           </div>
           {(noTransit || unavailable) && lowFloorOnly ? (
-            <a href={routeHref({ name: 'settings' })}>{ru.live.showAny}</a>
+            <button
+              type="button"
+              className="button button--outline"
+              onClick={() => {
+                setLowFloorOnly(false);
+              }}
+            >
+              {ru.live.showAny}
+            </button>
           ) : null}
         </StatusBlock>
       ) : null}

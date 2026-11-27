@@ -1,4 +1,4 @@
-# GoPoint: запуск одной командой (scripts/run-demo.sh или docker compose up -d --build).
+# GoPoint: запуск с транспортным комплектом одной командой — bash scripts/run-demo.sh.
 # Наружу открыт только caddy. Сервер, поиск адресов (photon) и OpenTripPlanner
 # живут во внутренней сети.
 name: gopoint
